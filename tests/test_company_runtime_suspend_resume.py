@@ -511,9 +511,8 @@ class CompanyRuntimeSuspendResumeTests(unittest.IsolatedAsyncioTestCase):
 
         engine.company_executor = DummyCompanyExecutor()
         await engine._maybe_resume_checkpoint(
-            "continue",
+            "Continue the report with the latest evidence.",
             "sess-parent",
-            reply_metadata={"ui_force_resume": True},
         )
 
         resumed_ids = {item.id for item in captured["tasks"]}

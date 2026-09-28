@@ -164,6 +164,12 @@ def test_validate_transition_close_idempotent_on_terminal() -> None:
         validate_transition(phase, phase)
 
 
+def test_rework_can_wait_for_dependencies_during_company_resume() -> None:
+    """A suspended rework card may need fresh child work before it is runnable."""
+    validate_transition(Phase.READY_FOR_REWORK, Phase.WAITING_DEPENDENCIES)
+    validate_transition(Phase.WAITING_DEPENDENCIES, Phase.READY_FOR_REWORK)
+
+
 def test_validate_transition_rejects_terminal_out() -> None:
     """Any transition out of a terminal phase to a different phase is rejected."""
     for src in TERMINAL_PHASES:

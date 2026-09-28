@@ -185,6 +185,46 @@ class WorkItemRuntimeLinkTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ensured.id, candidate.id)
         self.assertEqual(fetched.linked_work_item_id, item.work_item_id)
 
+    async def test_ensure_runtime_task_accepts_delegated_research_kind(self) -> None:
+        projection_id = "marketing::research::signal-scan"
+        item = _work_item("wi-research", projection_id=projection_id)
+        item.kind = "research"
+        item.metadata = mark_work_item_projection(
+            item.metadata, projection_id=projection_id, turn_type="research"
+        )
+        candidate = _runtime_task(
+            "task-research",
+            projection_id=projection_id,
+            project_id="project-1",
+            session_id="root-session:wi-research",
+            parent_session_id="root-session",
+        )
+        await self.store.save_delegation_work_item(item)
+        item.metadata = mark_work_item_projection(
+            item.metadata, projection_id=projection_id, turn_type="execute"
+        )
+
+        ensured = await self.store.ensure_runtime_task_for_work_item(item, lambda: candidate)
+
+        self.assertEqual(ensured.id, candidate.id)
+        self.assertEqual(
+            (await self.store.get_runtime_task_for_work_item(item.work_item_id)).id,
+            candidate.id,
+        )
+        persisted = await self.store.get_delegation_work_item(item.work_item_id)
+        self.assertEqual(persisted.metadata["work_item_turn_type"], "execute")
+
+    async def test_ensure_runtime_task_rejects_changed_custom_kind(self) -> None:
+        item = _work_item("wi-custom-kind", projection_id="worker::custom::one")
+        item.kind = "research"
+        await self.store.save_delegation_work_item(item)
+        item.kind = "analysis"
+
+        with self.assertRaisesRegex(ValueError, "identity changed before commit"):
+            await self.store.ensure_runtime_task_for_work_item(
+                item, lambda: _runtime_task("task-custom-kind", projection_id=item.projection_id)
+            )
+
     async def test_ensure_runtime_task_atomically_persists_new_execution_copy_owner(self) -> None:
         projection_id = "corporate::execute::employee-assignment"
         item = _work_item("wi-employee-assignment", projection_id=projection_id)

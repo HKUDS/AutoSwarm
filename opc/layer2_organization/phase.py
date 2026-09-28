@@ -251,6 +251,7 @@ ALLOWED_TRANSITIONS: dict[Phase, frozenset[Phase]] = {
     }) | _UNIVERSAL_EXITS,
     Phase.WAITING_DEPENDENCIES: frozenset({
         Phase.READY,
+        Phase.READY_FOR_REWORK,
     }) | _UNIVERSAL_EXITS,
     Phase.READY: frozenset({
         Phase.RUNNING,
@@ -258,6 +259,7 @@ ALLOWED_TRANSITIONS: dict[Phase, frozenset[Phase]] = {
     }) | _UNIVERSAL_EXITS,
     Phase.READY_FOR_REWORK: frozenset({
         Phase.RUNNING,
+        Phase.WAITING_DEPENDENCIES,
     }) | _UNIVERSAL_EXITS,
 
     # in_progress
