@@ -5486,7 +5486,10 @@ class OPCStore:
             expected_role_id = str(persisted_work_item.role_id or "").strip()
             expected_seat_id = str(persisted_work_item.seat_id or "").strip()
             expected_turn_type = canonical_work_item_turn_type_for_kind(
-                persisted_work_item.kind,
+                work_item_turn_type_from_metadata(
+                    persisted_work_item.metadata,
+                    fallback=str(persisted_work_item.kind or ""),
+                ),
                 fallback="",
             )
             candidate_turn_type = work_item_turn_type_from_metadata(
@@ -13939,6 +13942,16 @@ class OPCStore:
                 fallback="",
             )
             if (
+                not persisted_turn_type
+                and not supplied_turn_type
+                and str(persisted_work_item.kind or "").strip()
+                == str(work_item.kind or "").strip()
+            ):
+                # Delegated business kinds such as "research" execute as an
+                # ordinary worker turn. Preserve the exact kind identity while
+                # accepting the same fallback used by task materialization.
+                persisted_turn_type = supplied_turn_type = "execute"
+            if (
                 not persisted_projection_id
                 or persisted_projection_id != supplied_projection_id
                 or not persisted_turn_type
@@ -13959,10 +13972,32 @@ class OPCStore:
             persisted_work_item_metadata = dict(
                 persisted_work_item.metadata or {}
             )
+            supplied_turn_metadata = canonical_work_item_turn_type_for_kind(
+                dict(work_item.metadata or {}).get(WORK_ITEM_TURN_TYPE_KEY),
+                fallback=supplied_turn_type,
+            )
+            persisted_turn_metadata = canonical_work_item_turn_type_for_kind(
+                persisted_work_item_metadata.get(WORK_ITEM_TURN_TYPE_KEY),
+                fallback="",
+            )
+            if (
+                persisted_turn_metadata
+                and supplied_turn_metadata
+                and persisted_turn_metadata != supplied_turn_metadata
+            ):
+                raise ValueError(
+                    "runtime Task materialization WorkItem turn changed before commit"
+                )
             supplied_execution_metadata = copy_work_item_execution_metadata(
                 work_item
             )
             materialization_metadata_updates: dict[str, Any] = {}
+            if (
+                supplied_turn_metadata
+                and persisted_work_item_metadata.get(WORK_ITEM_TURN_TYPE_KEY)
+                != supplied_turn_metadata
+            ):
+                materialization_metadata_updates[WORK_ITEM_TURN_TYPE_KEY] = supplied_turn_metadata
             for key, supplied_value in supplied_execution_metadata.items():
                 persisted_value = persisted_work_item_metadata.get(key)
                 if persisted_value not in (None, "", [], {}):

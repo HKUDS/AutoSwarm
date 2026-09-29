@@ -1197,6 +1197,39 @@ class CompanyControllerAuthoritativeCommitTests(unittest.IsolatedAsyncioTestCase
             )
         self.assertEqual(await self.store2.get_task(task.id), durable_before)
 
+    async def test_unclaimed_research_projection_uses_canonical_work_item_turn(self) -> None:
+        item = self._runtime_item(
+            "wi-research-projection",
+            kind="research",
+            metadata={"work_item_turn_type": "execute"},
+        )
+        task = self._runtime_task("task-research-projection", item.work_item_id)
+        await self.store1.save_delegation_work_item(item)
+        await self.store1.save_task(task)
+        self.assertTrue(
+            await self.store1.link_work_item_runtime_task(item.work_item_id, task.id)
+        )
+        lease = await self.store1.acquire_delegation_run_controller_lease(
+            "run-1",
+            project_id="project-1",
+            root_session_id="root-1",
+            owner_token="owner-a",
+            lease_seconds=60,
+        )
+        self.assertTrue(lease.acquired)
+        candidate = await self.store1.get_task(task.id)
+        assert candidate is not None
+        self.assertTrue(self.executor1._apply_work_item_projection_to_task(candidate, item))
+
+        await self.store1.save_unclaimed_runtime_task_projection_for_company_controller(
+            candidate,
+            project_id="project-1",
+            controller_owner_token="owner-a",
+            controller_lease_generation=lease.generation,
+        )
+
+        self.assertEqual(await self.store2.get_task(task.id), candidate)
+
     async def test_unclaimed_task_projection_claim_hold_and_identity_conflicts_have_zero_writes(
         self,
     ) -> None:

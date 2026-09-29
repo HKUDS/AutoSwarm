@@ -183,7 +183,7 @@ class CompanyRuntimeSuspendResumeTests(unittest.IsolatedAsyncioTestCase):
         engine._schedule_interaction_consumption = lambda *_args: None
         return engine
 
-    async def test_resume_candidates_include_held_task_whose_work_item_finished_during_staged_resume(
+    async def test_resume_candidates_include_held_task_whose_work_item_finished_during_partial_resume(
         self,
     ) -> None:
         store = await self._store()
@@ -511,9 +511,8 @@ class CompanyRuntimeSuspendResumeTests(unittest.IsolatedAsyncioTestCase):
 
         engine.company_executor = DummyCompanyExecutor()
         await engine._maybe_resume_checkpoint(
-            "continue",
+            "Continue the report with the latest evidence.",
             "sess-parent",
-            reply_metadata={"ui_force_resume": True},
         )
 
         resumed_ids = {item.id for item in captured["tasks"]}

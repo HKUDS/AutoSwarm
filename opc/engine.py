@@ -17832,12 +17832,12 @@ class OPCEngine:
                             controller_admission=controller_admission,
                         )
                     )
-                resume_payload = {
-                    **dict(payload or {}),
-                    **dict(checkpoint.payload or {}),
-                    "checkpoint_id": checkpoint.checkpoint_id,
-                    "checkpoint_type": checkpoint.checkpoint_type,
-                }
+                resume_payload = self._merge_company_runtime_checkpoint_payload(
+                    dict(checkpoint.payload or {}),
+                    dict(payload or {}),
+                )
+                resume_payload["checkpoint_id"] = checkpoint.checkpoint_id
+                resume_payload["checkpoint_type"] = checkpoint.checkpoint_type
                 tasks = await self._prepare_company_runtime_tasks_for_resume(
                     tasks,
                     resume_payload,
