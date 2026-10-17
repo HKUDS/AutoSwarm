@@ -88,7 +88,7 @@ class CursorAdapter(ExternalAgentAdapter):
 
         Cursor emits ``interaction_query`` request/response JSON for internal
         tool approvals, and the CLI answers those events itself. Treating that
-        stream as a generic stdin approval prompt creates stale OpenOPC cards.
+        stream as a generic stdin approval prompt creates stale AutoSwarm cards.
         """
         _ = cmd
         _ = metadata
@@ -297,7 +297,7 @@ class CursorAdapter(ExternalAgentAdapter):
             event_type = str(event.get("type") or event.get("event") or "").strip()
             # Cursor stream-json uses these event types for normal execution.
             # Some payloads contain words such as "approved" or "allow" in web
-            # content, so the generic parser must not infer an OpenOPC approval
+            # content, so the generic parser must not infer an AutoSwarm approval
             # card from them.
             if event_type in {
                 "assistant",

@@ -3,7 +3,7 @@
 Assemble MetroCity v1 layered sprites (body + outfit + hair) into OPC-compatible
 char_0.png … char_5.png sheets.
 
-Expected OPC layout (see BootScene.ts):
+Expected AutoSwarm layout (see BootScene.ts):
   - Frame size 16×32, 7 columns × 3 rows = 112×96
   - Row 0: facing down (frames 0–6 of that row)
   - Row 1: facing up
@@ -13,12 +13,12 @@ MetroCity row layout: **768×32 = 24 frames × 32px** (NOT 16px). Slicing at 16p
 would show only the left or right half of each sprite (“cut in half” in-game).
 
 After compositing a row, each 32×32 source cell is resampled to 16×32 (nearest
-neighbor) for the legacy OPC character sheet layout.
+neighbor) for the legacy AutoSwarm character sheet layout.
 
 Per 24 frames: every 12 frames = one rotation — down(3)+left(3)+right(3)+up(3);
 frames 12–23 repeat that with a second walk cycle (type/read variety).
 
-OPC expects 7 slots per facing: walk 0–2, idle 1, type 3–4, read 5–6, etc.
+AutoSwarm expects 7 slots per facing: walk 0–2, idle 1, type 3–4, read 5–6, etc.
 We map:
   - Down:  0,1,2 (walk) + 12,13,14 (second down cycle for type) + 1 (read tail / idle)
   - Up:    9,10,11 + 21,22,23 + 10
@@ -46,11 +46,11 @@ FRAME_H = 32
 COLS = 7
 ROWS = 3
 
-# Source cells in MetroCity sheets (before scaling down for OPC)
+# Source cells in MetroCity sheets (before scaling down for AutoSwarm)
 METRO_FRAME_W = 32
 METRO_FRAME_H = 32
 
-# Seven source frame indices per OPC row (within one MetroCity **24-frame** line, 32px each)
+# Seven source frame indices per AutoSwarm row (within one MetroCity **24-frame** line, 32px each)
 OPC_DOWN_FRAMES = (0, 1, 2, 12, 13, 14, 1)
 OPC_UP_FRAMES = (9, 10, 11, 21, 22, 23, 10)
 OPC_RIGHT_FRAMES = (6, 7, 8, 18, 19, 20, 7)

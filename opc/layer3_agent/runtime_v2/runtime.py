@@ -72,7 +72,7 @@ class _RuntimePrefetchHandle:
 
 
 class NativeRuntimeV2:
-    """OpenOPC native runtime with structured events and tool batches."""
+    """AutoSwarm native runtime with structured events and tool batches."""
 
     def __init__(
         self,
@@ -4239,7 +4239,7 @@ class NativeRuntimeV2:
             if task.assigned_to:
                 metadata["role_id"] = str(task.assigned_to)
         else:
-            metadata["visible_speaker"] = "OPC"
+            metadata["visible_speaker"] = "AutoSwarm"
         if canonical_turn_id:
             metadata["conversation_turn_id"] = canonical_turn_id
             metadata["canonical_turn_id"] = canonical_turn_id

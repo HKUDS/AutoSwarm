@@ -1,4 +1,4 @@
-"""User-owned trust decisions for project-local OpenOPC configuration.
+"""User-owned trust decisions for project-local AutoSwarm configuration.
 
 Project configuration is intentionally powerful: it can select executables,
 network endpoints, and credential sources.  Trust records therefore live
@@ -133,7 +133,7 @@ def project_workspace_for_config(
     """Identify ``<workspace>/.opc/config`` without classifying arbitrary homes.
 
     A normal project is recognized by ``pyproject.toml``.  The active project
-    root fallback preserves OpenOPC's existing behavior in directories that do
+    root fallback preserves AutoSwarm's existing behavior in directories that do
     not contain one: ``_find_project_root`` returns the current directory there.
     """
 
@@ -199,7 +199,7 @@ class WorkspaceTrustRequired(RuntimeError):
             summary = "Workspace is not trusted"
         super().__init__(
             f"{summary}: {self.workspace}. Review {self.config_dir} and run "
-            f"`opc trust add {self.workspace}`.",
+            f"`autoswarm trust add {self.workspace}`.",
         )
 
 

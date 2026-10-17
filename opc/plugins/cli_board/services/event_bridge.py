@@ -1,4 +1,4 @@
-"""Translate OPC engine callbacks into board-friendly runtime updates."""
+"""Translate AutoSwarm engine callbacks into board-friendly runtime updates."""
 
 from __future__ import annotations
 

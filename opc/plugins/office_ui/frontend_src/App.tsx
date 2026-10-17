@@ -31,6 +31,7 @@ import { EventTimelineStore } from './devtools/EventTimelineStore'
 import { DevToolsOverlay } from './devtools/DevToolsOverlay'
 import { useExternalTeamActivityStore, type ExternalTeamActivityRecord } from './stores/ExternalTeamActivityStore'
 import { isJiuwenOpaqueTeam } from './lib/externalTeamActivity'
+import { PRODUCT_NAME, PRODUCT_TITLE } from './lib/branding'
 
 function readOutdoorOverrideUi(): 'auto' | 'day' | 'night' {
   try {
@@ -2449,7 +2450,7 @@ export default function App() {
       {/* Topbar */}
       <header className="topbar">
         <div className="topbar-left">
-          <span className="logo-text">Open<span className="logo-accent">OPC</span></span>
+          <span className="logo-text" aria-label={PRODUCT_NAME} title={PRODUCT_TITLE}>Auto<span className="logo-accent">Swarm</span></span>
           <div className={`conn-dot ${statusClass(status)}`} title={`${status}${statusDetail ? ` — ${statusDetail}` : ''}\n${wsUrl}`} />
           <ProjectSelector
             projects={projectStore.projects}

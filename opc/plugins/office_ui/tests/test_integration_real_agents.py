@@ -174,7 +174,7 @@ def adapter() -> EventAdapter:
 @pytest.fixture
 def workspace(tmp_path: Path) -> Path:
     """Create a temp workspace with seed files."""
-    (tmp_path / "hello.txt").write_text("Hello from OPC integration test!\nLine 2\nLine 3\n")
+    (tmp_path / "hello.txt").write_text("Hello from AutoSwarm integration test!\nLine 2\nLine 3\n")
     (tmp_path / "sample.py").write_text("x = 1\nprint(x)\n")
     src = tmp_path / "src"
     src.mkdir()
@@ -341,7 +341,7 @@ def _make_agent(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestIntegration01_SingleAgentFileRead:
-    """Agent reads a real file; verify OPC events → visual events lifecycle."""
+    """Agent reads a real file; verify AutoSwarm events → visual events lifecycle."""
 
     async def test_read_file_event_pipeline(self, llm, event_collector, adapter, workspace):
         bus, collected = event_collector
@@ -363,7 +363,7 @@ class TestIntegration01_SingleAgentFileRead:
         # Agent should complete successfully
         assert result.status in (TaskStatus.DONE, TaskStatus.FAILED), f"Unexpected status: {result.status}"
 
-        # OPC events must include the lifecycle
+        # AutoSwarm events must include the lifecycle
         opc_t = opc_types(collected)
         assert "agent_status_changed" in opc_t, "Missing agent_status_changed events"
         assert "agent_log" in opc_t, "Missing agent_log events"

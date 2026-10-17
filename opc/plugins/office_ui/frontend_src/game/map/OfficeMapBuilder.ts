@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { PRODUCT_NAME } from '../../lib/branding'
 import {
   TILE_SIZE, OFFICE_COLS, OFFICE_ROWS, GAP_COLS, OUTDOOR_MARGIN_X, OUTDOOR_MARGIN_TOP, OUTDOOR_MARGIN_BOTTOM,
   isLocalDaytime,
@@ -835,11 +836,11 @@ export class OfficeMapBuilder {
     }
 
     if (!opts?.skipLabels) {
-      this.addPixelLabel(scene, gateCenterX, lobbyY + TILE_SIZE * 0.6, 'OPENOPC', '#4e6b68', '#eef4ec', '10px')
+      this.addPixelLabel(scene, gateCenterX, lobbyY + TILE_SIZE * 0.6, PRODUCT_NAME.toUpperCase(), '#4e6b68', '#eef4ec', '10px')
       const lawnLogoBaseY = courtyardY - TILE_SIZE * 0.24
       const letterW = TILE_SIZE * 0.88
       const letterGap = TILE_SIZE * 0.28
-      const word = 'OPENOPC'
+      const word = PRODUCT_NAME.toUpperCase()
       const totalLogoWidth = word.length * letterW + (word.length - 1) * letterGap
       let letterX = logoX - totalLogoWidth / 2
       for (const char of word) {

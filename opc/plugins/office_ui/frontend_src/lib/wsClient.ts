@@ -679,7 +679,7 @@ export class VisualSocketClient {
     this.send({ type: 'import_employee_as_agent', employee_id: employeeId, office_id: officeId })
   }
 
-  // ── OPC Market ─────────────────────────────────────────────────────────
+  // ── AutoSwarm Market ─────────────────────────────────────────────────────────
 
   marketBrowse(): void {
     this.send({ type: 'market_browse' })

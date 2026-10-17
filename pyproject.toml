@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "opc"
+name = "autoswarm"
 version = "0.1.0"
-description = "One-Person Company — Autonomous AI Agent collaboration system with natural language interface"
+description = "AutoSwarm: Automating Agent Swarms — Self-Built, Self-Run, Self-Grown"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -80,6 +80,7 @@ dev = [
 ]
 
 [project.scripts]
+autoswarm = "opc.cli.app:main"
 opc = "opc.cli.app:main"
 
 [tool.hatch.build.targets.wheel]

@@ -84,7 +84,7 @@ function buildMessage(index: number): ChatMessage {
       id: `fixture-message-${index}`,
       channelId: CHANNEL_ID,
       sender: 'system',
-      senderName: 'OPC',
+      senderName: 'AutoSwarm',
       content: 'Checkpoint fixture payload',
       timestamp: BASE_TIMESTAMP + index * 1_000,
       mentions: [],

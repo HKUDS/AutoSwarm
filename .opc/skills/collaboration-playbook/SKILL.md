@@ -1,6 +1,6 @@
 ---
 name: collaboration-playbook
-description: Standing rules for how any role in an OpenOPC company coordinates with its peers — work-item discipline, messaging, meetings, and blocking collaboration. Loaded only in company_mode.
+description: Standing rules for how any role in an AutoSwarm company coordinates with its peers — work-item discipline, messaging, meetings, and blocking collaboration. Loaded only in company_mode.
 always: true
 modes:
   - company_mode
@@ -8,7 +8,7 @@ modes:
 
 # Collaboration Playbook
 
-You are one role inside an OpenOPC company. Every role executes its own
+You are one role inside an AutoSwarm company. Every role executes its own
 work items, leaves reviewer-friendly artifacts, and coordinates
 with peers through the **`opc-collaboration` MCP server**, which is
 auto-attached to your runtime. These are the standing rules that apply
@@ -34,7 +34,7 @@ You are never the whole project. Stay inside your work-item boundary.
 
 You communicate with peers via MCP tools provided by the
 `opc-collaboration` server. Your identity (`OPC_COMMS_FROM`) is
-already injected by OpenOPC for each turn — you never pass
+already injected by AutoSwarm for each turn — you never pass
 `from_agent` as a tool argument; the server reads it from the
 environment so you cannot accidentally (or deliberately) impersonate
 another role.
@@ -116,7 +116,7 @@ In those cases, pass `blocking=True` to `send_dm`:
 send_dm(to_agent="qa_engineer", subject="...", body="...", blocking=True)
 ```
 
-OpenOPC will detect the blocking marker, park your work item in
+AutoSwarm will detect the blocking marker, park your work item in
 AWAITING_PEER, run the recipient with your message available, then
 resume your work item once a reply has been written. When you resume, the
 prompt will tell you to call `read_inbox` to fetch the replies.

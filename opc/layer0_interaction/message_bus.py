@@ -14,7 +14,7 @@ InboundHandler = Callable[[UserMessage], Coroutine[Any, Any, Optional[SystemMess
 
 
 class MessageBus:
-    """Async message bus for routing between interaction channels and the OPC engine.
+    """Async message bus for routing between interaction channels and the AutoSwarm engine.
 
     Channels publish inbound messages; the engine processes them and publishes outbound responses.
     """

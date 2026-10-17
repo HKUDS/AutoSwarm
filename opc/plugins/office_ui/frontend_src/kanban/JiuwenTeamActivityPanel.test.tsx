@@ -78,7 +78,7 @@ const markup = renderToStaticMarkup(
 assert.match(markup, /CTO · JiuwenSwarm Team/)
 assert.match(markup, /Research worker/)
 assert.match(markup, /Leader/)
-assert.match(markup, /OpenOPC covered roles/)
+assert.match(markup, /AutoSwarm covered roles/)
 assert.match(markup, /Overview/)
 assert.match(markup, /Tasks/)
 assert.match(markup, /Timeline/)

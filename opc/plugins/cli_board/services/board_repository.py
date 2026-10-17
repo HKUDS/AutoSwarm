@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 
 
 class BoardRepository:
-    """Builds CLI-specific board and detail snapshots from the main OPC store."""
+    """Builds CLI-specific board and detail snapshots from the main AutoSwarm store."""
 
     def __init__(self, facade: "EngineFacade", project_id: str | None = None) -> None:
         self.facade = facade
@@ -871,10 +871,10 @@ class BoardRepository:
         agent_id = str(getattr(message, "agent_id", "") or "").strip()
         sender_name = {
             "user": "You",
-            "assistant": "OPC",
+            "assistant": "AutoSwarm",
             "system": "System",
             "subagent": agent_id.replace("_", " ").replace("-", " ").title() if agent_id else "Subagent",
-        }.get(role, agent_id or role.title() or "OPC")
+        }.get(role, agent_id or role.title() or "AutoSwarm")
         created_at = getattr(message, "created_at", None)
         timestamp = created_at.timestamp() if hasattr(created_at, "timestamp") else 0.0
         return SessionMessageView(

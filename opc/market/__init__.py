@@ -1,4 +1,4 @@
-"""OPC Market — architecture package management."""
+"""AutoSwarm Market — architecture package management."""
 
 from .package_exporter import PackageExporter
 from .package_format import (

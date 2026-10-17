@@ -1,4 +1,4 @@
-"""Channel manager for OpenOPC."""
+"""Channel manager for AutoSwarm."""
 
 from __future__ import annotations
 

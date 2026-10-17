@@ -831,10 +831,10 @@ export function MessageComposer({
                       className="composer-mode-inline"
                       data-kind="permissions"
                       title={nativeApprovalLevel === 'read-only'
-                        ? 'OpenOPC Native can read locally; writes, network, and side effects ask first.'
+                        ? 'AutoSwarm Native can read locally; writes, network, and side effects ask first.'
                         : nativeApprovalLevel === 'full-access'
-                          ? 'OpenOPC Native tools run without approval prompts or a sandbox.'
-                          : 'OpenOPC Native can edit this workspace; network and outside access ask first.'}
+                          ? 'AutoSwarm Native tools run without approval prompts or a sandbox.'
+                          : 'AutoSwarm Native can edit this workspace; network and outside access ask first.'}
                     >
                       <span className="composer-mode-inline-label">Permissions</span>
                       <span className="composer-mode-select-wrap">
@@ -846,7 +846,7 @@ export function MessageComposer({
                             event.target.value as NativeApprovalLevel,
                           )}
                           disabled={!onNativeApprovalLevelChange}
-                          aria-label="OpenOPC Native permissions"
+                          aria-label="AutoSwarm Native permissions"
                         >
                           <option value="read-only">Read-only</option>
                           <option value="auto">Auto</option>
@@ -863,7 +863,7 @@ export function MessageComposer({
                         disabled={nativeApprovalDefault === nativeApprovalLevel}
                         title={nativeApprovalDefault === nativeApprovalLevel
                           ? 'This is already the default for new chats.'
-                          : 'Use this OpenOPC Native permission level for new chats.'}
+                          : 'Use this AutoSwarm Native permission level for new chats.'}
                       >
                         Default
                       </button>

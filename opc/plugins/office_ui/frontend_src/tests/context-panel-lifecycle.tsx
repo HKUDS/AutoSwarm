@@ -47,7 +47,7 @@ const messagesByTask = Object.fromEntries(sessions.map((session, index): [string
       id: `message-${index + 1}`,
       channelId: session.channelId,
       sender: 'assistant',
-      senderName: 'OPC',
+      senderName: 'AutoSwarm',
       content: `Durable transcript for ${session.title}`,
       timestamp: index + 1,
       mentions: [],

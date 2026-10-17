@@ -49,7 +49,7 @@ def resolve_jiuwen_gateway_url(configured: str = "") -> str:
     if explicit_env:
         return explicit_env
     configured_value = str(configured or "").strip()
-    # A non-default OpenOPC value is an intentional override.  The shipped
+    # A non-default AutoSwarm value is an intentional override.  The shipped
     # default is weak so Jiuwen's own persisted custom port can be honored.
     if configured_value and configured_value != DEFAULT_JIUWEN_GATEWAY_URL:
         return configured_value

@@ -1,7 +1,7 @@
 /**
  * E2E smoke test for the Canvas / Inspector / Table redesign (Q1–Q6).
  *
- * Launches a real OPC server on port 18766, loads the UI in headless
+ * Launches a real AutoSwarm server on port 18766, loads the UI in headless
  * Chromium via Playwright, and asserts:
  *
  *   1. .se-container mounts
@@ -17,7 +17,7 @@
  *   node tests/e2e/canvas_smoke.mjs
  *
  * Prerequisites:
- *   - OPC installed (opc.cli.app importable)
+ *   - AutoSwarm installed (opc.cli.app importable)
  *   - Frontend built (opc/plugins/office_ui/frontend_dist populated)
  *   - @playwright/test + ws in frontend_src/node_modules
  *
@@ -59,7 +59,7 @@ async function main() {
   fs.copyFileSync(CONFIG, BACKUP)
   console.log(`[1/8] Config snapshotted → ${BACKUP}`)
 
-  // 2. Boot OPC
+  // 2. Boot AutoSwarm
   const server = spawn('python3', ['-m', 'opc.cli.app', 'ui', '--port', String(PORT), '--host', '127.0.0.1'], {
     cwd: REPO_ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -70,11 +70,11 @@ async function main() {
 
   const ready = await waitFor(() => Promise.resolve(serverLog.includes('Office-UI running')), { tries: 120 })
   if (!ready) {
-    console.error('OPC failed to start:\n' + serverLog.slice(-2000))
+    console.error('AutoSwarm failed to start:\n' + serverLog.slice(-2000))
     server.kill()
     process.exit(2)
   }
-  console.log('[2/8] OPC ready')
+  console.log('[2/8] AutoSwarm ready')
 
   let exitCode = 0
   try {

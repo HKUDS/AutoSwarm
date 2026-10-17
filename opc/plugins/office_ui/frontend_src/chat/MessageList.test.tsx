@@ -93,7 +93,7 @@ const baseMessage = (id: string, content: string, timestamp: number, sender = 's
   id,
   channelId: 'session:root',
   sender,
-  senderName: sender === 'user' ? 'You' : 'OPC',
+  senderName: sender === 'user' ? 'You' : 'AutoSwarm',
   content,
   timestamp,
   mentions: [],

@@ -1,4 +1,4 @@
-"""In-process event bus for OPC system."""
+"""In-process event bus for AutoSwarm system."""
 
 from __future__ import annotations
 

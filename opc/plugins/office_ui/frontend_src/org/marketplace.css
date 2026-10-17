@@ -420,7 +420,7 @@
 /* ── Talent Card — unified 5-zone layout ─────────────────────────────
    Every card has the same skeleton: avatar · name + meta · body · chips
    · footer. All colors flow from theme tokens so the grid reads right
-   under every --theme variant (Paper, OpenOPC, etc.). */
+   under every --theme variant (Paper, AutoSwarm, etc.). */
 
 .tm-card {
   display: flex;

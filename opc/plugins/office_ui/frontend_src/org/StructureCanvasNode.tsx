@@ -23,7 +23,7 @@ export interface StructureCanvasNodeData {
  * Outer <div> always carries .oc-canvas-node (plus optional state
  * modifiers) — this is the E2E anchor. Icon is rendered via CSS
  * `mask-image` so its tint can track the active theme's --accent;
- * the card reads consistently under Paper, OpenOPC, etc.
+ * the card reads consistently under Paper, AutoSwarm, etc.
  */
 export const StructureCanvasNode = memo(function StructureCanvasNode({ data }: { data: StructureCanvasNodeData }) {
   const stateClass = [

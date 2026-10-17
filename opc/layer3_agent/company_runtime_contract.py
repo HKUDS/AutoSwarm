@@ -689,7 +689,7 @@ def _team_capability_manifest_block(task: Task) -> str:
         f"- organizational_target_role_id: `{manifest.get('organizational_identity', '')}`",
         f"- display_name: `{manifest.get('display_name', '')}`",
         f"- manifest_hash: `{manifest.get('manifest_hash', '')}`",
-        "- This manifest is compiled from OpenOPC role configuration; it describes the assigned organizational boundary, not the external team's internal structure.",
+        "- This manifest is compiled from AutoSwarm role configuration; it describes the assigned organizational boundary, not the external team's internal structure.",
     ]
     covered_roles = [
         dict(item)
@@ -851,7 +851,7 @@ def build_company_work_item_contract(
             ]
             identity = "\n".join(
                 [
-                    "## OpenOPC WorkItem",
+                    "## AutoSwarm WorkItem",
                     f"- work_item_id: `{work_item_id}`",
                     f"- attempt_id: `{attempt_id}`",
                     f"- covered_role_ids: `{', '.join(covered_roles)}`",

@@ -498,7 +498,7 @@
 /* ── Structure Canvas ─────────────────────────────────────── */
 
 /* Canvas node — single-accent card. Every color flows from theme tokens
-   so the card reads right under every --theme variant (Paper, OpenOPC,
+   so the card reads right under every --theme variant (Paper, AutoSwarm,
    etc.). E2E selectors preserved: .oc-canvas-node plus .is-owner / .is-selected
    / .is-drop-target on the outermost div. */
 .oc-canvas-node {

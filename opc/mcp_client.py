@@ -2,7 +2,7 @@
 (StreamableHTTP / SSE) servers.
 
 Connects to MCP servers, discovers their tools, and registers them into the
-OPC ToolRegistry so the agent loop can call them like any other built-in tool.
+AutoSwarm ToolRegistry so the agent loop can call them like any other built-in tool.
 Tool names are prefixed with the server name to prevent collisions when
 multiple servers expose identically-named tools.
 """

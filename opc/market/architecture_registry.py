@@ -1,4 +1,4 @@
-"""Org-first architecture blueprint registry for OPC Market.
+"""Org-first architecture blueprint registry for AutoSwarm Market.
 
 Blueprints define organization structure and optional work-item templates.
 Operational parameters (prompt_refs, runtime_policy,

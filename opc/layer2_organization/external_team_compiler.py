@@ -62,7 +62,7 @@ def is_opaque_external_team_shadow_seat(seat: Any) -> bool:
 
     The compiled topology deliberately retains the complete company graph for
     architecture inspection, but only the boundary's canonical seat belongs
-    to the OPC execution graph.  Consumers that create runtime identities or
+    to the AutoSwarm execution graph.  Consumers that create runtime identities or
     render executable agents must use this predicate instead of interpreting
     every organizational seat as a separate worker.
     """
@@ -86,7 +86,7 @@ def is_opaque_external_team_shadow_seat(seat: Any) -> bool:
 
 
 def runtime_execution_seats(runtime_topology: dict[str, Any]) -> list[dict[str, Any]]:
-    """Project an org-first topology to the seats OPC may execute/render."""
+    """Project an org-first topology to the seats AutoSwarm may execute/render."""
 
     return [
         dict(seat)
@@ -499,7 +499,7 @@ def apply_external_team_bindings_to_topology(
                     manager_liaison.get("manager_seat_id", "") or ""
                 ).strip()
             # This is one opaque execution unit.  Preserve the organization
-            # graph through the covered seats, but remove OPC's operational
+            # graph through the covered seats, but remove AutoSwarm's operational
             # delegation edges at the boundary so a dynamically-created WorkItem
             # cannot expand back into the provider team's covered roles.
             seat.update(

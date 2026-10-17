@@ -311,7 +311,7 @@ export const StaffingSelectionPanel = React.memo(function StaffingSelectionPanel
                 <div className="ckpt-external-team-staffing">
                   <b>{dynamicTeamCovered && !dynamicTeamBoundary ? `Covered by Team at ${dynamicBoundaryRoleId}` : 'Internally staffed external team'}</b>
                   <span>One opaque Team covers: {coveredRoleIds.join(', ')}</span>
-                  <span>No OPC employees are recruited for these covered roles.</span>
+                  <span>No AutoSwarm employees are recruited for these covered roles.</span>
                   {dynamicTeamBoundary && !isResponded && <span>Choose another execution agent here to staff these roles individually.</span>}
                 </div>
               ) : <div className="ckpt-staffing-selected">

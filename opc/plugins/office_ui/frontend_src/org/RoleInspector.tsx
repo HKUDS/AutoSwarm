@@ -384,7 +384,7 @@ export function RoleInspector({
                 <code>{role.external_team_binding_id}</code>
               </div>
               <div className="ri-team-card-copy">
-                OPC dispatches to <code>{role.role_id}</code>; JiuwenSwarm-team manages its internal leader and members.
+                AutoSwarm dispatches to <code>{role.role_id}</code>; JiuwenSwarm-team manages its internal leader and members.
               </div>
               <div className="ri-team-covered-list">
                 {coveredRoles.map(item => (

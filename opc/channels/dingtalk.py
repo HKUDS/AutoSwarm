@@ -98,7 +98,7 @@ class DingTalkChannel(OptionalDependencyChannel):
         assert self._http is not None
         url = "https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend"
         headers = {"x-acs-dingtalk-access-token": token}
-        payload = {"robotCode": self.config.client_id, "userIds": [chat_id], "msgKey": "sampleMarkdown", "msgParam": {"title": "OpenOPC", "text": content}}
+        payload = {"robotCode": self.config.client_id, "userIds": [chat_id], "msgKey": "sampleMarkdown", "msgParam": {"title": "AutoSwarm", "text": content}}
         resp = await self._http.post(url, json=payload, headers=headers)
         resp.raise_for_status()
 

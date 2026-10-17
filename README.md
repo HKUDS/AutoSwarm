@@ -1,4 +1,4 @@
-<h1 align="center" style="font-size: 1.75em;">OpenOPC: Build Your Personal AI-Native Company — Self-Built, Self-Run, Self-Grown</h1>
+<h1 align="center" style="font-size: 1.75em;">AutoSwarm: Automating Agent Swarms — Self-Built, Self-Run, Self-Grown</h1>
 
 <p align="center">
   <b>English</b> | <a href="README.zh-CN.md">简体中文</a>
@@ -19,7 +19,7 @@
   <a href="https://github.com/HKUDS/.github/blob/main/profile/README.md"><img src="https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat-square&logo=wechat&logoColor=white" alt="WeChat" /></a>
 </p>
 
-![OpenOPC hero banner](docs/assets/chat.png)
+![AutoSwarm hero banner](docs/assets/chat.png)
 
 ## News
 
@@ -32,9 +32,9 @@
 
 ## Table Of Contents
 
-- [When To Use OpenOPC](#when-to-use-openopc)
+- [When To Use AutoSwarm](#when-to-use-autoswarm)
 - [Demos](#demos)
-- [How OpenOPC Works](#how-openopc-works)
+- [How AutoSwarm Works](#how-autoswarm-works)
 - [Quick Start](#quick-start)
 - [Office UI Guide](#office-ui-guide)
 - [CLI Guide](#cli-guide)
@@ -44,9 +44,9 @@
 - [Roadmap](#roadmap)
 - [Acknowledgements](#acknowledgements)
 
-## When to Use OpenOPC
+## When to Use AutoSwarm
 
-**OpenOPC** covers nine core verticals — from AI development and software engineering to finance, sales, media, e-commerce, and education. Whatever the industry, OpenOPC assembles the right team and delivers end-to-end.
+**AutoSwarm** covers nine core verticals — from AI development and software engineering to finance, sales, media, e-commerce, and education. Whatever the industry, AutoSwarm assembles the right team and delivers end-to-end.
 
 <table>
   <tr>
@@ -99,21 +99,21 @@
   <tr>
     <td width="33%" align="center" valign="top">
       <a href="https://youtu.be/XqQeTt6XvPQ">
-        <img src="https://img.youtube.com/vi/XqQeTt6XvPQ/maxresdefault.jpg" alt="OpenOPC video production demo" width="100%">
+        <img src="https://img.youtube.com/vi/XqQeTt6XvPQ/maxresdefault.jpg" alt="AutoSwarm video production demo" width="100%">
       </a>
       <br><br>
       <strong>🎬 Video Production</strong>
     </td>
     <td width="33%" align="center" valign="top">
       <a href="https://drive.google.com/drive/folders/1T1Nl6CCE-cmbGy6sKrYML7_UnP8XID88?usp=drive_link">
-        <img src="docs/assets/vc-research-package.svg" alt="OpenOPC VC investment research demo" width="100%">
+        <img src="docs/assets/vc-research-package.svg" alt="AutoSwarm VC investment research demo" width="100%">
       </a>
       <br><br>
       <strong>📈 Investment Research</strong>
     </td>
     <td width="33%" align="center" valign="top">
       <a href="https://youtu.be/SVc9BvE5ohY">
-        <img src="https://img.youtube.com/vi/SVc9BvE5ohY/maxresdefault.jpg" alt="OpenOPC game prototype demo" width="100%">
+        <img src="https://img.youtube.com/vi/SVc9BvE5ohY/maxresdefault.jpg" alt="AutoSwarm game prototype demo" width="100%">
       </a>
       <br><br>
       <strong>🎮 Game Prototype</strong>
@@ -121,17 +121,17 @@
   </tr>
 </table>
 
-## How OpenOPC Works
+## How AutoSwarm Works
 
-OpenOPC assembles a AI company around complex, real-world tasks — through three tightly coupled mechanisms: **Self-Built** staffs the organisation, **Self-Run** executes the work, and **Self-Grown** learns from the outcome.
+AutoSwarm assembles a AI company around complex, real-world tasks — through three tightly coupled mechanisms: **Self-Built** staffs the organisation, **Self-Run** executes the work, and **Self-Grown** learns from the outcome.
 
 <p align="center">
-  <img src="docs/assets/video.png" alt="An OpenOPC company: roles, reporting lines, and the employee staffed into each role" width="100%">
+  <img src="docs/assets/video.png" alt="An AutoSwarm company: roles, reporting lines, and the employee staffed into each role" width="100%">
 </p>
 
 **1. Self-Built — Staffing the Organisation**
 
-Before any work begins, the right people must be in place. Given a goal, OpenOPC:
+Before any work begins, the right people must be in place. Given a goal, AutoSwarm:
 
 - 🌿 Drafts the org chart — deriving the roles and reporting structure the task demands.
 - 🎯 Fills each role — a recruiter agent chooses between reusing an existing employee (shaped by prior projects) and onboarding a fresh hire from the talent pool.
@@ -157,7 +157,7 @@ Formation and automatic recruitment impose no extra fixed planning deadline or c
 
 With the team assembled, Self-Run orchestrates its members toward a finished deliverable. The central challenge is not raw execution but efficient collaboration under uncertainty, which manifests in two distinct problems.
 
-🔀 Dynamic collaboration orchestration. Real work cannot be fully planned upfront. OpenOPC addresses this through a work-item state machine, where each item's phase determines:
+🔀 Dynamic collaboration orchestration. Real work cannot be fully planned upfront. AutoSwarm addresses this through a work-item state machine, where each item's phase determines:
 
 - 📋 Its kanban column — where it stands in the workflow.
 - 👑 Its owner — the role responsible at that phase.
@@ -170,7 +170,7 @@ A manager decomposes items, assigns, and reviews results — accepting, reworkin
 
 🔗 Dependency resolution and rejection propagate as structured phase transitions, eliminating ad-hoc coordination.
 
-🛡️ Handling blockers surfacing mid-run. Not all obstacles are visible upfront. OpenOPC resolves them at two levels:
+🛡️ Handling blockers surfacing mid-run. Not all obstacles are visible upfront. AutoSwarm resolves them at two levels:
 
 - 💬 Within the team — a blocking message pauses the sender, activating the role best positioned to resolve it.
 - 📡 Beyond the team — when a blocker exceeds the team's authority, the runtime escalates to the human owner, invoking human judgment precisely when needed.
@@ -181,12 +181,12 @@ A manager decomposes items, assigns, and reviews results — accepting, reworkin
 
 Execution generates raw experience; Self-Grown turns it into lasting improvement, guided by two principles.
 
-🏅 Attributing outcomes to the right roles. Crediting the whole company teaches nothing. Instead, OpenOPC:
+🏅 Attributing outcomes to the right roles. Crediting the whole company teaches nothing. Instead, AutoSwarm:
 
 - 🔍 Resolves user feedback into per-employee evaluations.
 - 🎯 Updates only roles that owned the relevant work items — credit and blame land where they were earned.
 
-📖 Distilling trajectories into knowledge. Execution traces are too noisy to learn from. OpenOPC therefore:
+📖 Distilling trajectories into knowledge. Execution traces are too noisy to learn from. AutoSwarm therefore:
 - 💡 Distils each role's tasks into high-signal lessons, stored in its private experience profile.
 - 📚 Promotes recurring lessons into shared playbooks, which new hires inherit from the outset — compounding organisational knowledge over time.
 
@@ -203,11 +203,13 @@ Execution generates raw experience; Self-Grown turns it into lasting improvement
 
 ## Quick Start
 
-`uv` is the recommended setup path for OpenOPC. It can install/manage Python, create the project virtualenv, and run commands against that environment without mixing OpenOPC dependencies into your global Python.
+`uv` is the recommended setup path for AutoSwarm. It can install/manage Python, create the project virtualenv, and run commands against that environment without mixing AutoSwarm dependencies into your global Python.
 
-OpenOPC requires Python `>=3.10`; the examples below use Python `3.12`.
+AutoSwarm was previously named OpenOPC. The primary command is now `autoswarm`; `opc` remains an alias. The `opc` Python package, `.opc/` data directory, `OPC_HOME`, and existing project/session identifiers stay compatible. Existing checkouts and workspaces can keep their current directory names; reinstall the editable package to enable the new command.
 
-For direct one-off work, OpenOPC also includes Task Mode, a LobeChat-like single-agent workspace using OpenOPC Native, Codex, Claude Code, Cursor, or OpenCode.
+AutoSwarm requires Python `>=3.10`; the examples below use Python `3.12`.
+
+For direct one-off work, AutoSwarm also includes Task Mode, a LobeChat-like single-agent workspace using AutoSwarm Native, Codex, Claude Code, Cursor, or OpenCode.
 
 <details open>
 <summary><strong>Recommended: uv environment setup</strong></summary>
@@ -219,7 +221,7 @@ For direct one-off work, OpenOPC also includes Task Mode, a LobeChat-like single
 brew install uv
 # curl -LsSf https://astral.sh/uv/install.sh | sh
 
-cd /path/to/OpenOPC
+cd /path/to/AutoSwarm
 uv python install 3.12
 uv venv --python 3.12
 source .venv/bin/activate
@@ -231,7 +233,7 @@ source .venv/bin/activate
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source "$HOME/.local/bin/env"
 
-cd /path/to/OpenOPC
+cd /path/to/AutoSwarm
 uv python install 3.12
 uv venv --python 3.12
 source .venv/bin/activate
@@ -242,7 +244,7 @@ source .venv/bin/activate
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-cd C:\path\to\OpenOPC
+cd C:\path\to\AutoSwarm
 uv python install 3.12
 uv venv --python 3.12
 .\.venv\Scripts\Activate.ps1
@@ -255,7 +257,7 @@ winget install --id=astral-sh.uv -e
 :: Or run the standalone installer from cmd:
 :: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-cd C:\path\to\OpenOPC
+cd C:\path\to\AutoSwarm
 uv python install 3.12
 uv venv --python 3.12
 .venv\Scripts\activate.bat
@@ -263,36 +265,36 @@ uv venv --python 3.12
 </details>
 
 ```bash
-# Install OpenOPC into the uv-managed environment
+# Install AutoSwarm into the uv-managed environment
 uv pip install -e .
 
 # Optional but recommended for browser tools
 uv run python -m playwright install chromium
 
 # Initialize local config, memory, skills, projects, and workspace folders
-uv run opc init
+uv run autoswarm init
 
 # Add an API key in .opc/config/llm_config.yaml
 # or configure the env var named by llm.api_key_env.
 
 # Launch the browser UI
-uv run opc ui
+uv run autoswarm ui
 ```
 
 Open `http://localhost:8765` by default.
 
 ```bash
 # Interactive CLI
-uv run opc chat -p demo
+uv run autoswarm chat -p demo
 
 # One-shot task mode
-uv run opc chat -p demo --mode task --agent codex "Refactor this module and run focused tests"
+uv run autoswarm chat -p demo --mode task --agent codex "Refactor this module and run focused tests"
 
 # Company mode with the built-in Corporate architecture
-uv run opc chat -p demo --mode company --company-profile corporate "Plan, implement, review, and document this feature"
+uv run autoswarm chat -p demo --mode company --company-profile corporate "Plan, implement, review, and document this feature"
 
 # Non-interactive scripting / CI style usage
-uv run opc exec -p demo --mode task --agent native --json "Summarize the current repo status"
+uv run autoswarm exec -p demo --mode task --agent native --json "Summarize the current repo status"
 ```
 
 <details>
@@ -303,8 +305,8 @@ uv run opc exec -p demo --mode task --agent native --json "Summarize the current
 - If virtualenv activation is blocked, stay unactivated and run commands with `uv run ...`.
 - See the official [`uv` installation](https://docs.astral.sh/uv/getting-started/installation/) and [Python management](https://docs.astral.sh/uv/guides/install-python/) docs for alternative package managers and managed Python details.
 - Node.js: `>=18` is needed when the Office UI frontend must be built.
-- `opc ui` auto-installs missing `aiohttp` / `aiosqlite` and auto-builds the frontend if needed.
-- If you have not installed external agent CLIs yet, run `opc init --no-external-agent-preflight` to skip the first-run external-agent checks.
+- `autoswarm ui` auto-installs missing `aiohttp` / `aiosqlite` and auto-builds the frontend if needed.
+- If you have not installed external agent CLIs yet, run `autoswarm init --no-external-agent-preflight` to skip the first-run external-agent checks.
 - Browser tools are native Playwright tools. Install Chromium with `python -m playwright install chromium` before asking agents to browse pages.
 </details>
 
@@ -332,10 +334,12 @@ The frontend build output is served from `opc/plugins/office_ui/frontend_dist/`.
 Start it with:
 
 ```bash
-opc ui
-opc ui --port 9000 --project demo
-opc ui --rebuild
+autoswarm ui
+autoswarm ui --port 9000 --project demo
+autoswarm ui --rebuild
 ```
+
+The compatible `opc ui` command uses the same configuration, projects, and sessions.
 
 ### Visual Tour
 
@@ -345,7 +349,7 @@ Scroll horizontally to browse the Office UI walkthrough. Each screenshot keeps i
   <div style="display:flex; gap:18px; min-width:5520px;">
     <figure style="flex:0 0 900px; width:900px; margin:0;">
       <img src="docs/assets/fig1.png" alt="Workspace project, chat, mode, organization, and agent controls" width="900">
-      <figcaption><strong>Workspace And Setup.</strong> Choose or create a project, start <code>New Chat</code>, then select <code>Company</code> or <code>Task</code> plus the matching organization or agent. In Company Mode, pick role employees and execution agents, or let OpenOPC auto-recruit.</figcaption>
+      <figcaption><strong>Workspace And Setup.</strong> Choose or create a project, start <code>New Chat</code>, then select <code>Company</code> or <code>Task</code> plus the matching organization or agent. In Company Mode, pick role employees and execution agents, or let AutoSwarm auto-recruit.</figcaption>
     </figure>
     <figure style="flex:0 0 900px; width:900px; margin:0;">
       <img src="docs/assets/fig2.png" alt="Execution Progress panel showing role status and execution records" width="900">
@@ -394,7 +398,7 @@ The Workspace page is the default screen.
 1. Create or select a project from the top project selector.
 2. In Workspace, click `New Chat`.
 3. In the composer, choose `Task` or `Company`.
-4. For Task Mode, choose the agent: `OpenOPC Native`, `Codex`, `Claude Code`, `Cursor`, or `OpenCode`.
+4. For Task Mode, choose the agent: `AutoSwarm Native`, `Codex`, `Claude Code`, `Cursor`, or `OpenCode`.
 5. For Company Mode, choose `Corporate` or a saved org architecture.
 6. Send the brief.
 
@@ -440,12 +444,12 @@ The Org page is where company structure becomes runnable.
 | `Architecture` | Browse built-in architecture presets, preview/apply packages, manage installed packages, and import/export YAML. |
 | `Employees` | Search talent templates, view details, hire into vacant roles, and staff the company. |
 
-To create a new company: open `Org`, click `New organization`, enter a name, add at least two members with responsibilities and reporting lines, review, and create. OpenOPC saves it automatically and switches the composer to `Company / <your org>`.
+To create a new company: open `Org`, click `New organization`, enter a name, add at least two members with responsibilities and reporting lines, review, and create. AutoSwarm saves it automatically and switches the composer to `Company / <your org>`.
 
 To recruit: import talent templates first, then open `Org -> Employees`, search a template, click `Hire`, choose a vacant role, and deploy the employee from `Team Roster` if you want it visible in the Office page.
 
 ```bash
-opc talent import /path/to/agency-agents
+autoswarm talent import /path/to/agency-agents
 ```
 
 To refresh this repository's talent catalog without saving company configuration, run `PYTHONPATH=. python scripts/sync_agency_talent.py /path/to/agency-agents --opc-home .opc`. It updates matching source templates, adds new ones and records the source revision and content hashes. Local custom templates are retained; example workflows and organizational playbooks are excluded from recruitment imports.
@@ -453,16 +457,18 @@ To refresh this repository's talent catalog without saving company configuration
 <details>
 <summary><strong>Where project files live</strong></summary>
 
-OpenOPC separates runtime/config state from deliverable workspace files.
+AutoSwarm separates runtime/config state from deliverable workspace files.
 
 | Path | Meaning |
 |---|---|
-| `.opc/config/` | Local config copied from `config/` by `opc init`. |
+| `.opc/config/` | Local config copied from `config/` by `autoswarm init`. |
 | `.opc/memory/` | Global and project markdown memory. |
 | `.opc/projects/<project>/` | Project runtime metadata and task stores. |
 | `.opc/ui_state.db` | Office UI chat, channels, and visual agent state. |
-| `../OpenOPC_workplace/<project>/` | Default project workplace. Agents should write durable project files here. |
-| `../OpenOPC_workplace/<project>/.opc-comms/` | Internal company-mode comms mailboxes, meetings, and tool-result scratch space. |
+| `../<repo-name>_workplace/<project>/` | Default project workplace. Agents should write durable project files here. |
+| `../<repo-name>_workplace/<project>/.opc-comms/` | Internal company-mode comms mailboxes, meetings, and tool-result scratch space. |
+
+`<repo-name>` is the existing checkout directory name, such as `OpenOPC` or `AutoSwarm`.
 
 Set `OPC_HOME=/path/to/opc-home` if you want config and runtime state outside the repo.
 </details>
@@ -474,49 +480,49 @@ Set `OPC_HOME=/path/to/opc-home` if you want config and runtime state outside th
 <details>
 <summary><b>Expand the CLI guide — common commands and interactive slash commands</b></summary>
 
-OpenOPC exposes both high-level natural-language commands and lower-level UI/service commands.
+AutoSwarm exposes both high-level natural-language commands and lower-level UI/service commands.
 
-Conceptually OpenOPC has two execution modes: `task` and `company`. Some lower-level CLI/service commands still expose `org` as a compatibility selector for Company Mode with a saved organization architecture; in the UI this appears as Company plus an architecture choice.
+Conceptually AutoSwarm has two execution modes: `task` and `company`. Some lower-level CLI/service commands still expose `org` as a compatibility selector for Company Mode with a saved organization architecture; in the UI this appears as Company plus an architecture choice.
 
 ### Common Commands
 
 ```bash
 # Chat
-opc chat
-opc chat -p demo --mode task --agent native "Inspect the failing tests"
-opc chat -p demo --mode company --company-profile corporate "Ship this change with review"
+autoswarm chat
+autoswarm chat -p demo --mode task --agent native "Inspect the failing tests"
+autoswarm chat -p demo --mode company --company-profile corporate "Ship this change with review"
 
 # Scriptable execution
-opc exec -p demo --mode task --agent codex --stream-json "Run the migration check"
-opc exec -p demo --mode company --company-profile corporate "Draft the research report"
+autoswarm exec -p demo --mode task --agent codex --stream-json "Run the migration check"
+autoswarm exec -p demo --mode company --company-profile corporate "Draft the research report"
 
 # Project lifecycle
-opc project list
-opc project create demo
-opc project switch demo
+autoswarm project list
+autoswarm project create demo
+autoswarm project switch demo
 
 # Sessions
-opc session list -p demo
-opc session create "New feature" -p demo --mode company
-opc session send <task_id> "Continue with implementation" -p demo
-opc session stop <task_id> -p demo
-opc session continue <task_id> "Proceed after review" -p demo
+autoswarm session list -p demo
+autoswarm session create "New feature" -p demo --mode company
+autoswarm session send <task_id> "Continue with implementation" -p demo
+autoswarm session stop <task_id> -p demo
+autoswarm session continue <task_id> "Proceed after review" -p demo
 
 # Runtime inspection
-opc runtime status -p demo
-opc runtime logs <task_id> -p demo
-opc work-item list -p demo
-opc work-item show <work_item_id> -p demo
-opc comms state <task_id> -p demo
+autoswarm runtime status -p demo
+autoswarm runtime logs <task_id> -p demo
+autoswarm work-item list -p demo
+autoswarm work-item show <work_item_id> -p demo
+autoswarm comms state <task_id> -p demo
 
 # Recruitment
-opc talent import /path/to/agency-agents
-opc talent hire <template_id> <role_id> -p demo
+autoswarm talent import /path/to/agency-agents
+autoswarm talent hire <template_id> <role_id> -p demo
 ```
 
 ### Interactive Slash Commands
 
-Run `opc chat`, then use slash commands:
+Run `autoswarm chat`, then use slash commands:
 
 ```text
 /status
@@ -540,25 +546,25 @@ See [`docs/cli-chat-slash.md`](docs/cli-chat-slash.md) for the full command tabl
 
 | Group | Examples |
 |---|---|
-| `opc project` | `list`, `show`, `create`, `switch`, `rename`, `delete --yes` |
-| `opc session` | `list`, `create`, `show`, `config`, `send`, `rename`, `delete --yes`, `stop`, `continue`, `resume`, `complete` |
-| `opc mode` | `show`, `set task`, `set company --profile corporate`, `set org --org <id>` for a saved-org company run |
-| `opc kanban` | `view`, `task create`, `task update`, `task move`, `task assign`, `task status`, `task delete --yes` |
-| `opc agent` | `list`, `create`, `create-from-template`, `import-employee`, `detail`, `move`, `delete --yes` |
-| `opc org` | `info`, `export`, `import`, `saved list/save/load/delete`, `role add/update/bulk-add/delete`, `policy update`, `strategy update`, `reset --yes` |
-| `opc talent` | `list`, `employees`, `import`, `hire`, `scan`, `import-selected`, `employee-detail`, `import-agent` |
-| `opc market` | `presets`, `browse`, `preview`, `apply-preset`, `export`, `install`, `list`, `uninstall --yes` |
-| `opc runtime` | `status`, `checkpoints`, `logs`, `run` |
-| `opc permissions` | Show the Native default, or `set read-only|auto|full-access` for new sessions |
-| `opc channels` | `status`, `login`, `start`, `stop` |
+| `autoswarm project` | `list`, `show`, `create`, `switch`, `rename`, `delete --yes` |
+| `autoswarm session` | `list`, `create`, `show`, `config`, `send`, `rename`, `delete --yes`, `stop`, `continue`, `resume`, `complete` |
+| `autoswarm mode` | `show`, `set task`, `set company --profile corporate`, `set org --org <id>` for a saved-org company run |
+| `autoswarm kanban` | `view`, `task create`, `task update`, `task move`, `task assign`, `task status`, `task delete --yes` |
+| `autoswarm agent` | `list`, `create`, `create-from-template`, `import-employee`, `detail`, `move`, `delete --yes` |
+| `autoswarm org` | `info`, `export`, `import`, `saved list/save/load/delete`, `role add/update/bulk-add/delete`, `policy update`, `strategy update`, `reset --yes` |
+| `autoswarm talent` | `list`, `employees`, `import`, `hire`, `scan`, `import-selected`, `employee-detail`, `import-agent` |
+| `autoswarm market` | `presets`, `browse`, `preview`, `apply-preset`, `export`, `install`, `list`, `uninstall --yes` |
+| `autoswarm runtime` | `status`, `checkpoints`, `logs`, `run` |
+| `autoswarm permissions` | Show the Native default, or `set read-only|auto|full-access` for new sessions |
+| `autoswarm channels` | `status`, `login`, `start`, `stop` |
 
 Most service-style commands accept `--project/-p` and `--json`.
 
 For saved organization architectures, some CLI/service commands currently use `org` as a compatibility selector even though the conceptual runtime is still Company Mode:
 
 ```bash
-opc exec -p demo --mode org --org hku_research_lab "Draft the research report"
-opc session create "Research sprint" -p demo --mode org --org hku_research_lab
+autoswarm exec -p demo --mode org --org hku_research_lab "Draft the research report"
+autoswarm session create "Research sprint" -p demo --mode org --org hku_research_lab
 ```
 </details>
 
@@ -566,22 +572,22 @@ opc session create "Research sprint" -p demo --mode org --org hku_research_lab
 
 ## Configuration
 
-Run `opc init` once from the repo root. It creates `.opc/`, copies the template config from `config/`, creates memory/skills/log folders, and optionally creates the first project.
+Run `autoswarm init` once from the repo root. It creates `.opc/`, copies the template config from `config/`, creates memory/skills/log folders, and optionally creates the first project.
 
-Project-local `.opc/config` files can select local executables, remote endpoints, and credential sources. OpenOPC therefore asks for workspace trust before loading an existing project's config; non-interactive commands fail closed. Review the files, then use `opc trust add /path/to/workspace`. Trust is bound to fingerprints of the security-relevant source files and their normalized effective authority, so changes to system, LLM, agent, or channel configuration require renewal. Legacy path-only records also require one renewal. Use `opc trust list` and `opc trust remove /path/to/workspace` to inspect or revoke the user-owned decision. A workspace initialized by `opc init` is trusted automatically at creation time.
+Project-local `.opc/config` files can select local executables, remote endpoints, and credential sources. AutoSwarm therefore asks for workspace trust before loading an existing project's config; non-interactive commands fail closed. Review the files, then use `autoswarm trust add /path/to/workspace`. Trust is bound to fingerprints of the security-relevant source files and their normalized effective authority, so changes to system, LLM, agent, or channel configuration require renewal. Legacy path-only records also require one renewal. Use `autoswarm trust list` and `autoswarm trust remove /path/to/workspace` to inspect or revoke the user-owned decision. A workspace initialized by `autoswarm init` is trusted automatically at creation time.
 
 <a id="jiuwen-integration"></a>
 <details>
 <summary><strong>JiuwenSwarm setup and role behavior</strong> — <a href="https://github.com/openJiuwen-ai/jiuwenswarm">JiuwenSwarm</a></summary>
 
-OpenOPC exposes two choices in both Task and Company modes:
+AutoSwarm exposes two choices in both Task and Company modes:
 
-- **JiuwenSwarm-single** is a single external agent, like Codex or Claude Code. It handles only the selected task or role. Its compatible OpenOPC agent ID is `jiuwen`.
-- **JiuwenSwarm-team** is one opaque external Team. OpenOPC works with the Team as a whole and does not manage its internal agents. Its compatible OpenOPC agent ID is `jiuwenswarm`.
+- **JiuwenSwarm-single** is a single external agent, like Codex or Claude Code. It handles only the selected task or role. Its compatible AutoSwarm agent ID is `jiuwen`.
+- **JiuwenSwarm-team** is one opaque external Team. AutoSwarm works with the Team as a whole and does not manage its internal agents. Its compatible AutoSwarm agent ID is `jiuwenswarm`.
 
 ### Setup
 
-JiuwenSwarm reads `~/.jiuwenswarm/config/.env`; it does not automatically read OpenOPC's `.opc/config/llm_config.yaml`. You may reuse the same provider credentials, but the model name must support JiuwenSwarm agent requests. For example, Volcengine Ark Agent Plan uses:
+JiuwenSwarm reads `~/.jiuwenswarm/config/.env`; it does not automatically read AutoSwarm's `.opc/config/llm_config.yaml`. You may reuse the same provider credentials, but the model name must support JiuwenSwarm agent requests. For example, Volcengine Ark Agent Plan uses:
 
 ```dotenv
 API_BASE="https://ark.cn-beijing.volces.com/api/plan/v3"
@@ -591,8 +597,8 @@ MODEL_PROVIDER="OpenAI"
 ```
 
 JiuwenSwarm requires Python 3.11–3.13. Install the verified JiuwenSwarm
-`0.2.4b4` / openJiuwen `0.1.16` combination and the OpenOPC Gateway adapter
-from the OpenOPC repository root.
+`0.2.4b4` / openJiuwen `0.1.16` combination and the AutoSwarm Gateway adapter
+from the AutoSwarm repository root.
 
 macOS / Linux:
 
@@ -604,10 +610,10 @@ uv tool install --force --python 3.12 \
 jiuwenswarm-init
 chmod 600 ~/.jiuwenswarm/config/.env
 jiuwenswarm-start app
-opc agents preflight jiuwen
-opc agents preflight jiuwenswarm
-opc exec --mode task --agent jiuwen "Handle this task"
-opc exec --mode task --agent jiuwenswarm "Have one Team handle this task"
+autoswarm agents preflight jiuwen
+autoswarm agents preflight jiuwenswarm
+autoswarm exec --mode task --agent jiuwen "Handle this task"
+autoswarm exec --mode task --agent jiuwenswarm "Have one Team handle this task"
 ```
 
 Windows PowerShell / Command Prompt (no `chmod` step):
@@ -619,21 +625,21 @@ uv tool install --force --python 3.12 `
   "https://github.com/openJiuwen-ai/jiuwenswarm/archive/ec305b70bf4a82f3603ea1a7b3ddc212386662df.tar.gz"
 jiuwenswarm-init
 jiuwenswarm-start app
-opc agents preflight jiuwen
-opc agents preflight jiuwenswarm
+autoswarm agents preflight jiuwen
+autoswarm agents preflight jiuwenswarm
 ```
 
 `jiuwenswarm-start app` stays in the foreground; keep that terminal open while
-using OpenOPC.
+using AutoSwarm.
 
 On Windows the Jiuwen configuration is normally stored under
 `%USERPROFILE%\.jiuwenswarm\config\.env`; on macOS/Linux it is under
-`~/.jiuwenswarm/config/.env`. OpenOPC reads Jiuwen's persisted custom Gateway
+`~/.jiuwenswarm/config/.env`. AutoSwarm reads Jiuwen's persisted custom Gateway
 port, so both sides continue to use the same endpoint. Set
 `JIUWENSWARM_GATEWAY_URL` or a non-default `gateway_url` in
 `.opc/config/agent_config.yaml` only for an intentional remote/custom endpoint.
 
-OpenOPC supports JiuwenSwarm-single and JiuwenSwarm-team in both Task and
+AutoSwarm supports JiuwenSwarm-single and JiuwenSwarm-team in both Task and
 Company modes on Windows, macOS, and Linux. Company communication uses the
 same protected workspace boundary on every platform: POSIX directory handles
 on macOS/Linux and native handle-relative, reparse-point-safe access on
@@ -644,8 +650,8 @@ closed because they cannot provide the same boundary guarantees.
 
 Choose the execution agent in Staffing / Recruitment Review, or under **Company → Org → role → Runtime**.
 
-- Select **JiuwenSwarm-single** on CTO: only CTO uses JiuwenSwarm-single. CTO's subordinates remain separate OpenOPC roles and keep their own staffing and agent choices.
-- Select **JiuwenSwarm-team** on CTO: CTO and every role below CTO become one Team. The roles remain visible in the org chart, but descendant controls are locked and OpenOPC does not recruit or assign employees inside that subtree. CEO delegates to the CTO Team boundary and receives one Team result.
+- Select **JiuwenSwarm-single** on CTO: only CTO uses JiuwenSwarm-single. CTO's subordinates remain separate AutoSwarm roles and keep their own staffing and agent choices.
+- Select **JiuwenSwarm-team** on CTO: CTO and every role below CTO become one Team. The roles remain visible in the org chart, but descendant controls are locked and AutoSwarm does not recruit or assign employees inside that subtree. CEO delegates to the CTO Team boundary and receives one Team result.
 - Select **JiuwenSwarm-team** on CEO: CEO and the entire company subtree become one Team. Descendants cannot select separate agents or create nested Teams.
 - Select Teams on several peer managers, such as COO, CTO, and CMO: they become separate Teams coordinated and reviewed by their parent manager.
 - Select no Team: normal Company staffing and per-role execution continue unchanged.
@@ -654,14 +660,14 @@ The parent manager receives a capability summary compiled from the covered roles
 
 ### Team Activity (read-only)
 
-When JiuwenSwarm-team emits its official Team events, **Execution Progress** still shows one organizational node and one OpenOPC WorkItem executor. Its second line summarizes the observed internal run, for example `3 members · 2 active · Leader synthesizing`. Select that node to open **Team Activity**:
+When JiuwenSwarm-team emits its official Team events, **Execution Progress** still shows one organizational node and one AutoSwarm WorkItem executor. Its second line summarizes the observed internal run, for example `3 members · 2 active · Leader synthesizing`. Select that node to open **Team Activity**:
 
 <img src="docs/assets/jiuwen-team-activity.png" alt="Read-only JiuwenSwarm Team Activity drawer showing the leader and three observed internal members" width="100%">
 
-- **Overview** shows the leader and only the internal members Jiuwen actually created. OpenOPC covered roles are listed separately and never become inferred members.
+- **Overview** shows the leader and only the internal members Jiuwen actually created. AutoSwarm covered roles are listed separately and never become inferred members.
 - **Tasks** is a read-only internal Kanban; **Timeline** shows official member, task, message, retry, completion, and error events; **Output** keeps member outputs separate from the leader synthesis.
-- `todo_create`, `task_tool`, `covered_role_ids`, and natural-language claims never create Team rows. Team telemetry never creates an OpenOPC Agent, Session, WorkItem, or main Kanban card, and never changes WorkItem progress, review, permissions, or scheduling.
-- Task and Company modes use the same view. Stored telemetry survives refresh/reconnect and is isolated by project, OpenOPC task, and concrete external invocation. Older runs without structured events say that internal telemetry is unavailable instead of guessing.
+- `todo_create`, `task_tool`, `covered_role_ids`, and natural-language claims never create Team rows. Team telemetry never creates an AutoSwarm Agent, Session, WorkItem, or main Kanban card, and never changes WorkItem progress, review, permissions, or scheduling.
+- Task and Company modes use the same view. Stored telemetry survives refresh/reconnect and is isolated by project, AutoSwarm task, and concrete external invocation. Older runs without structured events say that internal telemetry is unavailable instead of guessing.
 
 This view observes Jiuwen's existing `/tui` stream only. It does not modify the Jiuwen harness or open another control connection.
 
@@ -682,7 +688,7 @@ This view observes Jiuwen's existing `/tui` stream only. It does not modify the 
 
 ### LLM Keys
 
-After `opc init`, edit `.opc/config/llm_config.yaml` in the repo-local OPC home. If you set `OPC_HOME`, edit `$OPC_HOME/config/llm_config.yaml` instead.
+After `autoswarm init`, edit `.opc/config/llm_config.yaml` in the repo-local AutoSwarm home. If you set `OPC_HOME`, edit `$OPC_HOME/config/llm_config.yaml` instead.
 
 The template leaves secrets empty. Write your key directly into the file:
 
@@ -700,13 +706,13 @@ llm:
                             # wrong for your model.
 ```
 
-Then verify with `opc status`.
+Then verify with `autoswarm status`.
 
 If you prefer not to store the key in the file, leave `api_key` empty and set `api_key_env` to the name of an environment variable that holds it (e.g. `api_key_env: "OPENROUTER_API_KEY"`).
 
 ### Approval & Agent Permissions
 
-OpenOPC Native has three permission levels. Set the default copied into each new session in `.opc/config/system_config.yaml`:
+AutoSwarm Native has three permission levels. Set the default copied into each new session in `.opc/config/system_config.yaml`:
 
 ```yaml
 autonomy:
@@ -722,16 +728,16 @@ autonomy:
 Use the **Permissions** selector beside Mode/Agent in the UI, including while a session is running. Changes take effect at the next tool call; already-open approval requests are not replayed or auto-approved. The same setting is available from the CLI:
 
 ```bash
-opc permissions
-opc permissions set auto
-opc chat --approval-level read-only
-opc exec --approval-level full-access "Run the task"
-opc session config <task-id> --approval-level auto
+autoswarm permissions
+autoswarm permissions set auto
+autoswarm chat --approval-level read-only
+autoswarm exec --approval-level full-access "Run the task"
+autoswarm session config <task-id> --approval-level auto
 ```
 
-Interactive chat supports `/permissions` and `/permissions read-only|auto|full-access`; `opc status` and `/status` show the effective level and sandbox. A new session freezes the current default. Native subagents and all Native Company roles inherit the root session level, while different projects and sessions remain isolated.
+Interactive chat supports `/permissions` and `/permissions read-only|auto|full-access`; `autoswarm status` and `/status` show the effective level and sandbox. A new session freezes the current default. Native subagents and all Native Company roles inherit the root session level, while different projects and sessions remain isolated.
 
-Changing the default through the UI or `opc permissions set` atomically refreshes the trust fingerprint of an already trusted workspace. If you edit `.opc/config/*.yaml` by hand, review the change and run `opc trust add <workspace>` as usual.
+Changing the default through the UI or `autoswarm permissions set` atomically refreshes the trust fingerprint of an already trusted workspace. If you edit `.opc/config/*.yaml` by hand, review the change and run `autoswarm trust add <workspace>` as usual.
 
 When a call asks, approval cards retain once/session/project/global scopes; no grant can override an explicit deny. **Default** in the UI changes only future sessions.
 
@@ -742,7 +748,7 @@ When a call asks, approval cards retain once/session/project/global scopes; no g
 Task Mode can explicitly select an execution agent:
 
 ```bash
-opc chat -p demo --mode task --agent codex "Implement the change"
+autoswarm chat -p demo --mode task --agent codex "Implement the change"
 ```
 
 Available values are `native`, `codex`, `claude_code`, `cursor`, `opencode`, `jiuwen` (JiuwenSwarm-single), and `jiuwenswarm` (JiuwenSwarm-team). See [JiuwenSwarm setup and role behavior](#jiuwen-integration).
@@ -751,8 +757,8 @@ Available values are `native`, `codex`, `claude_code`, `cursor`, `opencode`, `ji
 
 ```bash
 pip install -e .[channels-feishu]
-opc init
-opc channels login feishu
+autoswarm init
+autoswarm channels login feishu
 ```
 
 Edit `.opc/config/channel_config.yaml`:
@@ -773,10 +779,10 @@ channels:
 Then:
 
 ```bash
-opc channels status
-opc channels start -p demo
+autoswarm channels status
+autoswarm channels start -p demo
 # or run the long-lived engine + channel runtime:
-opc run -p demo
+autoswarm run -p demo
 ```
 
 Feishu uses the `lark-oapi` WebSocket client. `app_id` and `app_secret` are required; `encrypt_key` and `verification_token` are optional unless your tenant/app configuration requires them. Keep `allow_from` explicit; an empty list denies all inbound messages.
@@ -799,11 +805,11 @@ Feishu uses the `lark-oapi` WebSocket client. `app_id` and `app_secret` are requ
 Useful commands:
 
 ```bash
-opc channels login slack
-opc channels status
-opc channels start -p demo
-opc channels stop
-opc run -p demo
+autoswarm channels login slack
+autoswarm channels status
+autoswarm channels start -p demo
+autoswarm channels stop
+autoswarm run -p demo
 ```
 
 See [`docs/channels.md`](docs/channels.md) and [`docs/channel-bridges.md`](docs/channel-bridges.md).
@@ -840,10 +846,10 @@ MCP servers can be added under `mcp_servers` in `system_config.yaml`. Local serv
 <summary><strong>Office UI does not open or looks stale</strong></summary>
 
 ```bash
-opc ui --rebuild
+autoswarm ui --rebuild
 ```
 
-If the browser still shows stale UI state, hard refresh the page. If a previous process died mid-run, restart `opc ui` first so in-memory locks are released.
+If the browser still shows stale UI state, hard refresh the page. If a previous process died mid-run, restart `autoswarm ui` first so in-memory locks are released.
 </details>
 
 <details>
@@ -863,10 +869,10 @@ python scripts/reset_stuck_task.py --all --apply
 Run:
 
 ```bash
-opc status
+autoswarm status
 ```
 
-Check `.opc/config/agent_config.yaml` for command names such as `codex`, `claude`, `cursor-agent`, `opencode`, and `jiuwenswarm`. Gateway mode also requires a running `jiuwenswarm-start` service; use `opc agents preflight jiuwen` to verify it.
+Check `.opc/config/agent_config.yaml` for command names such as `codex`, `claude`, `cursor-agent`, `opencode`, and `jiuwenswarm`. Gateway mode also requires a running `jiuwenswarm-start` service; use `autoswarm agents preflight jiuwen` to verify it.
 </details>
 
 <details>
@@ -878,30 +884,30 @@ Check:
 - The provider is `enabled: true`.
 - Required credentials are filled.
 - `allow_from` contains the sender IDs you expect.
-- `opc channels status` reports the provider as configured and available.
+- `autoswarm channels status` reports the provider as configured and available.
 </details>
 
 </details>
 
 ## Ecosystem And Sharing
 
-Everything OpenOPC builds is yours to keep, reuse, and share — organizations, employees, talent templates, skills, and channels are just files. Import a popular talent library, reuse a team across projects, or package a whole company as a shareable `.opcpkg`.
+Everything AutoSwarm builds is yours to keep, reuse, and share — organizations, employees, talent templates, skills, and channels are just files. Import a popular talent library, reuse a team across projects, or package a whole company as a shareable `.opcpkg`.
 
 ```bash
 # Hire from a talent library (e.g. agency-agents) into a role
-opc talent import /path/to/agency-agents
-opc talent hire <template_id> <role_id> -p demo
+autoswarm talent import /path/to/agency-agents
+autoswarm talent hire <template_id> <role_id> -p demo
 
 # Reuse or share a whole organization
-opc org export --json > my-org.yaml
-opc market export --id hku_lab --name "HKU Lab" --output-dir packages
-opc market install packages/hku_lab.opcpkg
+autoswarm org export --json > my-org.yaml
+autoswarm market export --id hku_lab --name "HKU Lab" --output-dir packages
+autoswarm market install packages/hku_lab.opcpkg
 ```
 
 <!--
 ## Architecture
 
-OpenOPC is a coordination runtime, not just an agent launcher — it separates interaction, organization, execution, tools, memory, and observability into seven layers.
+AutoSwarm is a coordination runtime, not just an agent launcher — it separates interaction, organization, execution, tools, memory, and observability into seven layers.
 
 <details>
 <summary><b>The seven layers</b></summary>
@@ -928,12 +934,12 @@ OpenOPC is a coordination runtime, not just an agent launcher — it separates i
 
 ## Roadmap
 
-OpenOPC is moving quickly. The areas below reflect active development priorities — each grounded in real gaps identified during early usage.
+AutoSwarm is moving quickly. The areas below reflect active development priorities — each grounded in real gaps identified during early usage.
 
 | Area | Planned direction |
 |---|---|
 | **Role-level skills** | Role config already carries `skill_refs`, and the Org UI surfaces skill metadata today. The next step is letting users select which skills mount to which roles directly from the Org page — feeding into a broader self-evolving skill ecosystem. |
-| **Secretary settings** | The secretary will grow into a stronger configuration and memory steward: owning OPC system memory, analysing and comparing projects, and providing guided setup for OpenOPC YAML configuration. |
+| **Secretary settings** | The secretary will grow into a stronger configuration and memory steward: owning AutoSwarm system memory, analysing and comparing projects, and providing guided setup for AutoSwarm YAML configuration. |
 | **Company-mode channels** | External channels will evolve beyond simple chat entrypoints into richer company-mode workflows — with role-aware notifications, structured approvals, and cross-platform collaboration. |
 | **CLI parity** | The CLI is functional today, but the Office UI remains the more complete surface. Upcoming work targets org editing, company-mode inspection, failure recovery, and long-running runtime control from the terminal. |
 | **TUI** | A full terminal UI is under consideration once CLI parity matures. The Office UI remains the primary interface in the meantime. |
@@ -942,7 +948,7 @@ OpenOPC is moving quickly. The areas below reflect active development priorities
 
 ## Acknowledgements
 
-OpenOPC is built with gratitude for several open-source projects that helped shape its agent design, skill structure, and talent template ecosystem:
+AutoSwarm is built with gratitude for several open-source projects that helped shape its agent design, skill structure, and talent template ecosystem:
 
 - [openai/codex](https://github.com/openai/codex/) for inspiring practical coding-agent workflows and execution patterns.
 - [BloopAI/vibe-kanban](https://github.com/BloopAI/vibe-kanban) for inspiration around kanban-centered agent work management and task visibility.
@@ -953,7 +959,7 @@ OpenOPC is built with gratitude for several open-source projects that helped sha
 ---
 
 <p align="center">
-  <em> ❤️ Thanks for visiting ✨ OpenOPC!</em><br><br>
+  <em> ❤️ Thanks for visiting ✨ AutoSwarm!</em><br><br>
   <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.OpenOPC&style=for-the-badge&color=00d4ff"
   alt="Views">
 </p>

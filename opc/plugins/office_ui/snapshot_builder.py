@@ -1127,9 +1127,9 @@ def _transcript_item_to_ui_message(
                 "top_level_reply",
             }
         ):
-            sender_name = "OPC"
+            sender_name = "AutoSwarm"
     else:
-        sender, sender_name = _ROLE_MAP.get(role, ("system", "OPC"))
+        sender, sender_name = _ROLE_MAP.get(role, ("system", "AutoSwarm"))
 
     if role != "user":
         content, verification_footer = _strip_trailing_verification_footer(content)
@@ -1295,7 +1295,7 @@ def task_to_kanban(
     display_num: int,
     event_adapter: EventAdapter | None = None,
 ) -> dict[str, Any]:
-    """Convert OPC Task to frontend KanbanTask (snake_case for collabSync).
+    """Convert AutoSwarm Task to frontend KanbanTask (snake_case for collabSync).
 
     Frontend's collabSync.ts mapBackendTask() will convert to camelCase.
     """
@@ -2097,8 +2097,8 @@ async def _build_session_context_preview(
 # Role mapping: OPCStore role → ChatStore (sender, sender_name)
 _ROLE_MAP: dict[str, tuple[str, str]] = {
     "user": ("user", "You"),
-    "assistant": ("assistant", "OPC"),
-    "system": ("system", "OPC"),
+    "assistant": ("assistant", "AutoSwarm"),
+    "system": ("system", "AutoSwarm"),
 }
 
 
@@ -3421,7 +3421,7 @@ async def build_collab_sync(
     """
     project_id = engine.project_id or "default"
 
-    # Get OPC tasks
+    # Get AutoSwarm tasks
     tasks: list[Any] = []
     if engine.store:
         try:

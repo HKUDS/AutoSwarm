@@ -57,7 +57,7 @@ def test_sanitize_ui_message_dict_strips_assistant_footer_and_preserves_metadata
         "message_id": "m1",
         "channel_id": "session:t1",
         "sender": "assistant",
-        "sender_name": "OPC",
+        "sender_name": "AutoSwarm",
         "content": (
             "Completed the task.\n\n"
             "Verification: verified by verify."

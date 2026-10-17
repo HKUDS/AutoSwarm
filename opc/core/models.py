@@ -1,4 +1,4 @@
-"""Core data models for the OPC system."""
+"""Core data models for the AutoSwarm system."""
 
 from __future__ import annotations
 

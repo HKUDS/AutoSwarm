@@ -1,4 +1,4 @@
-"""Office-UI Server — aiohttp server that bridges OPC Engine with the React+Phaser frontend.
+"""Office-UI Server — aiohttp server that bridges AutoSwarm Engine with the React+Phaser frontend.
 
 Initializes OPCEngine, opens ui_state.db for agent/chat persistence,
 sets up the event adapter pipeline, and serves static files + WebSocket.
@@ -19,6 +19,7 @@ import aiohttp.web
 import aiosqlite
 from loguru import logger
 
+from opc.core.branding import PRODUCT_TITLE
 from opc.core.config import OPCConfig, get_opc_home
 from opc.core.file_lock import lock_file_descriptor
 from opc.core.workspace_trust import WorkspaceTrustRequired
@@ -51,11 +52,11 @@ def _is_under_path(path: Path, base: Path) -> bool:
 
 
 def _acquire_single_instance_lock(opc_home: Path) -> Any | None:
-    """Prevent two office-UI servers from sharing one OPC home.
+    """Prevent two office-UI servers from sharing one AutoSwarm home.
 
     Two server processes writing the same ui_state.db contend for the sqlite
     write lock and surface as 'database is locked' failures mid-run. The lock
-    is advisory (flock on POSIX, LockFileEx on Windows), scoped to this OPC
+    is advisory (flock on POSIX, LockFileEx on Windows), scoped to this AutoSwarm
     home, and released automatically when the process exits — including on a
     crash, so a stale lock file can never block a fresh start.
     """
@@ -77,7 +78,7 @@ def _acquire_single_instance_lock(opc_home: Path) -> Any | None:
             f"Another office-UI server (pid {holder_pid}) is already running against "
             f"{opc_home}. Two instances sharing one ui_state.db cause 'database is "
             "locked' failures that can crash in-flight agent runs. Stop the other "
-            "instance first, or point this one at a different OPC home."
+            "instance first, or point this one at a different AutoSwarm home."
         )
     lock_file.seek(0)
     lock_file.truncate()
@@ -108,7 +109,7 @@ async def create_app(
             except Exception as e:
                 logger.warning(f"Failed to load config from {config_dir}: {e}")
 
-    # ── OPC Engine ────────────────────────────────────────────────────
+    # ── AutoSwarm Engine ────────────────────────────────────────────────────
     engine = OPCEngine(config=config, project_id=project_id)
 
     # ── UI-state database (agents + chat) ─────────────────────────────
@@ -128,7 +129,7 @@ async def create_app(
 
     event_adapter = EventAdapter()
 
-    # ── Initialize engine (this starts all OPC layers) ────────────────
+    # ── Initialize engine (this starts all AutoSwarm layers) ────────────────
     await engine.initialize()
 
     # ── WSHandler ─────────────────────────────────────────────────────
@@ -246,7 +247,7 @@ def _make_attachment_handler(engine: OPCEngine):
 async def _serve_no_build(request: aiohttp.web.Request) -> aiohttp.web.Response:
     return aiohttp.web.Response(
         text=(
-            "<h1>OpenOPC Office UI</h1>"
+            f"<title>{PRODUCT_TITLE}</title><h1>{PRODUCT_TITLE}</h1>"
             "<p>Frontend not built. Run <code>cd opc/plugins/office_ui/frontend_src && npm install && npm run build</code></p>"
         ),
         content_type="text/html",

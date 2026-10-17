@@ -18,9 +18,9 @@ Skills are modular packages that extend agent capabilities with specialized know
 3. Domain expertise - Project-specific knowledge, schemas, business logic
 4. Bundled resources - Scripts, references, and assets for complex and repetitive tasks
 
-### Skill Locations in OPC
+### Skill Locations in AutoSwarm
 
-OPC uses a two-level skill system:
+AutoSwarm uses a two-level skill system:
 
 | Level | Path | Scope |
 |-------|------|-------|

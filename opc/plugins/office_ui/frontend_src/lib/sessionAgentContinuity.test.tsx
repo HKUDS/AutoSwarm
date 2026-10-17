@@ -29,7 +29,7 @@ test('a partial session detail refresh cannot erase the selected Codex agent', (
     taskPreferredAgent={composerAgentForSession(session, 'native')} onTaskAgentChange={() => undefined}
     onSend={() => undefined} />)
   assert.match(markup, /Agent locked to Codex/)
-  assert.doesNotMatch(markup, /Agent locked to OpenOPC Native/)
+  assert.doesNotMatch(markup, /Agent locked to AutoSwarm Native/)
 })
 
 test('a primary chat keeps its chosen agent regardless of conflicting role telemetry', () => {

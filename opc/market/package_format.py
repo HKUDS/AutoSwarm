@@ -1,4 +1,4 @@
-"""OPC Market package format — data models for .opcpkg packages."""
+"""AutoSwarm Market package format — data models for .opcpkg packages."""
 
 from __future__ import annotations
 

@@ -1049,7 +1049,7 @@ class ContextAssembler:
         if multi_team_org:
             lines.append("Mailbox is runtime-owned: this turn is driven by team board state plus the prepared mailbox backlog.")
         else:
-            lines.append("Mailbox is runtime-owned: OpenOPC has already prepared the actionable backlog for this turn.")
+            lines.append("Mailbox is runtime-owned: AutoSwarm has already prepared the actionable backlog for this turn.")
         turn_mode = resolve_company_turn_mode(task, runtime_state=state)
         if turn_mode and not multi_team_org:
             lines.append(f"Current turn mode: {turn_mode}")
@@ -1619,7 +1619,7 @@ class ContextAssembler:
         """Build the comms section for company-mode external agent prompts.
 
         Collaboration tools are exposed via the ``opc-collab`` CLI, while
-        mailbox discovery is runtime-owned: OpenOPC reads `.opc-comms`,
+        mailbox discovery is runtime-owned: AutoSwarm reads `.opc-comms`,
         classifies inbox state, and injects the actionable mailbox snapshot
         before each turn. Agents use `inbox` to peek or acknowledge messages
         explicitly when needed; prompt injection alone is not a read receipt.
@@ -1631,7 +1631,7 @@ class ContextAssembler:
         Blocking semantics (the rare 10% — meetings, urgent decisions
         the agent literally cannot work around) are handled by the
         broker's park/resume path: when the agent calls
-        ``ask_peer_and_wait(...)``, OpenOPC parks the sender's work item in
+        ``ask_peer_and_wait(...)``, AutoSwarm parks the sender's work item in
         ``AWAITING_PEER``, runs the receiver, then resumes the sender
         once a reply has been written.
         """

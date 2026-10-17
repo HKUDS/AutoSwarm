@@ -62,7 +62,7 @@ def server_banner(*, host: str, port: int, project_id: str | None = None) -> Non
     project = project_id or "default"
 
     if _console is None or Panel is None or Table is None:
-        print(f"\nOpenOPC Office UI: {local_url}")
+        print(f"\nAutoSwarm Office UI: {local_url}")
         print(f"Bind: {bind_url} | Project: {project} | Press Ctrl+C to stop\n")
         return
 
@@ -74,5 +74,5 @@ def server_banner(*, host: str, port: int, project_id: str | None = None) -> Non
     table.add_row("Project", project)
     table.add_row("Stop", "Ctrl+C")
     _console.print()
-    _console.print(Panel(table, title="OpenOPC Office UI", border_style="cyan", box=box.ROUNDED if box else None))
+    _console.print(Panel(table, title="AutoSwarm Office UI", border_style="cyan", box=box.ROUNDED if box else None))
     _console.print()

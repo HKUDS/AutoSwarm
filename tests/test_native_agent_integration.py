@@ -9,7 +9,7 @@ Tests all 7 upgrade items from NATIVE_AGENT_UPGRADE_PLAN.md:
 6. Doom loop detection
 7. Context compression
 
-Runs through the OPC engine with real LLM calls.
+Runs through the AutoSwarm engine with real LLM calls.
 """
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ REGULAR_TASKS = [
     (
         "Review/analysis task",
         "Read the file /Users/lizongwei/Desktop/Coding_Project/OPENOPC_BENCH/OpenOPC/opc/__init__.py "
-        "and tell me what version of OPC is defined there."
+        "and tell me what version of AutoSwarm is defined there."
     ),
     # Test 3: Planning task (should trigger coordinator)
     (
@@ -129,13 +129,13 @@ REGULAR_TASKS = [
     # Test 6: Multi-step task (should benefit from TODO tracking)
     (
         "Multi-step task with TODO tracking",
-        "Do these three things: 1) List the files in /tmp 2) Create a file /tmp/opc_test_hello.txt with content 'Hello OPC' "
+        "Do these three things: 1) List the files in /tmp 2) Create a file /tmp/opc_test_hello.txt with content 'Hello AutoSwarm' "
         "3) Read the file back and confirm its content."
     ),
     # Test 7: Code search task (tests file_search/list_dir)
     (
         "Code search and analysis",
-        "Search the OPC codebase at /Users/lizongwei/Desktop/Coding_Project/OPENOPC_BENCH/OpenOPC/opc/ "
+        "Search the AutoSwarm codebase at /Users/lizongwei/Desktop/Coding_Project/OPENOPC_BENCH/OpenOPC/opc/ "
         "for all files that import 'asyncio'. Just list the file paths."
     ),
     # Test 8: Python execution
@@ -174,7 +174,7 @@ RANDOM_TASKS = [
     ),
     (
         "Random: Text processing",
-        "Write a Python one-liner that reverses the string 'Hello, OPC World!' and tell me the result."
+        "Write a Python one-liner that reverses the string 'Hello, AutoSwarm World!' and tell me the result."
     ),
     (
         "Random: File creation",

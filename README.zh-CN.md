@@ -1,4 +1,4 @@
-<h1 align="center" style="font-size: 1.75em;">OpenOPC：打造你的个人 AI 原生公司 — 自建、自营、自成长</h1>
+<h1 align="center" style="font-size: 1.75em;">AutoSwarm: Automating Agent Swarms — Self-Built, Self-Run, Self-Grown</h1>
 
 <p align="center">
   <a href="README.md">English</a> | <b>简体中文</b>
@@ -19,7 +19,7 @@
   <a href="https://github.com/HKUDS/.github/blob/main/profile/README.md"><img src="https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat-square&logo=wechat&logoColor=white" alt="WeChat" /></a>
 </p>
 
-![OpenOPC hero banner](docs/assets/chat.png)
+![AutoSwarm hero banner](docs/assets/chat.png)
 
 ## 新闻
 
@@ -32,9 +32,9 @@
 
 ## 目录
 
-- [何时使用 OpenOPC](#何时使用-openopc)
+- [何时使用 AutoSwarm](#何时使用-autoswarm)
 - [演示](#演示)
-- [OpenOPC 如何工作](#openopc-如何工作)
+- [AutoSwarm 如何工作](#autoswarm-如何工作)
 - [快速开始](#快速开始)
 - [Office UI 指南](#office-ui-指南)
 - [CLI 指南](#cli-指南)
@@ -44,9 +44,9 @@
 - [路线图](#路线图)
 - [致谢](#致谢)
 
-## 何时使用 OpenOPC
+## 何时使用 AutoSwarm
 
-**OpenOPC** 覆盖九大核心垂直领域 — 从 AI 开发、软件工程到金融、销售、媒体、电商与教育。无论哪个行业，OpenOPC 都会组建合适的团队并端到端交付。
+**AutoSwarm** 覆盖九大核心垂直领域 — 从 AI 开发、软件工程到金融、销售、媒体、电商与教育。无论哪个行业，AutoSwarm 都会组建合适的团队并端到端交付。
 
 <table>
   <tr>
@@ -99,21 +99,21 @@
   <tr>
     <td width="33%" align="center" valign="top">
       <a href="https://youtu.be/XqQeTt6XvPQ">
-        <img src="https://img.youtube.com/vi/XqQeTt6XvPQ/maxresdefault.jpg" alt="OpenOPC 视频制作演示" width="100%">
+        <img src="https://img.youtube.com/vi/XqQeTt6XvPQ/maxresdefault.jpg" alt="AutoSwarm 视频制作演示" width="100%">
       </a>
       <br><br>
       <strong>🎬 视频制作</strong>
     </td>
     <td width="33%" align="center" valign="top">
       <a href="https://drive.google.com/drive/folders/1T1Nl6CCE-cmbGy6sKrYML7_UnP8XID88?usp=drive_link">
-        <img src="docs/assets/vc-research-package.svg" alt="OpenOPC VC 投资研究演示" width="100%">
+        <img src="docs/assets/vc-research-package.svg" alt="AutoSwarm VC 投资研究演示" width="100%">
       </a>
       <br><br>
       <strong>📈 投资研究</strong>
     </td>
     <td width="33%" align="center" valign="top">
       <a href="https://youtu.be/SVc9BvE5ohY">
-        <img src="https://img.youtube.com/vi/SVc9BvE5ohY/maxresdefault.jpg" alt="OpenOPC 游戏原型演示" width="100%">
+        <img src="https://img.youtube.com/vi/SVc9BvE5ohY/maxresdefault.jpg" alt="AutoSwarm 游戏原型演示" width="100%">
       </a>
       <br><br>
       <strong>🎮 游戏原型</strong>
@@ -121,17 +121,17 @@
   </tr>
 </table>
 
-## OpenOPC 如何工作
+## AutoSwarm 如何工作
 
-OpenOPC 围绕复杂的真实任务组建一家 AI 公司 — 通过三个紧密耦合的机制：**自建**负责组织配员，**自营**负责执行工作，**自成长**负责从结果中学习。
+AutoSwarm 围绕复杂的真实任务组建一家 AI 公司 — 通过三个紧密耦合的机制：**自建**负责组织配员，**自营**负责执行工作，**自成长**负责从结果中学习。
 
 <p align="center">
-  <img src="docs/assets/video.png" alt="一家 OpenOPC 公司：角色、汇报关系，以及每个角色配备的员工" width="100%">
+  <img src="docs/assets/video.png" alt="一家 AutoSwarm 公司：角色、汇报关系，以及每个角色配备的员工" width="100%">
 </p>
 
 **1. 自建 — 为组织配员**
 
-在任何工作开始之前，必须先把合适的人放到合适的位置。给定一个目标，OpenOPC 会：
+在任何工作开始之前，必须先把合适的人放到合适的位置。给定一个目标，AutoSwarm 会：
 
 - 🌿 起草组织架构图 — 从任务需求推导出所需的角色与汇报结构。
 - 🎯 填补每个角色 — 由招聘 Agent 在「复用现有员工（带着以往项目塑造的经验）」与「从人才池中招募新人」之间做出选择。
@@ -157,7 +157,7 @@ OpenOPC 围绕复杂的真实任务组建一家 AI 公司 — 通过三个紧密
 
 团队组建完成后，自营机制协调成员产出最终交付物。核心挑战不在于单纯执行，而在于不确定性下的高效协作，具体体现为两个问题。
 
-🔀 动态协作编排。真实工作无法完全提前规划。OpenOPC 通过工作项状态机来解决，每个工作项所处的阶段决定：
+🔀 动态协作编排。真实工作无法完全提前规划。AutoSwarm 通过工作项状态机来解决，每个工作项所处的阶段决定：
 
 - 📋 它在看板的哪一列 — 处于工作流的哪个位置。
 - 👑 它的负责人 — 该阶段由哪个角色负责。
@@ -170,7 +170,7 @@ OpenOPC 围绕复杂的真实任务组建一家 AI 公司 — 通过三个紧密
 
 🔗 依赖解除与驳回都作为结构化的阶段转换传播，消除了临时的人为协调。
 
-🛡️ 处理运行中途出现的阻塞。并非所有障碍都能提前预见。OpenOPC 在两个层面解决：
+🛡️ 处理运行中途出现的阻塞。并非所有障碍都能提前预见。AutoSwarm 在两个层面解决：
 
 - 💬 团队内部 — 一条阻塞消息会暂停发送者，并激活最适合解决该问题的角色。
 - 📡 团队之外 — 当阻塞超出团队权限时，运行时会上报给人类所有者，在真正需要时引入人类判断。
@@ -181,12 +181,12 @@ OpenOPC 围绕复杂的真实任务组建一家 AI 公司 — 通过三个紧密
 
 执行产生原始经验；自成长把它转化为持久的改进，遵循两条原则。
 
-🏅 把结果归因到正确的角色。把功劳记给整个公司学不到任何东西。因此 OpenOPC：
+🏅 把结果归因到正确的角色。把功劳记给整个公司学不到任何东西。因此 AutoSwarm：
 
 - 🔍 将用户反馈解析为针对每位员工的评估。
 - 🎯 只更新负责了相关工作项的角色 — 功与过都落到应得之处。
 
-📖 把执行轨迹提炼为知识。执行轨迹噪声太大，无法直接学习。因此 OpenOPC：
+📖 把执行轨迹提炼为知识。执行轨迹噪声太大，无法直接学习。因此 AutoSwarm：
 - 💡 把每个角色的任务提炼为高信号的经验教训，存入其私有经验档案。
 - 📚 把反复出现的经验提升为共享的作业手册（playbook），新员工从入职起即可继承 — 让组织知识随时间复利增长。
 
@@ -203,11 +203,13 @@ OpenOPC 围绕复杂的真实任务组建一家 AI 公司 — 通过三个紧密
 
 ## 快速开始
 
-推荐使用 `uv` 来安装 OpenOPC。它可以安装/管理 Python、创建项目虚拟环境，并在该环境中运行命令，而不会把 OpenOPC 的依赖混入全局 Python。
+推荐使用 `uv` 来安装 AutoSwarm。它可以安装/管理 Python、创建项目虚拟环境，并在该环境中运行命令，而不会把 AutoSwarm 的依赖混入全局 Python。
 
-OpenOPC 要求 Python `>=3.10`；下面的示例使用 Python `3.12`。
+AutoSwarm 原名 OpenOPC。主要命令改为 `autoswarm`，`opc` 继续作为兼容别名；`opc` Python 包、`.opc/` 数据目录、`OPC_HOME` 及已有项目和会话标识保持兼容。现有仓库目录与工作区无需改名；重新执行可编辑安装即可启用新命令。
 
-对于直接的一次性工作，OpenOPC 还提供 Task 模式 — 一个类 LobeChat 的单 Agent 工作台，可使用 OpenOPC Native、Codex、Claude Code、Cursor 或 OpenCode。
+AutoSwarm 要求 Python `>=3.10`；下面的示例使用 Python `3.12`。
+
+对于直接的一次性工作，AutoSwarm 还提供 Task 模式 — 一个类 LobeChat 的单 Agent 工作台，可使用 AutoSwarm Native、Codex、Claude Code、Cursor 或 OpenCode。
 
 <details open>
 <summary><strong>推荐：uv 环境搭建</strong></summary>
@@ -219,7 +221,7 @@ OpenOPC 要求 Python `>=3.10`；下面的示例使用 Python `3.12`。
 brew install uv
 # curl -LsSf https://astral.sh/uv/install.sh | sh
 
-cd /path/to/OpenOPC
+cd /path/to/AutoSwarm
 uv python install 3.12
 uv venv --python 3.12
 source .venv/bin/activate
@@ -231,7 +233,7 @@ source .venv/bin/activate
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source "$HOME/.local/bin/env"
 
-cd /path/to/OpenOPC
+cd /path/to/AutoSwarm
 uv python install 3.12
 uv venv --python 3.12
 source .venv/bin/activate
@@ -242,7 +244,7 @@ source .venv/bin/activate
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-cd C:\path\to\OpenOPC
+cd C:\path\to\AutoSwarm
 uv python install 3.12
 uv venv --python 3.12
 .\.venv\Scripts\Activate.ps1
@@ -255,7 +257,7 @@ winget install --id=astral-sh.uv -e
 :: 或在 cmd 中运行独立安装脚本：
 :: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-cd C:\path\to\OpenOPC
+cd C:\path\to\AutoSwarm
 uv python install 3.12
 uv venv --python 3.12
 .venv\Scripts\activate.bat
@@ -263,36 +265,36 @@ uv venv --python 3.12
 </details>
 
 ```bash
-# 将 OpenOPC 安装到 uv 管理的环境中
+# 将 AutoSwarm 安装到 uv 管理的环境中
 uv pip install -e .
 
 # 可选但推荐：安装浏览器工具所需的 Chromium
 uv run python -m playwright install chromium
 
 # 初始化本地配置、记忆、技能、项目与工作区目录
-uv run opc init
+uv run autoswarm init
 
 # 在 .opc/config/llm_config.yaml 中填入 API key，
 # 或配置 llm.api_key_env 指定的环境变量。
 
 # 启动浏览器 UI
-uv run opc ui
+uv run autoswarm ui
 ```
 
 默认打开 `http://localhost:8765`。
 
 ```bash
 # 交互式 CLI
-uv run opc chat -p demo
+uv run autoswarm chat -p demo
 
 # 一次性 Task 模式
-uv run opc chat -p demo --mode task --agent codex "Refactor this module and run focused tests"
+uv run autoswarm chat -p demo --mode task --agent codex "Refactor this module and run focused tests"
 
 # 使用内置 Corporate 架构的 Company 模式
-uv run opc chat -p demo --mode company --company-profile corporate "Plan, implement, review, and document this feature"
+uv run autoswarm chat -p demo --mode company --company-profile corporate "Plan, implement, review, and document this feature"
 
 # 非交互脚本 / CI 风格用法
-uv run opc exec -p demo --mode task --agent native --json "Summarize the current repo status"
+uv run autoswarm exec -p demo --mode task --agent native --json "Summarize the current repo status"
 ```
 
 <details>
@@ -303,8 +305,8 @@ uv run opc exec -p demo --mode task --agent native --json "Summarize the current
 - 如果虚拟环境激活被阻止，可以不激活，直接用 `uv run ...` 运行命令。
 - 关于其他包管理器与托管 Python 的细节，参见官方 [`uv` 安装文档](https://docs.astral.sh/uv/getting-started/installation/) 与 [Python 管理文档](https://docs.astral.sh/uv/guides/install-python/)。
 - Node.js：需要构建 Office UI 前端时要求 `>=18`。
-- `opc ui` 会自动安装缺失的 `aiohttp` / `aiosqlite`，并在需要时自动构建前端。
-- 如果你尚未安装外部 Agent CLI，运行 `opc init --no-external-agent-preflight` 可跳过首次运行的外部 Agent 检查。
+- `autoswarm ui` 会自动安装缺失的 `aiohttp` / `aiosqlite`，并在需要时自动构建前端。
+- 如果你尚未安装外部 Agent CLI，运行 `autoswarm init --no-external-agent-preflight` 可跳过首次运行的外部 Agent 检查。
 - 浏览器工具基于原生 Playwright。在让 Agent 浏览网页之前，先用 `python -m playwright install chromium` 安装 Chromium。
 </details>
 
@@ -332,10 +334,12 @@ npm run build
 启动方式：
 
 ```bash
-opc ui
-opc ui --port 9000 --project demo
-opc ui --rebuild
+autoswarm ui
+autoswarm ui --port 9000 --project demo
+autoswarm ui --rebuild
 ```
+
+兼容命令 `opc ui` 仍可使用，两者读取相同的配置、项目和会话数据。
 
 ### 视觉导览
 
@@ -345,7 +349,7 @@ opc ui --rebuild
   <div style="display:flex; gap:18px; min-width:5520px;">
     <figure style="flex:0 0 900px; width:900px; margin:0;">
       <img src="docs/assets/fig1.png" alt="Workspace 的项目、聊天、模式、组织与 Agent 控件" width="900">
-      <figcaption><strong>工作台与初始设置。</strong>选择或创建项目，点击 <code>New Chat</code>，然后选择 <code>Company</code> 或 <code>Task</code> 以及对应的组织或 Agent。在 Company 模式下，可以指定角色员工与执行 Agent，也可以让 OpenOPC 自动招募。</figcaption>
+      <figcaption><strong>工作台与初始设置。</strong>选择或创建项目，点击 <code>New Chat</code>，然后选择 <code>Company</code> 或 <code>Task</code> 以及对应的组织或 Agent。在 Company 模式下，可以指定角色员工与执行 Agent，也可以让 AutoSwarm 自动招募。</figcaption>
     </figure>
     <figure style="flex:0 0 900px; width:900px; margin:0;">
       <img src="docs/assets/fig2.png" alt="Execution Progress 面板显示角色状态与执行记录" width="900">
@@ -394,7 +398,7 @@ Workspace 页面是默认界面。
 1. 在顶部项目选择器中创建或选择一个项目。
 2. 在 Workspace 中点击 `New Chat`。
 3. 在输入框中选择 `Task` 或 `Company`。
-4. Task 模式下选择 Agent：`OpenOPC Native`、`Codex`、`Claude Code`、`Cursor` 或 `OpenCode`。
+4. Task 模式下选择 Agent：`AutoSwarm Native`、`Codex`、`Claude Code`、`Cursor` 或 `OpenCode`。
 5. Company 模式下选择 `Corporate` 或一个已保存的组织架构。
 6. 发送任务简报。
 
@@ -440,12 +444,12 @@ Org 页面是公司结构变得可运行的地方。
 | `Architecture` | 浏览内置架构预设、预览/应用包、管理已安装的包、导入/导出 YAML。 |
 | `Employees` | 搜索人才模板、查看详情、招募到空缺角色、为公司配员。 |
 
-创建新公司：打开 `Org`，点击 `New organization`，输入名称，添加至少两名带职责与汇报关系的成员，检查并创建。OpenOPC 会自动保存，并把输入框切换为 `Company / <你的组织>`。
+创建新公司：打开 `Org`，点击 `New organization`，输入名称，添加至少两名带职责与汇报关系的成员，检查并创建。AutoSwarm 会自动保存，并把输入框切换为 `Company / <你的组织>`。
 
 招募：先导入人才模板，然后打开 `Org -> Employees`，搜索模板，点击 `Hire`，选择一个空缺角色；若希望员工出现在 Office 页面，再从 `Team Roster` 部署。
 
 ```bash
-opc talent import /path/to/agency-agents
+autoswarm talent import /path/to/agency-agents
 ```
 
 维护仓库人才目录时，可使用 `PYTHONPATH=. python scripts/sync_agency_talent.py /path/to/agency-agents --opc-home .opc`。它更新来源仓库中的同名模板、添加新模板并记录来源版本和内容摘要，不保存或改动公司配置；本地自定义模板保留。示例工作流和组织操作手册不会作为应聘人员导入。
@@ -453,16 +457,18 @@ opc talent import /path/to/agency-agents
 <details>
 <summary><strong>项目文件的位置</strong></summary>
 
-OpenOPC 把运行时/配置状态与交付物工作区文件分开存放。
+AutoSwarm 把运行时/配置状态与交付物工作区文件分开存放。
 
 | 路径 | 含义 |
 |---|---|
-| `.opc/config/` | 由 `opc init` 从 `config/` 复制而来的本地配置。 |
+| `.opc/config/` | 由 `autoswarm init` 从 `config/` 复制而来的本地配置。 |
 | `.opc/memory/` | 全局与项目级 Markdown 记忆。 |
 | `.opc/projects/<project>/` | 项目运行时元数据与任务存储。 |
 | `.opc/ui_state.db` | Office UI 的聊天、频道与可视化 Agent 状态。 |
-| `../OpenOPC_workplace/<project>/` | 默认项目工作区。Agent 应把持久的项目文件写到这里。 |
-| `../OpenOPC_workplace/<project>/.opc-comms/` | Company 模式内部通讯信箱、会议与工具结果暂存区。 |
+| `../<repo-name>_workplace/<project>/` | 默认项目工作区。Agent 应把持久的项目文件写到这里。 |
+| `../<repo-name>_workplace/<project>/.opc-comms/` | Company 模式内部通讯信箱、会议与工具结果暂存区。 |
+
+`<repo-name>` 使用现有仓库目录名，例如 `OpenOPC` 或 `AutoSwarm`。
 
 若希望配置与运行时状态放在仓库之外，设置 `OPC_HOME=/path/to/opc-home`。
 </details>
@@ -474,49 +480,49 @@ OpenOPC 把运行时/配置状态与交付物工作区文件分开存放。
 <details>
 <summary><b>展开 CLI 指南 — 常用命令与交互式斜杠命令</b></summary>
 
-OpenOPC 同时提供高层的自然语言命令与更底层的 UI/服务命令。
+AutoSwarm 同时提供高层的自然语言命令与更底层的 UI/服务命令。
 
-概念上 OpenOPC 有两种执行模式：`task` 与 `company`。部分底层 CLI/服务命令仍将 `org` 作为「Company 模式 + 已保存组织架构」的兼容选择器；在 UI 中这表现为 Company 加一个架构选择。
+概念上 AutoSwarm 有两种执行模式：`task` 与 `company`。部分底层 CLI/服务命令仍将 `org` 作为「Company 模式 + 已保存组织架构」的兼容选择器；在 UI 中这表现为 Company 加一个架构选择。
 
 ### 常用命令
 
 ```bash
 # 聊天
-opc chat
-opc chat -p demo --mode task --agent native "Inspect the failing tests"
-opc chat -p demo --mode company --company-profile corporate "Ship this change with review"
+autoswarm chat
+autoswarm chat -p demo --mode task --agent native "Inspect the failing tests"
+autoswarm chat -p demo --mode company --company-profile corporate "Ship this change with review"
 
 # 可脚本化执行
-opc exec -p demo --mode task --agent codex --stream-json "Run the migration check"
-opc exec -p demo --mode company --company-profile corporate "Draft the research report"
+autoswarm exec -p demo --mode task --agent codex --stream-json "Run the migration check"
+autoswarm exec -p demo --mode company --company-profile corporate "Draft the research report"
 
 # 项目生命周期
-opc project list
-opc project create demo
-opc project switch demo
+autoswarm project list
+autoswarm project create demo
+autoswarm project switch demo
 
 # 会话
-opc session list -p demo
-opc session create "New feature" -p demo --mode company
-opc session send <task_id> "Continue with implementation" -p demo
-opc session stop <task_id> -p demo
-opc session continue <task_id> "Proceed after review" -p demo
+autoswarm session list -p demo
+autoswarm session create "New feature" -p demo --mode company
+autoswarm session send <task_id> "Continue with implementation" -p demo
+autoswarm session stop <task_id> -p demo
+autoswarm session continue <task_id> "Proceed after review" -p demo
 
 # 运行时检查
-opc runtime status -p demo
-opc runtime logs <task_id> -p demo
-opc work-item list -p demo
-opc work-item show <work_item_id> -p demo
-opc comms state <task_id> -p demo
+autoswarm runtime status -p demo
+autoswarm runtime logs <task_id> -p demo
+autoswarm work-item list -p demo
+autoswarm work-item show <work_item_id> -p demo
+autoswarm comms state <task_id> -p demo
 
 # 招募
-opc talent import /path/to/agency-agents
-opc talent hire <template_id> <role_id> -p demo
+autoswarm talent import /path/to/agency-agents
+autoswarm talent hire <template_id> <role_id> -p demo
 ```
 
 ### 交互式斜杠命令
 
-运行 `opc chat`，然后使用斜杠命令：
+运行 `autoswarm chat`，然后使用斜杠命令：
 
 ```text
 /status
@@ -540,25 +546,25 @@ opc talent hire <template_id> <role_id> -p demo
 
 | 分组 | 示例 |
 |---|---|
-| `opc project` | `list`、`show`、`create`、`switch`、`rename`、`delete --yes` |
-| `opc session` | `list`、`create`、`show`、`config`、`send`、`rename`、`delete --yes`、`stop`、`continue`、`resume`、`complete` |
-| `opc mode` | `show`、`set task`、`set company --profile corporate`、以及用于已保存组织公司运行的 `set org --org <id>` |
-| `opc kanban` | `view`、`task create`、`task update`、`task move`、`task assign`、`task status`、`task delete --yes` |
-| `opc agent` | `list`、`create`、`create-from-template`、`import-employee`、`detail`、`move`、`delete --yes` |
-| `opc org` | `info`、`export`、`import`、`saved list/save/load/delete`、`role add/update/bulk-add/delete`、`policy update`、`strategy update`、`reset --yes` |
-| `opc talent` | `list`、`employees`、`import`、`hire`、`scan`、`import-selected`、`employee-detail`、`import-agent` |
-| `opc market` | `presets`、`browse`、`preview`、`apply-preset`、`export`、`install`、`list`、`uninstall --yes` |
-| `opc runtime` | `status`、`checkpoints`、`logs`、`run` |
-| `opc permissions` | 查看 Native 默认值，或用 `set read-only|auto|full-access` 设置新会话默认值 |
-| `opc channels` | `status`、`login`、`start`、`stop` |
+| `autoswarm project` | `list`、`show`、`create`、`switch`、`rename`、`delete --yes` |
+| `autoswarm session` | `list`、`create`、`show`、`config`、`send`、`rename`、`delete --yes`、`stop`、`continue`、`resume`、`complete` |
+| `autoswarm mode` | `show`、`set task`、`set company --profile corporate`、以及用于已保存组织公司运行的 `set org --org <id>` |
+| `autoswarm kanban` | `view`、`task create`、`task update`、`task move`、`task assign`、`task status`、`task delete --yes` |
+| `autoswarm agent` | `list`、`create`、`create-from-template`、`import-employee`、`detail`、`move`、`delete --yes` |
+| `autoswarm org` | `info`、`export`、`import`、`saved list/save/load/delete`、`role add/update/bulk-add/delete`、`policy update`、`strategy update`、`reset --yes` |
+| `autoswarm talent` | `list`、`employees`、`import`、`hire`、`scan`、`import-selected`、`employee-detail`、`import-agent` |
+| `autoswarm market` | `presets`、`browse`、`preview`、`apply-preset`、`export`、`install`、`list`、`uninstall --yes` |
+| `autoswarm runtime` | `status`、`checkpoints`、`logs`、`run` |
+| `autoswarm permissions` | 查看 Native 默认值，或用 `set read-only|auto|full-access` 设置新会话默认值 |
+| `autoswarm channels` | `status`、`login`、`start`、`stop` |
 
 大多数服务类命令都支持 `--project/-p` 与 `--json`。
 
 对于已保存的组织架构，部分 CLI/服务命令目前将 `org` 作为兼容选择器使用，尽管概念上的运行时仍是 Company 模式：
 
 ```bash
-opc exec -p demo --mode org --org hku_research_lab "Draft the research report"
-opc session create "Research sprint" -p demo --mode org --org hku_research_lab
+autoswarm exec -p demo --mode org --org hku_research_lab "Draft the research report"
+autoswarm session create "Research sprint" -p demo --mode org --org hku_research_lab
 ```
 </details>
 
@@ -566,9 +572,9 @@ opc session create "Research sprint" -p demo --mode org --org hku_research_lab
 
 ## 配置
 
-在仓库根目录运行一次 `opc init`。它会创建 `.opc/`、从 `config/` 复制模板配置、创建记忆/技能/日志目录，并可选地创建第一个项目。
+在仓库根目录运行一次 `autoswarm init`。它会创建 `.opc/`、从 `config/` 复制模板配置、创建记忆/技能/日志目录，并可选地创建第一个项目。
 
-项目本地的 `.opc/config` 可以选择本地可执行文件、远程端点和凭据来源，因此 OpenOPC 在加载已有项目配置前会请求工作区信任；非交互命令会安全失败。检查配置后可运行 `opc trust add /path/to/workspace`。信任同时绑定安全相关配置源及其规范化生效权限的指纹，因此 system、LLM、Agent 或 channel 配置变化后必须重新授权；旧版仅绑定路径的信任记录也需要更新一次。可用 `opc trust list` 查看、用 `opc trust remove /path/to/workspace` 撤销。由 `opc init` 新建的工作区会在创建时自动信任。
+项目本地的 `.opc/config` 可以选择本地可执行文件、远程端点和凭据来源，因此 AutoSwarm 在加载已有项目配置前会请求工作区信任；非交互命令会安全失败。检查配置后可运行 `autoswarm trust add /path/to/workspace`。信任同时绑定安全相关配置源及其规范化生效权限的指纹，因此 system、LLM、Agent 或 channel 配置变化后必须重新授权；旧版仅绑定路径的信任记录也需要更新一次。可用 `autoswarm trust list` 查看、用 `autoswarm trust remove /path/to/workspace` 撤销。由 `autoswarm init` 新建的工作区会在创建时自动信任。
 
 <a id="jiuwen-integration"></a>
 <details>
@@ -576,12 +582,12 @@ opc session create "Research sprint" -p demo --mode org --org hku_research_lab
 
 Task 和 Company 模式都提供两个选项：
 
-- **JiuwenSwarm-single** 是普通单 Agent，和 Codex、Claude Code 一样，只处理选中的任务或角色；兼容的 OpenOPC Agent ID 为 `jiuwen`。
-- **JiuwenSwarm-team** 是一个不透明的外部 Team。OpenOPC 只与整个 Team 协作，不管理其内部 Agent；兼容的 OpenOPC Agent ID 为 `jiuwenswarm`。
+- **JiuwenSwarm-single** 是普通单 Agent，和 Codex、Claude Code 一样，只处理选中的任务或角色；兼容的 AutoSwarm Agent ID 为 `jiuwen`。
+- **JiuwenSwarm-team** 是一个不透明的外部 Team。AutoSwarm 只与整个 Team 协作，不管理其内部 Agent；兼容的 AutoSwarm Agent ID 为 `jiuwenswarm`。
 
 ### 配置
 
-JiuwenSwarm 读取 `~/.jiuwenswarm/config/.env`，不会自动读取 OpenOPC 的 `.opc/config/llm_config.yaml`。可以复用同一套提供方凭据，但模型名必须支持 JiuwenSwarm 的 Agent 请求。例如火山方舟 Agent Plan 使用：
+JiuwenSwarm 读取 `~/.jiuwenswarm/config/.env`，不会自动读取 AutoSwarm 的 `.opc/config/llm_config.yaml`。可以复用同一套提供方凭据，但模型名必须支持 JiuwenSwarm 的 Agent 请求。例如火山方舟 Agent Plan 使用：
 
 ```dotenv
 API_BASE="https://ark.cn-beijing.volces.com/api/plan/v3"
@@ -590,8 +596,8 @@ MODEL_NAME="ark-code-latest"
 MODEL_PROVIDER="OpenAI"
 ```
 
-JiuwenSwarm 需要 Python 3.11–3.13。请从 OpenOPC 仓库根目录安装验证通过的
-JiuwenSwarm `0.2.4b4` / openJiuwen `0.1.16` 组合以及 OpenOPC Gateway
+JiuwenSwarm 需要 Python 3.11–3.13。请从 AutoSwarm 仓库根目录安装验证通过的
+JiuwenSwarm `0.2.4b4` / openJiuwen `0.1.16` 组合以及 AutoSwarm Gateway
 适配器。
 
 macOS / Linux：
@@ -604,10 +610,10 @@ uv tool install --force --python 3.12 \
 jiuwenswarm-init
 chmod 600 ~/.jiuwenswarm/config/.env
 jiuwenswarm-start app
-opc agents preflight jiuwen
-opc agents preflight jiuwenswarm
-opc exec --mode task --agent jiuwen "完成这个任务"
-opc exec --mode task --agent jiuwenswarm "由一个 Team 完成这个任务"
+autoswarm agents preflight jiuwen
+autoswarm agents preflight jiuwenswarm
+autoswarm exec --mode task --agent jiuwen "完成这个任务"
+autoswarm exec --mode task --agent jiuwenswarm "由一个 Team 完成这个任务"
 ```
 
 Windows PowerShell / 命令提示符（不执行 `chmod`）：
@@ -619,14 +625,14 @@ uv tool install --force --python 3.12 `
   "https://github.com/openJiuwen-ai/jiuwenswarm/archive/ec305b70bf4a82f3603ea1a7b3ddc212386662df.tar.gz"
 jiuwenswarm-init
 jiuwenswarm-start app
-opc agents preflight jiuwen
-opc agents preflight jiuwenswarm
+autoswarm agents preflight jiuwen
+autoswarm agents preflight jiuwenswarm
 ```
 
-`jiuwenswarm-start app` 是前台服务命令，运行 OpenOPC 时应保持该终端开启。
+`jiuwenswarm-start app` 是前台服务命令，运行 AutoSwarm 时应保持该终端开启。
 
 Windows 的 Jiuwen 配置通常位于 `%USERPROFILE%\.jiuwenswarm\config\.env`，
-macOS/Linux 位于 `~/.jiuwenswarm/config/.env`。OpenOPC 会读取 Jiuwen 保存的
+macOS/Linux 位于 `~/.jiuwenswarm/config/.env`。AutoSwarm 会读取 Jiuwen 保存的
 自定义 Gateway 端口，确保两端使用同一地址。只有有意使用远程或自定义地址时，
 才设置 `JIUWENSWARM_GATEWAY_URL` 或修改
 `.opc/config/agent_config.yaml` 中的非默认 `gateway_url`。
@@ -641,8 +647,8 @@ symlink、junction 等 reparse point。Windows 工作区必须位于本地磁盘
 
 可以在 Staffing / Recruitment Review 中选择执行 Agent，也可以进入 **Company → Org → 角色 → Runtime** 设置。
 
-- CTO 选择 **JiuwenSwarm-single**：只有 CTO 使用 JiuwenSwarm-single；CTO 的下级仍是独立的 OpenOPC 角色，继续单独招聘和选择 Agent。
-- CTO 选择 **JiuwenSwarm-team**：CTO 及其所有下级合并为一个 Team。组织图仍显示这些角色，但下级选项会锁定，OpenOPC 不再为该子树招聘或分配员工。CEO 只向 CTO Team 边界派单，并接收一份 Team 结果。
+- CTO 选择 **JiuwenSwarm-single**：只有 CTO 使用 JiuwenSwarm-single；CTO 的下级仍是独立的 AutoSwarm 角色，继续单独招聘和选择 Agent。
+- CTO 选择 **JiuwenSwarm-team**：CTO 及其所有下级合并为一个 Team。组织图仍显示这些角色，但下级选项会锁定，AutoSwarm 不再为该子树招聘或分配员工。CEO 只向 CTO Team 边界派单，并接收一份 Team 结果。
 - CEO 选择 **JiuwenSwarm-team**：CEO 和整个公司子树合并为一个 Team；下级不能再单独选择 Agent，也不会创建嵌套 Team。
 - COO、CTO、CMO 等同级管理者分别选择 Team：它们会成为多个独立 Team，由共同的上级协调和审核。
 - 不选择 Team：保持普通 Company 模式，照常招聘并按角色执行。
@@ -651,14 +657,14 @@ symlink、junction 等 reparse point。Windows 工作区必须位于本地磁盘
 
 ### Team Activity（只读）
 
-当 JiuwenSwarm-team 发出官方 Team 事件时，**Execution Progress** 仍只显示一个组织节点和一个 OpenOPC WorkItem 执行器。第二行会概括实际观察到的内部运行，例如 `3 members · 2 active · Leader synthesizing`。点击该节点可打开 **Team Activity**：
+当 JiuwenSwarm-team 发出官方 Team 事件时，**Execution Progress** 仍只显示一个组织节点和一个 AutoSwarm WorkItem 执行器。第二行会概括实际观察到的内部运行，例如 `3 members · 2 active · Leader synthesizing`。点击该节点可打开 **Team Activity**：
 
 <img src="docs/assets/jiuwen-team-activity.png" alt="只读的 JiuwenSwarm Team Activity 抽屉，显示 leader 和三个实际创建的内部成员" width="100%">
 
-- **概览**显示 leader 和 Jiuwen 实际创建的内部成员；OpenOPC 覆盖角色单独列出，绝不会被推测为成员。
+- **概览**显示 leader 和 Jiuwen 实际创建的内部成员；AutoSwarm 覆盖角色单独列出，绝不会被推测为成员。
 - **任务**是只读的内部 Kanban；**时间线**显示官方成员、任务、消息、重试、完成和错误事件；**产出**区分成员产出与 leader 汇总。
-- `todo_create`、`task_tool`、`covered_role_ids` 和自然语言描述都不会生成 Team 条目。Team 遥测不会创建 OpenOPC Agent、Session、WorkItem 或主 Kanban 卡片，也不会改变工单推进、审核、权限和调度。
-- Task 与 Company 模式使用同一视图。持久化遥测可在刷新或重连后恢复，并按项目、OpenOPC Task 和每次外部 invocation 严格隔离。旧运行没有结构化事件时会明确提示“内部遥测不可用”，不会猜测。
+- `todo_create`、`task_tool`、`covered_role_ids` 和自然语言描述都不会生成 Team 条目。Team 遥测不会创建 AutoSwarm Agent、Session、WorkItem 或主 Kanban 卡片，也不会改变工单推进、审核、权限和调度。
+- Task 与 Company 模式使用同一视图。持久化遥测可在刷新或重连后恢复，并按项目、AutoSwarm Task 和每次外部 invocation 严格隔离。旧运行没有结构化事件时会明确提示“内部遥测不可用”，不会猜测。
 
 该视图只观察 Jiuwen 现有的 `/tui` 流，不修改 Jiuwen harness，也不会建立第二条控制连接。
 
@@ -679,7 +685,7 @@ symlink、junction 等 reparse point。Windows 工作区必须位于本地磁盘
 
 ### LLM 密钥
 
-运行 `opc init` 后，编辑仓库本地 OPC home 中的 `.opc/config/llm_config.yaml`。如果设置了 `OPC_HOME`，则改为编辑 `$OPC_HOME/config/llm_config.yaml`。
+运行 `autoswarm init` 后，编辑仓库本地 AutoSwarm home 中的 `.opc/config/llm_config.yaml`。如果设置了 `OPC_HOME`，则改为编辑 `$OPC_HOME/config/llm_config.yaml`。
 
 模板中的密钥留空。直接把 key 写入文件：
 
@@ -696,13 +702,13 @@ llm:
                             # 不适合你的模型时才取消注释并设置。
 ```
 
-然后用 `opc status` 验证。
+然后用 `autoswarm status` 验证。
 
 如果不想把密钥存在文件里，可以将 `api_key` 留空，并把 `api_key_env` 设置为持有密钥的环境变量名（例如 `api_key_env: "OPENROUTER_API_KEY"`）。
 
 ### 审批与 Agent 权限
 
-OpenOPC Native 提供三档权限。在 `.opc/config/system_config.yaml` 中设置新会话复制的默认值：
+AutoSwarm Native 提供三档权限。在 `.opc/config/system_config.yaml` 中设置新会话复制的默认值：
 
 ```yaml
 autonomy:
@@ -718,16 +724,16 @@ autonomy:
 UI 的 Mode/Agent 旁有 **Permissions** 选择器，运行中的会话也能切换；从下一个工具调用开始生效，已经展示的待审批请求不会自动批准或重放。CLI 使用同一套设置：
 
 ```bash
-opc permissions
-opc permissions set auto
-opc chat --approval-level read-only
-opc exec --approval-level full-access "执行任务"
-opc session config <task-id> --approval-level auto
+autoswarm permissions
+autoswarm permissions set auto
+autoswarm chat --approval-level read-only
+autoswarm exec --approval-level full-access "执行任务"
+autoswarm session config <task-id> --approval-level auto
 ```
 
-交互式 CLI 支持 `/permissions` 和 `/permissions read-only|auto|full-access`；`opc status` 与 `/status` 会显示实际等级和沙箱。新会话会固定创建时的默认等级。Native subagent 与 Company Mode 中的所有 Native 角色继承根会话等级，不同项目、不同会话之间互不串用。
+交互式 CLI 支持 `/permissions` 和 `/permissions read-only|auto|full-access`；`autoswarm status` 与 `/status` 会显示实际等级和沙箱。新会话会固定创建时的默认等级。Native subagent 与 Company Mode 中的所有 Native 角色继承根会话等级，不同项目、不同会话之间互不串用。
 
-通过 UI 或 `opc permissions set` 修改默认值时，已信任工作区的指纹会原子更新。如果手工编辑 `.opc/config/*.yaml`，仍需在检查改动后执行 `opc trust add <workspace>`。
+通过 UI 或 `autoswarm permissions set` 修改默认值时，已信任工作区的指纹会原子更新。如果手工编辑 `.opc/config/*.yaml`，仍需在检查改动后执行 `autoswarm trust add <workspace>`。
 
 需要授权时，审批卡仍支持 once/session/project/global 四种作用域；任何授权都不能绕过显式 deny。UI 中的 **Default** 只修改未来新会话。
 
@@ -738,7 +744,7 @@ opc session config <task-id> --approval-level auto
 Task 模式可以显式选择执行 Agent：
 
 ```bash
-opc chat -p demo --mode task --agent codex "Implement the change"
+autoswarm chat -p demo --mode task --agent codex "Implement the change"
 ```
 
 可用值有 `native`、`codex`、`claude_code`、`cursor`、`opencode`、`jiuwen`（JiuwenSwarm-single）与 `jiuwenswarm`（JiuwenSwarm-team）。参见 [JiuwenSwarm 配置与角色规则](#jiuwen-integration)。
@@ -747,8 +753,8 @@ opc chat -p demo --mode task --agent codex "Implement the change"
 
 ```bash
 pip install -e .[channels-feishu]
-opc init
-opc channels login feishu
+autoswarm init
+autoswarm channels login feishu
 ```
 
 编辑 `.opc/config/channel_config.yaml`：
@@ -769,10 +775,10 @@ channels:
 然后：
 
 ```bash
-opc channels status
-opc channels start -p demo
+autoswarm channels status
+autoswarm channels start -p demo
 # 或运行常驻引擎 + 频道运行时：
-opc run -p demo
+autoswarm run -p demo
 ```
 
 飞书使用 `lark-oapi` WebSocket 客户端。`app_id` 与 `app_secret` 为必填；`encrypt_key` 与 `verification_token` 为可选，除非你的租户/应用配置要求。请保持 `allow_from` 显式配置；空列表会拒绝所有入站消息。
@@ -795,11 +801,11 @@ opc run -p demo
 常用命令：
 
 ```bash
-opc channels login slack
-opc channels status
-opc channels start -p demo
-opc channels stop
-opc run -p demo
+autoswarm channels login slack
+autoswarm channels status
+autoswarm channels start -p demo
+autoswarm channels stop
+autoswarm run -p demo
 ```
 
 参见 [`docs/channels.md`](docs/channels.md) 与 [`docs/channel-bridges.md`](docs/channel-bridges.md)。
@@ -836,10 +842,10 @@ MCP 服务器可添加到 `system_config.yaml` 的 `mcp_servers` 下。本地服
 <summary><strong>Office UI 无法打开或界面陈旧</strong></summary>
 
 ```bash
-opc ui --rebuild
+autoswarm ui --rebuild
 ```
 
-如果浏览器仍显示陈旧的 UI 状态，强制刷新页面。如果之前的进程在运行中途崩溃，先重启 `opc ui` 以释放内存中的锁。
+如果浏览器仍显示陈旧的 UI 状态，强制刷新页面。如果之前的进程在运行中途崩溃，先重启 `autoswarm ui` 以释放内存中的锁。
 </details>
 
 <details>
@@ -859,10 +865,10 @@ python scripts/reset_stuck_task.py --all --apply
 运行：
 
 ```bash
-opc status
+autoswarm status
 ```
 
-检查 `.opc/config/agent_config.yaml` 中的命令名，例如 `codex`、`claude`、`cursor-agent`、`opencode` 与 `jiuwenswarm`。Gateway 模式还需确认 `jiuwenswarm-start` 服务已启动，并运行 `opc agents preflight jiuwen`。
+检查 `.opc/config/agent_config.yaml` 中的命令名，例如 `codex`、`claude`、`cursor-agent`、`opencode` 与 `jiuwenswarm`。Gateway 模式还需确认 `jiuwenswarm-start` 服务已启动，并运行 `autoswarm agents preflight jiuwen`。
 </details>
 
 <details>
@@ -874,34 +880,34 @@ opc status
 - 该提供方为 `enabled: true`。
 - 必填凭据已填写。
 - `allow_from` 包含你期望的发送者 ID。
-- `opc channels status` 显示该提供方已配置且可用。
+- `autoswarm channels status` 显示该提供方已配置且可用。
 </details>
 
 </details>
 
 ## 生态与分享
 
-OpenOPC 构建的一切都归你所有，可以保留、复用与分享 — 组织、员工、人才模板、技能与频道都只是文件。你可以导入一个流行的人才库、跨项目复用一个团队，或者把整个公司打包成可分享的 `.opcpkg`。
+AutoSwarm 构建的一切都归你所有，可以保留、复用与分享 — 组织、员工、人才模板、技能与频道都只是文件。你可以导入一个流行的人才库、跨项目复用一个团队，或者把整个公司打包成可分享的 `.opcpkg`。
 
 ```bash
 # 从人才库（例如 agency-agents）招募到某个角色
-opc talent import /path/to/agency-agents
-opc talent hire <template_id> <role_id> -p demo
+autoswarm talent import /path/to/agency-agents
+autoswarm talent hire <template_id> <role_id> -p demo
 
 # 复用或分享整个组织
-opc org export --json > my-org.yaml
-opc market export --id hku_lab --name "HKU Lab" --output-dir packages
-opc market install packages/hku_lab.opcpkg
+autoswarm org export --json > my-org.yaml
+autoswarm market export --id hku_lab --name "HKU Lab" --output-dir packages
+autoswarm market install packages/hku_lab.opcpkg
 ```
 
 ## 路线图
 
-OpenOPC 正在快速迭代。以下领域反映当前的开发重点 — 每一项都源自早期使用中发现的真实缺口。
+AutoSwarm 正在快速迭代。以下领域反映当前的开发重点 — 每一项都源自早期使用中发现的真实缺口。
 
 | 领域 | 计划方向 |
 |---|---|
 | **角色级技能** | 角色配置已支持 `skill_refs`，Org UI 目前也展示技能元数据。下一步是让用户直接在 Org 页面选择哪些技能挂载到哪些角色 — 汇入更广泛的自演化技能生态。 |
-| **秘书设置** | 秘书将成长为更强的配置与记忆管家：负责 OPC 系统记忆、分析与对比项目，并为 OpenOPC YAML 配置提供引导式设置。 |
+| **秘书设置** | 秘书将成长为更强的配置与记忆管家：负责 AutoSwarm 系统记忆、分析与对比项目，并为 AutoSwarm YAML 配置提供引导式设置。 |
 | **Company 模式频道** | 外部频道将从简单的聊天入口演进为更丰富的 Company 模式工作流 — 支持角色感知的通知、结构化审批与跨平台协作。 |
 | **CLI 对齐** | CLI 目前可用，但 Office UI 仍是更完整的界面。后续工作聚焦于从终端进行组织编辑、Company 模式检查、故障恢复与长时运行时控制。 |
 | **TUI** | CLI 对齐成熟后将考虑完整的终端 UI。在此期间 Office UI 仍是主要界面。 |
@@ -910,7 +916,7 @@ OpenOPC 正在快速迭代。以下领域反映当前的开发重点 — 每一�
 
 ## 致谢
 
-OpenOPC 的 Agent 设计、技能结构与人才模板生态受益于多个开源项目，在此致谢：
+AutoSwarm 的 Agent 设计、技能结构与人才模板生态受益于多个开源项目，在此致谢：
 
 - [openai/codex](https://github.com/openai/codex/) 启发了实用的编码 Agent 工作流与执行模式。
 - [BloopAI/vibe-kanban](https://github.com/BloopAI/vibe-kanban) 启发了以看板为中心的 Agent 工作管理与任务可见性。
@@ -921,7 +927,7 @@ OpenOPC 的 Agent 设计、技能结构与人才模板生态受益于多个开�
 ---
 
 <p align="center">
-  <em> ❤️ 感谢访问 ✨ OpenOPC！</em><br><br>
+  <em> ❤️ 感谢访问 ✨ AutoSwarm！</em><br><br>
   <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.OpenOPC&style=for-the-badge&color=00d4ff"
   alt="Views">
 </p>

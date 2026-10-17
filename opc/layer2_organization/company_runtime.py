@@ -706,7 +706,7 @@ class CompanyRuntime:
         if not seats:
             seats = [dict(item) for item in list(runtime_topology.get("seats", []) or []) if isinstance(item, dict)]
         # The persisted org topology retains covered seats for architecture
-        # inspection.  They are not OPC workers: the canonical boundary seat
+        # inspection.  They are not AutoSwarm workers: the canonical boundary seat
         # is the sole runtime identity for an opaque external Team.
         seats = [
             seat

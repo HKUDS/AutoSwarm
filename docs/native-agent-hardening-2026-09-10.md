@@ -1,6 +1,6 @@
-# OpenOPC Native Agent 可靠性优化实施记录
+# AutoSwarm Native Agent 可靠性优化实施记录
 
-2026-09-10。基于 OpenOPC `14ab6d7a` 工作区实施，只修改 OpenOPC。Talen 两份对照克隆均保持干净。保留用户已有 company 配置与其他未提交文件；没有进行 Git 提交、推送或部署。
+2026-09-10。基于 AutoSwarm `14ab6d7a` 工作区实施，只修改 AutoSwarm。Talen 两份对照克隆均保持干净。保留用户已有 company 配置与其他未提交文件；没有进行 Git 提交、推送或部署。
 
 原始依据：[Talen 对比审计](native-agent-talen-audit-2026-09-10.md)。本次落实其中第 1、2、4、5 点与七项 P1 改进，不整体覆盖 Talen 的 runtime。
 

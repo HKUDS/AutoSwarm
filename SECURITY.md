@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-OpenOPC does not yet publish versioned releases. Security fixes are made on the
+AutoSwarm does not yet publish versioned releases. Security fixes are made on the
 latest `main` branch; older commits are not supported.
 
 ## Reporting a vulnerability

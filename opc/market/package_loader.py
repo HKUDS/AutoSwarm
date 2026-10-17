@@ -1,4 +1,4 @@
-"""Load, install, and uninstall OPC Market packages."""
+"""Load, install, and uninstall AutoSwarm Market packages."""
 
 from __future__ import annotations
 

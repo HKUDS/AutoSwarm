@@ -21,7 +21,7 @@ def create_todo_tools() -> list[ToolDefinition]:
         description=(
             "Create or update a structured TODO list for tracking multi-step tasks. "
             "Pass either a JSON string or a real array of items. "
-            "Preferred OpenOPC task-ledger fields are 'content', 'active_form', and "
+            "Preferred AutoSwarm task-ledger fields are 'content', 'active_form', and "
             "'status' ('pending' | 'in_progress' | 'completed'). "
             "Fields 'id'/'title'/'status' are also accepted. "
             "Keep only ONE item 'in_progress' at a time and add new items dynamically. "

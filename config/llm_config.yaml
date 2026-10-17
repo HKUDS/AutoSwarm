@@ -1,4 +1,4 @@
-# LLM config template: no API keys committed. Set api_key or api_key_env after opc init.
+# LLM config template: no API keys committed. Set api_key or api_key_env after autoswarm init.
 llm:
   default_model: "openai/gpt-5.4"
   api_base: "https://openrouter.ai/api/v1"

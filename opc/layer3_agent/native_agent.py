@@ -1,4 +1,4 @@
-"""OPC Native Agent — the primary agent implementation."""
+"""AutoSwarm Native Agent — the primary agent implementation."""
 
 from __future__ import annotations
 
@@ -48,13 +48,13 @@ from opc.layer3_agent.prompt_harness.sections import (
 # ---------------------------------------------------------------------------
 
 _CORE_HEADER = (
-    "You are {role_name}, an AI agent in the OPC (One-Person Company) system.\n"
+    "You are {role_name}, an AI agent in the AutoSwarm system.\n"
     "Role: {responsibility}\n\n"
     "You accomplish tasks by using the tools available to your role."
 )
 
 _TASK_MODE_CORE_HEADER = (
-    "You are {role_name}, an OpenOPC task execution agent.\n"
+    "You are {role_name}, an AutoSwarm task execution agent.\n"
     "Role: {responsibility}\n\n"
     "You accomplish standalone user tasks by using the tools available to your role."
 )
@@ -273,7 +273,7 @@ class PromptProfileManager:
 
 
 class NativeAgent:
-    """OPC Native Agent — wraps NativeRuntimeV2 with memory, skills, and preferences."""
+    """AutoSwarm Native Agent — wraps NativeRuntimeV2 with memory, skills, and preferences."""
 
     def __init__(
         self,

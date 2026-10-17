@@ -1,8 +1,8 @@
 """Jiuwen/OpenJiuwen adapters.
 
-``JiuwenAdapter`` behaves like Codex/Claude Code and owns one OpenOPC Task.
-``JiuwenSwarmAdapter`` uses Jiuwen Team mode but remains one opaque OpenOPC
-execution unit; internal teammates never leak into OpenOPC's org or Kanban.
+``JiuwenAdapter`` behaves like Codex/Claude Code and owns one AutoSwarm Task.
+``JiuwenSwarmAdapter`` uses Jiuwen Team mode but remains one opaque AutoSwarm
+execution unit; internal teammates never leak into AutoSwarm's org or Kanban.
 """
 
 from __future__ import annotations
@@ -70,7 +70,7 @@ class JiuwenAdapter(ExternalAgentAdapter):
         super().__init__(config=config)
         self._process: asyncio.subprocess.Process | None = None
         # Jiuwen's Gateway emits ``chat.delta`` one token at a time.  Keep the
-        # accumulator scoped by provider session/turn so OpenOPC can surface
+        # accumulator scoped by provider session/turn so AutoSwarm can surface
         # readable snapshots instead of either flooding the UI or displaying
         # isolated tokens such as "leader".
         self._progress_text: dict[str, str] = {}
@@ -138,7 +138,7 @@ class JiuwenAdapter(ExternalAgentAdapter):
 
     def agent_isolation_home_slug(self) -> str:
         # Jiuwen authentication and runtime configuration stay in Jiuwen's own
-        # process. This OpenOPC-owned directory only hosts the opc-collab shim;
+        # process. This AutoSwarm-owned directory only hosts the opc-collab shim;
         # the broker prepends its bin directory to PATH for company runs.
         return self.agent_type
 
@@ -293,7 +293,7 @@ class JiuwenAdapter(ExternalAgentAdapter):
             ) + "\n"
             delivered = await self.send_process_input(proc, payload)
             if not delivered:
-                raise RuntimeError("failed to deliver the OpenOPC prompt to Jiuwen Gateway bridge")
+                raise RuntimeError("failed to deliver the AutoSwarm prompt to Jiuwen Gateway bridge")
         else:
             writer = getattr(proc, "stdin", None)
             if writer is None:
@@ -535,7 +535,7 @@ class JiuwenAdapter(ExternalAgentAdapter):
             for key in keys:
                 self._progress_text_last_emitted[key] = self._progress_text.get(key, "")
                 self._progress_text_last_emit_at[key] = now
-            # ``thinking_snapshot`` is an OpenOPC transport hint: the broker
+            # ``thinking_snapshot`` is an AutoSwarm transport hint: the broker
             # must not apply its generic line throttle to an already-coalesced
             # snapshot.  The UI maps it to the ordinary Thinking card.
             update = f"[External:{self.agent_type}:thinking_snapshot] {content}"
@@ -689,7 +689,7 @@ class JiuwenAdapter(ExternalAgentAdapter):
                 continue
             # Older Jiuwen releases don't always send a usage boundary before
             # starting a tool.  Treat the call as the end of that narration so
-            # only the last assistant turn becomes the final OPC reply.
+            # only the last assistant turn becomes the final AutoSwarm reply.
             if event_type == "chat.tool_call":
                 complete_delta_turn()
 
@@ -917,7 +917,7 @@ class JiuwenAdapter(ExternalAgentAdapter):
 
 
 class JiuwenSwarmAdapter(JiuwenAdapter):
-    """Opaque Jiuwen Team adapter (one OpenOPC execution unit)."""
+    """Opaque Jiuwen Team adapter (one AutoSwarm execution unit)."""
 
     agent_type = "jiuwenswarm"
     default_provider_mode = "team"
@@ -1432,7 +1432,7 @@ class JiuwenSwarmAdapter(JiuwenAdapter):
         envelope = self._team_result_envelope(output)
         if not envelope:
             return (
-                "JiuwenSwarm-team completed without the required OpenOPC output envelope "
+                "JiuwenSwarm-team completed without the required AutoSwarm output envelope "
                 "(attempt_id, deliverables, handoff, open_questions, risks, status, summary, "
                 "verification, work_item_id)"
             )

@@ -8523,7 +8523,7 @@ class CompanyWorkItemExecutor:
         """Return the provider-owned handoff already present on an opaque team.
 
         A JiuwenSwarm Team finishes its single provider run with a structured
-        OpenOPC envelope. That envelope is already the worker handoff report,
+        AutoSwarm envelope. That envelope is already the worker handoff report,
         so resuming the external team in a second hidden ``report`` WorkItem
         would violate the opaque-boundary contract. The manager still receives
         an independent review turn.

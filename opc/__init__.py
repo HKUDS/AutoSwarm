@@ -1,4 +1,7 @@
-"""OPC - One-Person Company: Autonomous AI Agent collaboration system."""
+"""AutoSwarm: Automating Agent Swarms — Self-Built, Self-Run, Self-Grown.
+
+The compatible ``opc`` Python package.
+"""
 
 from __future__ import annotations
 

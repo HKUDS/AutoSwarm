@@ -1,4 +1,4 @@
-"""Structured logging for OPC system."""
+"""Structured logging for AutoSwarm system."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from loguru import logger
 
 
 def setup_logging(log_dir: Path | None = None, level: str = "INFO") -> None:
-    """Configure loguru for OPC with file + console output."""
+    """Configure loguru for AutoSwarm with file + console output."""
     logger.remove()
 
     logger.add(

@@ -1,4 +1,4 @@
-"""Canonical project-ID contract shared by OpenOPC entry points."""
+"""Canonical project-ID contract shared by AutoSwarm entry points."""
 
 from __future__ import annotations
 

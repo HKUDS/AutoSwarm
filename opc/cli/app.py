@@ -1,4 +1,4 @@
-"""OPC CLI — the primary user interface for the One-Person Company system."""
+"""AutoSwarm CLI — the primary user interface for automated agent swarms."""
 
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ from rich.table import Table
 from rich.theme import Theme
 
 from opc import __version__
+from opc.core.branding import PRODUCT_NAME, PRODUCT_TITLE
 from opc.core.config import OPCConfig, get_opc_home, get_project_config_workspace
 from opc.core.execution_agents import EXECUTION_AGENTS, execution_agent_label
 from opc.core.interaction_protocol import owner_interaction_actor_identity
@@ -62,8 +63,8 @@ custom_theme = Theme({
 })
 console = Console(theme=custom_theme)
 app = typer.Typer(
-    name="opc",
-    help="OPC — One-Person Company: Autonomous AI Agent system with natural language interface.",
+    name="autoswarm",
+    help=PRODUCT_TITLE,
     no_args_is_help=True,
 )
 
@@ -95,9 +96,11 @@ def _talent_repo_path(value: str) -> Path | _CliRepoPath:
 
 def _current_command_label(argv: list[str] | None = None) -> str:
     args = list(argv or sys.argv)
+    executable = Path(args[0]).stem if args else "autoswarm"
+    command = executable if executable in {"autoswarm", "opc"} else "autoswarm"
     if len(args) > 1 and not args[1].startswith("-"):
-        return f"opc {args[1]}"
-    return "opc"
+        return f"{command} {args[1]}"
+    return command
 
 
 def _get_config() -> OPCConfig:
@@ -126,7 +129,7 @@ def _render_native_permissions(
     )
     effective = normalize_native_approval_level(current, default=default)
     sandbox = native_sandbox_profile(effective)
-    table = Table(title="OpenOPC Native Permissions", show_header=False)
+    table = Table(title="AutoSwarm Native Permissions", show_header=False)
     table.add_column("Field", style="cyan", no_wrap=True)
     table.add_column("Value")
     table.add_row("System default", default)
@@ -134,7 +137,7 @@ def _render_native_permissions(
     table.add_row("Sandbox", str(sandbox["mode"]))
     table.add_row("Network", "allowed" if sandbox["allow_network"] else "ask first")
     console.print(table)
-    console.print("[dim]Only OpenOPC Native is controlled; external agent harness permissions remain independent.[/dim]")
+    console.print("[dim]Only AutoSwarm Native is controlled; external agent harness permissions remain independent.[/dim]")
 
 
 def _load_config_with_workspace_trust(config_dir: Path) -> OPCConfig:
@@ -149,12 +152,12 @@ def _load_config_with_workspace_trust(config_dir: Path) -> OPCConfig:
             console.print(f"[error]{escape(str(exc))}[/error]")
             console.print(
                 "[info]Non-interactive commands fail closed. Review the project config, then run "
-                f"[bold]opc trust add {escape(str(exc.workspace))}[/bold].[/info]"
+                f"[bold]autoswarm trust add {escape(str(exc.workspace))}[/bold].[/info]"
             )
             raise typer.Exit(code=2) from exc
 
         console.print(Panel(
-            "This project contains OpenOPC configuration that can start local "
+            "This project contains AutoSwarm configuration that can start local "
             "MCP or external-agent processes, connect to remote MCP/LLM endpoints, "
             "and use configured credentials.\n\n"
             f"Workspace: {exc.workspace}\n"
@@ -164,7 +167,7 @@ def _load_config_with_workspace_trust(config_dir: Path) -> OPCConfig:
             title="Workspace Trust Required",
             border_style="yellow",
         ))
-        if not typer.confirm("Trust this workspace and load its OpenOPC configuration?", default=False):
+        if not typer.confirm("Trust this workspace and load its AutoSwarm configuration?", default=False):
             console.print("[warning]Workspace was not trusted; configuration was not loaded.[/warning]")
             raise typer.Exit(code=2) from exc
         # Parsing is allowed only after the explicit decision.  Trust is bound
@@ -214,7 +217,7 @@ def _pid_is_running(pid: int) -> bool:
 
 
 def _create_default_skills(opc_home: Path) -> None:
-    """Copy bundled skills to the OPC home skills directory."""
+    """Copy bundled skills to the AutoSwarm home skills directory."""
     import shutil
 
     repo_skills = Path(__file__).parent.parent.parent / "skills" / "core"
@@ -624,7 +627,7 @@ def _escalation_callback():
 # ---------------------------------------------------------------------------
 
 permissions_app = typer.Typer(
-    help="Inspect or set OpenOPC Native permissions.",
+    help="Inspect or set AutoSwarm Native permissions.",
     invoke_without_command=True,
 )
 app.add_typer(permissions_app, name="permissions")
@@ -632,7 +635,7 @@ app.add_typer(permissions_app, name="permissions")
 
 @permissions_app.callback()
 def permissions_status(ctx: typer.Context) -> None:
-    """Show the system default OpenOPC Native permission level."""
+    """Show the system default AutoSwarm Native permission level."""
     if ctx.invoked_subcommand is None:
         _render_native_permissions(_get_config())
 
@@ -659,7 +662,7 @@ def permissions_set(
             f"[error]Unable to save Native permissions: {escape(str(exc))}[/error]"
         )
         raise typer.Exit(code=2) from exc
-    console.print(f"[success]OpenOPC Native default set to {normalized}.[/success]")
+    console.print(f"[success]AutoSwarm Native default set to {normalized}.[/success]")
     console.print("[dim]Existing sessions keep their own level.[/dim]")
 
 @app.command()
@@ -670,11 +673,11 @@ def chat(
     mode: str = typer.Option("task", "--mode", help="Execution mode: task or company"),
     agent: Optional[str] = typer.Option(None, "--agent", help="Preferred agent ID; jiuwen = JiuwenSwarm-single, jiuwenswarm = JiuwenSwarm-team"),
     company_profile: str = typer.Option("corporate", "--company-profile", help="Company profile for company mode"),
-    approval_level: Optional[str] = typer.Option(None, "--approval-level", help="OpenOPC Native permissions: read-only, auto, or full-access"),
+    approval_level: Optional[str] = typer.Option(None, "--approval-level", help="AutoSwarm Native permissions: read-only, auto, or full-access"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed logs"),
     no_markdown: bool = typer.Option(False, "--no-markdown", help="Plain text output"),
 ):
-    """Chat with the OPC system — interactive or single message mode."""
+    """Chat with the AutoSwarm system — interactive or single message mode."""
     config = _get_config()
     if model:
         config.llm.default_model = model
@@ -726,9 +729,9 @@ def exec_command(
     json_output: bool = typer.Option(False, "--json", help="Print final JSON payload"),
     stream_json: bool = typer.Option(False, "--stream-json", help="Print newline-delimited JSON runtime events"),
     no_markdown: bool = typer.Option(False, "--no-markdown", help="Plain text output"),
-    approval_level: Optional[str] = typer.Option(None, "--approval-level", help="OpenOPC Native permissions: read-only, auto, or full-access"),
+    approval_level: Optional[str] = typer.Option(None, "--approval-level", help="AutoSwarm Native permissions: read-only, auto, or full-access"),
 ):
-    """Run one non-interactive OPC task for scripts and CI."""
+    """Run one non-interactive AutoSwarm task for scripts and CI."""
     if json_output and stream_json:
         console.print("[error]Use either --json or --stream-json, not both.[/error]")
         raise typer.Exit(code=2)
@@ -1038,7 +1041,7 @@ def _truncate_status_cell(value: str, *, limit: int) -> str:
 @app.command()
 def init(
     project: Optional[str] = typer.Argument(None, help="Project ID to initialize"),
-    yes: bool = typer.Option(False, "--yes", "-y", help="Continue when OPC is already initialized; existing config is preserved."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Continue when AutoSwarm is already initialized; existing config is preserved."),
     external_agent_preflight: bool = typer.Option(
         True,
         "--external-agent-preflight/--no-external-agent-preflight",
@@ -1047,10 +1050,10 @@ def init(
     trust_external_agents: bool = typer.Option(
         True,
         "--trust-external-agents/--no-trust-external-agents",
-        help="Persist OpenOPC approval rules for configured external-agent launches.",
+        help="Persist AutoSwarm approval rules for configured external-agent launches.",
     ),
 ):
-    """Initialize OPC configuration and workspace."""
+    """Initialize AutoSwarm configuration and workspace."""
     from opc.core.config import get_opc_home, get_project_workplace
 
     opc_home = get_opc_home()
@@ -1062,7 +1065,7 @@ def init(
 
     if already_initialized:
         if not yes and not typer.confirm(
-            f"OPC is already initialized at {opc_home}. Continue without overwriting existing config?",
+            f"AutoSwarm is already initialized at {opc_home}. Continue without overwriting existing config?",
             default=False,
         ):
             console.print("[warning]Init cancelled. Existing config was left unchanged.[/warning]")
@@ -1347,7 +1350,7 @@ def init(
             workspace_path=get_project_workplace(project or "default"),
         )
 
-    console.print(f"[success]OPC initialized at {opc_home}[/success]")
+    console.print(f"[success]AutoSwarm initialized at {opc_home}[/success]")
     console.print(f"  Config: {opc_home / 'config'}")
     console.print(f"  Memory: {opc_home / 'memory'}")
     console.print(f"  Skills: {opc_home / 'skills'}")
@@ -1368,13 +1371,13 @@ def status(
         help="Run short --version/--help probes to detect unsupported CLI flags.",
     ),
 ):
-    """Show OPC system status."""
+    """Show AutoSwarm system status."""
     from opc.core.config import get_opc_home
 
     config = _get_config()
     opc_home = get_opc_home()
 
-    console.print(Panel(f"[bold]OPC v{__version__}[/bold]", border_style="blue"))
+    console.print(Panel(f"[bold]{PRODUCT_NAME} v{__version__}[/bold]", border_style="blue"))
     console.print(f"  Home: {opc_home}")
     console.print(f"  Model: {config.llm.default_model}")
     console.print(f"  Log level: {config.system.log_level}")
@@ -1489,7 +1492,7 @@ def projects():
 
     if not projects_dir.exists() or not any(projects_dir.iterdir()):
         console.print("[warning]No projects found.[/warning]")
-        console.print("Create one with: opc init <project-name>")
+        console.print("Create one with: autoswarm init <project-name>")
         return
 
     for p in sorted(projects_dir.iterdir()):
@@ -1891,7 +1894,7 @@ async def _exec_message(
         raise typer.Exit(code=2) from exc
 
 
-trust_app = typer.Typer(help="Manage trust for project-local OpenOPC configuration")
+trust_app = typer.Typer(help="Manage trust for project-local AutoSwarm configuration")
 app.add_typer(trust_app, name="trust")
 
 
@@ -1899,7 +1902,7 @@ app.add_typer(trust_app, name="trust")
 def trust_add(
     path: Path = typer.Argument(Path("."), help="Workspace, .opc, or .opc/config path"),
 ) -> None:
-    """Trust a workspace after reviewing its project-local OpenOPC config."""
+    """Trust a workspace after reviewing its project-local AutoSwarm config."""
 
     from opc.core.workspace_trust import WorkspaceTrustStore, workspace_from_user_path
 
@@ -1956,7 +1959,7 @@ def trust_list() -> None:
         console.print(f"  - {workspace}")
 
 
-project_app = typer.Typer(help="Manage OPC projects")
+project_app = typer.Typer(help="Manage AutoSwarm projects")
 app.add_typer(project_app, name="project")
 
 
@@ -2024,7 +2027,7 @@ def project_delete(
     asyncio.run(_run_service_command(project, lambda svc: svc.project.delete(project_id), json_output=json_output))
 
 
-session_app = typer.Typer(help="Manage OPC sessions")
+session_app = typer.Typer(help="Manage AutoSwarm sessions")
 app.add_typer(session_app, name="session")
 
 
@@ -2045,7 +2048,7 @@ def session_create(
     company_profile: str = typer.Option("corporate", "--company-profile", help="corporate or custom"),
     agent: Optional[str] = typer.Option(None, "--agent", help="Preferred task-mode agent"),
     org_id: Optional[str] = typer.Option(None, "--org", "--org-id", help="Saved org id"),
-    approval_level: Optional[str] = typer.Option(None, "--approval-level", help="OpenOPC Native permissions"),
+    approval_level: Optional[str] = typer.Option(None, "--approval-level", help="AutoSwarm Native permissions"),
     json_output: bool = typer.Option(False, "--json", help="Print JSON"),
 ):
     native_level = _parse_native_approval_level(approval_level) if approval_level is not None else None
@@ -2070,7 +2073,7 @@ def session_config(
     company_profile: Optional[str] = typer.Option(None, "--company-profile", help="corporate or custom"),
     agent: Optional[str] = typer.Option(None, "--agent", help="Preferred task-mode agent"),
     org_id: Optional[str] = typer.Option(None, "--org", "--org-id", help="Saved org id"),
-    approval_level: Optional[str] = typer.Option(None, "--approval-level", help="OpenOPC Native permissions"),
+    approval_level: Optional[str] = typer.Option(None, "--approval-level", help="AutoSwarm Native permissions"),
     json_output: bool = typer.Option(False, "--json", help="Print JSON"),
 ):
     native_level = _parse_native_approval_level(approval_level) if approval_level is not None else None
@@ -2723,7 +2726,7 @@ def talent_employee_import_agent(employee_id: str = typer.Argument(...), project
 # ---------------------------------------------------------------------------
 # Market subcommands
 # ---------------------------------------------------------------------------
-market_app = typer.Typer(help="OPC Market — export, import, and manage architecture packages")
+market_app = typer.Typer(help="AutoSwarm Market — export, import, and manage architecture packages")
 app.add_typer(market_app, name="market")
 
 
@@ -2820,7 +2823,7 @@ def market_list(
     project: Optional[str] = typer.Option(None, "--project", "-p", help="Project context"),
     json_output: bool = typer.Option(False, "--json", help="Print JSON"),
 ):
-    """List installed OPC Market packages."""
+    """List installed AutoSwarm Market packages."""
     asyncio.run(_run_service_command(project, lambda svc: svc.market.list_installed(), json_output=json_output))
 
 
@@ -2831,7 +2834,7 @@ def market_uninstall(
     project: Optional[str] = typer.Option(None, "--project", "-p", help="Project context"),
     json_output: bool = typer.Option(False, "--json", help="Print JSON"),
 ):
-    """Uninstall an installed OPC Market package."""
+    """Uninstall an installed AutoSwarm Market package."""
     if not yes:
         console.print("[warning]Destructive command requires --yes.[/warning]")
         raise typer.Exit(code=1)
@@ -2932,10 +2935,10 @@ def channels_login(channel: Optional[str] = typer.Argument(None, help="Optional 
         console.print(
             f"[info]Configure `{channel}` in `.opc/config/channel_config.yaml`. "
             f"{escape(spec.login_summary)} Install extras with `{escape(f'pip install -e .[{spec.extra_name}]')}`. "
-            f"Required config: {escape(requirements)}.{bridge} Then run `opc channels start`.[/info]"
+            f"Required config: {escape(requirements)}.{bridge} Then run `autoswarm channels start`.[/info]"
         )
         return
-    console.print("[info]Set channel credentials in .opc/config/channel_config.yaml and start the runtime with `opc channels start` or `opc run`.[/info]")
+    console.print("[info]Set channel credentials in .opc/config/channel_config.yaml and start the runtime with `autoswarm channels start` or `autoswarm run`.[/info]")
     for spec in ordered_provider_specs():
         bridge = " bridge-required;" if spec.bridge_required else ""
         console.print(
@@ -3472,7 +3475,7 @@ _SLASH_COMMANDS: tuple[_SlashCommandSpec, ...] = (
     _SlashCommandSpec("Chat", "/quit", "Exit interactive chat."),
     _SlashCommandSpec("Chat", "/queue list|drop|clear", "Inspect or edit queued prompts while a turn is running.", ("list", "drop", "clear")),
     _SlashCommandSpec("Context", "/status", "Show project, session, mode, agent, domains, model, and cost."),
-    _SlashCommandSpec("Context", "/permissions [read-only|auto|full-access]", "Show or change OpenOPC Native permissions for this session.", ("read-only", "auto", "full-access")),
+    _SlashCommandSpec("Context", "/permissions [read-only|auto|full-access]", "Show or change AutoSwarm Native permissions for this session.", ("read-only", "auto", "full-access")),
     _SlashCommandSpec("Context", "/mode [task|company] [corporate|custom]", "Set execution mode for future messages.", ("task", "company", "corporate", "custom")),
     _SlashCommandSpec("Context", "/agent [native|codex|jiuwen|jiuwenswarm|claude_code|cursor|opencode|none]", "Set preferred agent; jiuwen = JiuwenSwarm-single, jiuwenswarm = JiuwenSwarm-team.", ("native", "codex", "jiuwen", "jiuwenswarm", "claude_code", "cursor", "opencode", "none")),
     _SlashCommandSpec("Context", "/domains [domain ...|clear]", "Set domain hints for future messages.", ("clear",)),
@@ -3509,7 +3512,7 @@ _SLASH_COMMANDS: tuple[_SlashCommandSpec, ...] = (
     _SlashCommandSpec("Runtime", "/attachments [--limit N] [--full]", "List current session attachment references."),
     _SlashCommandSpec("Runtime", "/staffing [context]", "Open the pending company staffing/agent editor or role context preview.", ("context",)),
     _SlashCommandSpec("Board", "/kanban [once|stop|all]", "Show current-session work-item status inline and optionally watch live updates.", ("once", "stop", "all", "project", "--once", "--all")),
-    _SlashCommandSpec("Board", "/board kanban|pipeline|work-item|role|logs", "Open opc board in read-only inspector mode.", ("kanban", "pipeline", "work-item", "role", "logs")),
+    _SlashCommandSpec("Board", "/board kanban|pipeline|work-item|role|logs", "Open autoswarm board in read-only inspector mode.", ("kanban", "pipeline", "work-item", "role", "logs")),
     _SlashCommandSpec("Work Items", "/work-items list|show|logs|role-status", "Inspect company work items and role progress.", ("list", "show", "logs", "role-status")),
     _SlashCommandSpec("Org", "/org", "Show or edit organization config.", ("info", "role", "policy", "strategy", "reset", "saved", "export", "import")),
     _SlashCommandSpec("Org", "/org role add|update|delete|bulk-add", "Manage company roles through the shared Office service."),
@@ -3523,12 +3526,12 @@ _SLASH_COMMANDS: tuple[_SlashCommandSpec, ...] = (
     _SlashCommandSpec("Talent", "/talent hire <template_id> <role_id> [--name ...]", "Hire a template into a role."),
     _SlashCommandSpec("Talent", "/talent employee <employee_id>", "Show employee detail."),
     _SlashCommandSpec("Talent", "/talent import-agent <employee_id>", "Import an employee as a visual office agent."),
-    _SlashCommandSpec("Market", "/market list", "List installed OPC Market packages.", ("browse", "preview", "list", "presets", "apply-preset", "install", "uninstall", "export")),
+    _SlashCommandSpec("Market", "/market list", "List installed AutoSwarm Market packages.", ("browse", "preview", "list", "presets", "apply-preset", "install", "uninstall", "export")),
     _SlashCommandSpec("Market", "/market browse|preview <preset_id>", "Browse and preview architecture presets."),
     _SlashCommandSpec("Market", "/market presets", "List built-in architecture presets."),
     _SlashCommandSpec("Market", "/market apply-preset <preset_id> [--strategy namespace|overwrite]", "Apply a built-in architecture preset as the active custom organization."),
     _SlashCommandSpec("Market", "/market install <path> [--strategy namespace|overwrite]", "Install a local .opcpkg package."),
-    _SlashCommandSpec("Market", "/market uninstall <package_id> --yes", "Uninstall an OPC Market package."),
+    _SlashCommandSpec("Market", "/market uninstall <package_id> --yes", "Uninstall an AutoSwarm Market package."),
     _SlashCommandSpec("Market", "/market export --id ... --name ...", "Export the current org as a package."),
     _SlashCommandSpec("Reorg", "/reorg list|show|approve|deny|apply", "Manage reorg proposals.", ("list", "show", "approve", "deny", "apply")),
     _SlashCommandSpec("Diagnostics", "/cost", "Show token and cost counters."),
@@ -3789,7 +3792,7 @@ class _OPCSlashCompleter:
 
 
 def _print_slash_help() -> None:
-    table = Table(title="OPC Slash Commands", show_lines=False)
+    table = Table(title="AutoSwarm Slash Commands", show_lines=False)
     table.add_column("Group", style="cyan", no_wrap=True)
     table.add_column("Command", style="bold")
     table.add_column("What it does")
@@ -3969,7 +3972,7 @@ def _chat_bottom_toolbar_text(state: _InteractiveChatState, controller: ChatTurn
 
 
 def _print_chat_hint() -> None:
-    console.print("[dim]Hint: /mode and /agent select execution; /permissions controls OpenOPC Native for this session.[/dim]")
+    console.print("[dim]Hint: /mode and /agent select execution; /permissions controls AutoSwarm Native for this session.[/dim]")
 
 
 async def _run_chat_office_service(state: _InteractiveChatState, operation: Any) -> dict[str, Any] | None:
@@ -4498,10 +4501,10 @@ def _render_transcript_table(transcript: list[dict[str, Any]], *, limit: int) ->
         agent_id = str(getattr(message, "agent_id", "") or "").strip()
         sender = {
             "user": "You",
-            "assistant": "OPC",
+            "assistant": "AutoSwarm",
             "system": "System",
             "subagent": agent_id.replace("_", " ").replace("-", " ").title() if agent_id else "Subagent",
-        }.get(role, agent_id or role.title() or "OPC")
+        }.get(role, agent_id or role.title() or "AutoSwarm")
         rows.append((
             _format_datetime(getattr(message, "created_at", None)),
             role or "assistant",
@@ -5105,7 +5108,7 @@ def _refresh_cli_org_runtime(state: _InteractiveChatState) -> None:
         if callable(configure_tools) and callable(tool_names):
             configure_tools(tool_names())
     except Exception as exc:
-        console.print(f"[warning]Saved config, but current org runtime refresh failed: {exc}. Restart opc chat if needed.[/warning]")
+        console.print(f"[warning]Saved config, but current org runtime refresh failed: {exc}. Restart autoswarm chat if needed.[/warning]")
 
 
 def _coerce_task_status(value: Any) -> Any | None:
@@ -6309,7 +6312,7 @@ def _render_external_sessions(rows: list[Any], *, full: bool = False) -> None:
     table.add_column("Agent")
     table.add_column("Status")
     table.add_column("Task")
-    table.add_column("OPC Session")
+    table.add_column("AutoSwarm Session")
     table.add_column("Provider Session")
     table.add_column("Workspace")
     table.add_column("Updated")
@@ -7330,7 +7333,7 @@ async def _handle_permissions_slash(
     except typer.BadParameter as exc:
         console.print(f"[warning]{escape(str(exc))}[/warning]")
         return
-    console.print(f"[success]OpenOPC Native permissions set to {level} for this session.[/success]")
+    console.print(f"[success]AutoSwarm Native permissions set to {level} for this session.[/success]")
     console.print("[dim]The change takes effect at the next tool-call boundary; pending approvals are unchanged.[/dim]")
 
 
@@ -8770,7 +8773,7 @@ async def _interactive_mode(
     )
 
     console.print(Panel(
-        f"[bold]OPC v{__version__}[/bold] — One-Person Company\n"
+        f"[bold]{PRODUCT_TITLE}[/bold] · v{__version__}\n"
         f"Model: {config.llm.default_model}\n"
         f"Current mode: {state.mode}"
         f"{f' ({state.company_profile})' if state.mode == 'company' else ''}\n"
@@ -8869,7 +8872,7 @@ async def _interactive_secretary_mode(config, project: str | None, no_markdown: 
         return
 
     console.print(Panel(
-        f"[bold]OPC Secretary[/bold]\n"
+        f"[bold]AutoSwarm Secretary[/bold]\n"
         f"Model: {config.llm.default_model}\n"
         f"Project: {project or '(none)'}\n"
         f"Commands: /quit, /project <id>, /new-session, /sessions, /resume <session_id>, /policies, /help",

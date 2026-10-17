@@ -4,7 +4,7 @@ The company-mode end-of-turn hook (``_reactivate_for_unread_mail``) already
 catches the common case where mail arrived *before* a task finished, but it
 only runs at task-completion boundaries. When a DONE task's role receives a
 blocking/actionable DM afterwards, nothing spontaneously wakes the role — in
-previous versions of OPC the gap was hidden by a main-LLM "impersonation
+previous versions of AutoSwarm the gap was hidden by a main-LLM "impersonation
 reply" fallback that let the sender unblock but never involved the role's own
 agent.
 

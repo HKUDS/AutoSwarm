@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest an idea or enhancement for OpenOPC
+description: Suggest an idea or enhancement for AutoSwarm
 labels: ["enhancement"]
 body:
   - type: textarea

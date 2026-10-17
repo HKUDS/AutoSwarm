@@ -37,7 +37,7 @@ try {
     await page.waitForFunction(() => !!window.__agentLockFixture)
     for (const row of rows) {
       await page.evaluate(taskId => window.__agentLockFixture!.select(taskId), row.task_id)
-      const label = row.preferred_agent === 'native' ? 'OpenOPC Native' : 'Codex'
+      const label = row.preferred_agent === 'native' ? 'AutoSwarm Native' : 'Codex'
       const chip = page.locator('.composer-config-group [data-kind="agent"]')
       await page.waitForFunction(expected => document.querySelector('.composer-config-group [data-kind="agent"]')?.textContent?.includes(expected), label)
       assert.match(await chip.getAttribute('aria-label') ?? '', new RegExp(`Agent locked to ${label}`))
@@ -48,9 +48,9 @@ try {
       }
     }
     await page.evaluate(() => window.__agentLockFixture!.switchProject('other-project'))
-    await page.getByLabel('Agent locked to OpenOPC Native.', { exact: false }).waitFor()
+    await page.getByLabel('Agent locked to AutoSwarm Native.', { exact: false }).waitFor()
     await page.evaluate(() => window.__agentLockFixture!.switchProject('project02'))
-    await page.getByLabel(`Agent locked to ${rows[0].preferred_agent === 'native' ? 'OpenOPC Native' : 'Codex'}.`, { exact: false }).waitFor()
+    await page.getByLabel(`Agent locked to ${rows[0].preferred_agent === 'native' ? 'AutoSwarm Native' : 'Codex'}.`, { exact: false }).waitFor()
   }
   assert.deepEqual(errors, [])
   console.log(`Agent lock browser regression passed: ${rows.length} sessions, repeated detail refreshes, project switches and cold reloads.`)

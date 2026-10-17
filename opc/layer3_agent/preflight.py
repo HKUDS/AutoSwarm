@@ -1,4 +1,4 @@
-"""Preflight checks for OpenOPC external-agent integration."""
+"""Preflight checks for AutoSwarm external-agent integration."""
 
 from __future__ import annotations
 
@@ -119,8 +119,8 @@ def ensure_external_agent_surfaces(
 ) -> dict[str, dict[str, str]]:
     """Provision isolated agent homes and the shared opc-collab shim.
 
-    This is intentionally safe to run from ``opc init`` and ``opc status``:
-    surfaces are idempotent and user config is mirrored into OpenOPC-owned
+    This is intentionally safe to run from ``autoswarm init`` and ``autoswarm status``:
+    surfaces are idempotent and user config is mirrored into AutoSwarm-owned
     isolated homes instead of mutating the user's real agent configuration.
     """
     base_home = Path(opc_home) if opc_home else _get_opc_home()
@@ -368,7 +368,7 @@ def _sample_preflight_task(project_id: str, workspace: Path) -> Task:
         "target_output_dir": str(workspace),
     }
     return Task(
-        title="OpenOPC external agent preflight",
+        title="AutoSwarm external agent preflight",
         description="Reply with OK. This task is only used to build a launch command.",
         assigned_to="owner",
         project_id=project_id,

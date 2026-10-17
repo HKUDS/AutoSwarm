@@ -2649,7 +2649,7 @@ class ExternalAgentBroker:
         failure_reason = ""
         if response and not response_sent:
             failure_reason = (
-                "approval_response_not_delivered: OpenOPC received and decided "
+                "approval_response_not_delivered: AutoSwarm received and decided "
                 f"{adapter.agent_type}'s approval request for {request.approval_scope}:"
                 f"{request.action_name}, but could not write the response back to the child process."
             )

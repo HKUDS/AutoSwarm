@@ -1,4 +1,4 @@
-"""Canonical execution-agent identities shared by every OpenOPC surface.
+"""Canonical execution-agent identities shared by every AutoSwarm surface.
 
 Agent names cross the CLI, Office UI, recruitment, task dispatch, company
 topology, checkpoint, and adapter boundaries.  Keeping separate allowlists at
@@ -9,6 +9,8 @@ This module is the dependency-light source of truth for those identities.
 from __future__ import annotations
 
 from typing import Any
+
+from opc.core.branding import NATIVE_AGENT_LABEL
 
 
 NATIVE_EXECUTION_AGENT = "native"
@@ -25,7 +27,7 @@ EXECUTION_AGENTS: frozenset[str] = frozenset({
     *EXTERNAL_EXECUTION_AGENTS,
 })
 EXECUTION_AGENT_LABELS: dict[str, str] = {
-    "native": "OpenOPC Native",
+    "native": NATIVE_AGENT_LABEL,
     "codex": "Codex",
     "claude_code": "Claude Code",
     "cursor": "Cursor",

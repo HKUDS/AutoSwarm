@@ -135,7 +135,7 @@ class SecretaryService:
 
     def _system_prompt(self) -> str:
         prompt = (
-            "You are the long-term secretary of the OPC system.\n"
+            "You are the long-term secretary of the AutoSwarm system.\n"
             "Your job is to answer as a practical assistant. Durable memory and policy updates are handled by agents through the memory skill, not by the secretary.\n"
             "Important constraints:\n"
             "- Do not create memory notes, authorization rules, workspace guardrails, skill injection rules, or preferences.\n"

@@ -51,7 +51,7 @@ class SeatExecutor(Protocol):
 
 
 class EngineSeatExecutor:
-    """Seat executor backed by the existing OPC engine task runners."""
+    """Seat executor backed by the existing AutoSwarm engine task runners."""
 
     def __init__(self, host: Any) -> None:
         self.host = host

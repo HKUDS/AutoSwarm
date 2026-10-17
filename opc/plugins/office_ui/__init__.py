@@ -1,6 +1,6 @@
-"""Office-UI Plugin — visual frontend for the OPC multi-agent system.
+"""Office-UI Plugin — visual frontend for the AutoSwarm multi-agent system.
 
-Registers the `opc ui` CLI command when aiohttp is available.
+Registers the `autoswarm ui` CLI command when aiohttp is available.
 """
 
 from __future__ import annotations
@@ -141,7 +141,7 @@ def _ensure_frontend() -> None:
 
 
 def register_cli(parent_app: typer.Typer) -> None:
-    """Register the `opc ui` command on the parent Typer app."""
+    """Register the `autoswarm ui` command on the parent Typer app."""
     import typer as _typer
 
     @parent_app.command()
@@ -151,7 +151,7 @@ def register_cli(parent_app: typer.Typer) -> None:
         project: Optional[str] = _typer.Option(None, "--project", help="Project ID"),
         rebuild: bool = _typer.Option(False, "--rebuild", help="Force rebuild frontend"),
     ) -> None:
-        """Launch the Office UI — visual frontend for OPC agents."""
+        """Launch the Office UI — visual frontend for AutoSwarm agents."""
         _sanitize_windows_ssl_env()
         # Auto-install aiohttp if needed
         _ensure_aiohttp()

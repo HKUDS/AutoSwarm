@@ -27,7 +27,7 @@ _WORK_ITEM_RESULT = """Both work items have been successfully dispatched and can
 
 **Dispatch Summary**
 
-**Work Item 1: OpenOPC Source Code Architecture Deep-Dive Analysis**
+**Work Item 1: AutoSwarm Source Code Architecture Deep-Dive Analysis**
 - ID: `1ed5f5f1-ac41-49a1-b1fa-23bbc9adab82`
 - Owner: senior_engineer
 - Scope: `openopc-source-analysis`
@@ -367,7 +367,7 @@ class ChatStorePaginationTests(unittest.TestCase):
                 "message_id": f"random-{index:04d}",
                 "channel_id": f"session:{randomizer.randrange(2)}",
                 "sender": "user" if randomizer.random() < 0.18 else "assistant",
-                "sender_name": "OPC",
+                "sender_name": "AutoSwarm",
                 "content": content,
                 # Include zero/negative sentinel values because the historical
                 # matcher deliberately treats a zero timestamp as unbounded.
@@ -425,7 +425,7 @@ class ChatStorePaginationTests(unittest.TestCase):
             "message_id": "runtime-final",
             "channel_id": "session:answer",
             "sender": "assistant",
-            "sender_name": "OPC",
+            "sender_name": "AutoSwarm",
             "content": f"**Top level answer**: {body}",
             "created_at": 1.0,
             "metadata": {
@@ -523,7 +523,7 @@ class ChatStorePaginationTests(unittest.TestCase):
                 "message_id": f"scale-{index:05d}",
                 "channel_id": "session:scale",
                 "sender": "assistant",
-                "sender_name": "OPC",
+                "sender_name": "AutoSwarm",
                 "content": long_content,
                 "created_at": float(index),
                 "reply_to_id": None,
@@ -548,7 +548,7 @@ class ChatStorePaginationTests(unittest.TestCase):
                 "message_id": f"{prefix}-{index:04d}",
                 "channel_id": "session:timed-backfill-scale",
                 "sender": "assistant",
-                "sender_name": "OPC",
+                "sender_name": "AutoSwarm",
                 "content": "Ordinary engine update",
                 "created_at": timestamp,
                 "reply_to_id": "same-turn",
@@ -638,7 +638,7 @@ class ChatStorePaginationTests(unittest.TestCase):
                 "message_id": message_id,
                 "channel_id": "session:float-window-boundary",
                 "sender": "assistant",
-                "sender_name": "OPC",
+                "sender_name": "AutoSwarm",
                 "content": "Boundary update",
                 "created_at": timestamp,
                 "reply_to_id": "same-turn",
@@ -670,7 +670,7 @@ class ChatStorePaginationTests(unittest.TestCase):
                 await store.insert_message(
                     channel_id,
                     "assistant",
-                    "OPC",
+                    "AutoSwarm",
                     content,
                     metadata={
                         "source": "engine",
@@ -686,7 +686,7 @@ class ChatStorePaginationTests(unittest.TestCase):
                     "message_id": f"backfill-result-{index:03d}",
                     "channel_id": channel_id,
                     "sender": "assistant",
-                    "sender_name": "OPC",
+                    "sender_name": "AutoSwarm",
                     "content": content,
                     "created_at": float(index + 1000),
                     "metadata": {
@@ -724,7 +724,7 @@ class ChatStorePaginationTests(unittest.TestCase):
         await store.initialize()
         channel_id = "session:work-item-repair"
         project_id = "test-project"
-        damaged_content = _WORK_ITEM_RESULT[_WORK_ITEM_RESULT.index("OpenOPC Source"):]
+        damaged_content = _WORK_ITEM_RESULT[_WORK_ITEM_RESULT.index("AutoSwarm Source"):]
         metadata = {
             "source": "engine",
             "transcript_kind": "child_result",
@@ -933,7 +933,7 @@ class ChatStorePaginationTests(unittest.TestCase):
             await store.insert_message(
                 channel_id,
                 "assistant",
-                "OPC",
+                "AutoSwarm",
                 content,
                 metadata=metadata,
                 message_id=message_id,

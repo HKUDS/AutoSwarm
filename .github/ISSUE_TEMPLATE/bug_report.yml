@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a problem with OpenOPC
+description: Report a problem with AutoSwarm
 labels: ["bug"]
 body:
   - type: markdown
@@ -36,9 +36,9 @@ body:
     id: env
     attributes:
       label: Environment
-      description: OpenOPC version/commit, Python version, OS, and relevant package versions.
+      description: AutoSwarm version/commit, Python version, OS, and relevant package versions.
       placeholder: |
-        - OpenOPC:
+        - AutoSwarm:
         - Python:
         - OS:
     validations:

@@ -326,7 +326,7 @@ class Dispatcher:
                 pass
 
         system_prompt = (
-            "You are OPC, an AI assistant. The user is having a conversation with you. "
+            "You are AutoSwarm, an AI assistant. The user is having a conversation with you. "
             "Answer helpfully and concisely. You do NOT have tool access in this mode — "
             "if the user needs something done (coding, file operations, etc.), "
             "tell them to describe the task and you'll execute it."

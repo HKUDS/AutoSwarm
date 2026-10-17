@@ -113,7 +113,7 @@ class CodexAdapter(ExternalAgentAdapter):
         # ``skills/opc-collab/`` there; codex exec's native skill
         # discovery picks it up. The user's personal ``~/.codex/`` is
         # not inherited, so codex invoked directly by the user stays
-        # separated from the OpenOPC collaboration surface.
+        # separated from the AutoSwarm collaboration surface.
         return "codex"
 
     def agent_home_env_vars(self, home: str) -> dict[str, str]:
@@ -175,7 +175,7 @@ class CodexAdapter(ExternalAgentAdapter):
         cls,
         extra_env: dict[str, str] | None,
     ) -> tuple[list[str], list[str]]:
-        """Forward only OpenOPC's runtime contract into Codex shell tools.
+        """Forward only AutoSwarm's runtime contract into Codex shell tools.
 
         Codex can intentionally run with ``shell_environment_policy.inherit=core``.
         The broker process still receives ``OPC_*`` variables, but commands launched
@@ -236,14 +236,14 @@ class CodexAdapter(ExternalAgentAdapter):
 
     def _extra_writable_roots(self, task: Task | None) -> list[str]:
         # Surface to Codex's workspace-write sandbox every path outside
-        # the main workspace that OpenOPC expects the agent (or a shell
+        # the main workspace that AutoSwarm expects the agent (or a shell
         # it spawns) to be able to write to:
         #
         #   * ``comms_workspace_root`` — sibling of the deliverable
         #     folder; prompts tell the agent to write into
         #     ``.opc-comms/...`` there.
         #   * ``.opc/memory`` — durable global/project Markdown memory.
-        #   * the OPC home directory — the ``opc-collab`` CLI (shelled
+        #   * the AutoSwarm home directory — the ``opc-collab`` CLI (shelled
         #     out from inside the sandbox) writes to ``<opc_home>/
         #     projects/<project>/tasks.db``. Without this entry, SQLite
         #     returns SQLITE_READONLY because Codex mounts the DB path
@@ -268,7 +268,7 @@ class CodexAdapter(ExternalAgentAdapter):
 
         if company_external_fence_enabled(task):
             # Company collaboration uses the broker's task-bound RPC. Do not
-            # grant the entire OPC home (including other projects' databases).
+            # grant the entire AutoSwarm home (including other projects' databases).
             for key in ("output_root", "target_output_dir", "comms_workspace_root", "comms_root"):
                 _add_except_workspace(str((task.metadata or {}).get(key) or "").strip())
             return roots
@@ -276,7 +276,7 @@ class CodexAdapter(ExternalAgentAdapter):
         comms_root = str((task.metadata or {}).get("comms_workspace_root") or "").strip()
         _add_except_workspace(comms_root)
 
-        # Compute the OPC home lazily so failures here (e.g. a test
+        # Compute the AutoSwarm home lazily so failures here (e.g. a test
         # environment without ``opc.core.config`` fully bootable) never
         # take down the adapter — the agent will still launch, just
         # without the DB writable path, and the broker will surface the

@@ -211,7 +211,7 @@ class TaskModeNativeAgentTests(unittest.IsolatedAsyncioTestCase):
         context_prompt = "\n\n".join(str(item.get("content", "")) for item in context_messages)
 
         self.assertEqual(task.metadata["runtime_prompt_profile"], "unified")
-        self.assertIn("You are Task Generalist, an OpenOPC task execution agent.", prompt)
+        self.assertIn("You are Task Generalist, an AutoSwarm task execution agent.", prompt)
         self.assertNotIn("One-Person Company system", prompt)
         self.assertIn("## Core Operating Principles", prompt)
         self.assertNotIn("## Core Beliefs", prompt)

@@ -95,7 +95,7 @@ class EmailChannel(PollingChannel):
             logger.info("skip automatic email reply to {} because auto_reply_enabled is false", to_addr)
             return
 
-        base_subject = self._last_subject_by_chat.get(to_addr, "OpenOPC reply")
+        base_subject = self._last_subject_by_chat.get(to_addr, "AutoSwarm reply")
         subject = str(metadata.get("subject", "") or "").strip() or self._reply_subject(base_subject)
         email_msg = EmailMessage()
         email_msg["From"] = self.config.from_address or self.config.smtp_username or self.config.imap_username

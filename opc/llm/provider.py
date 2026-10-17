@@ -1037,7 +1037,7 @@ class LLMProvider:
         resolved = (self.opc_home / ref.disk_path).resolve()
         opc_home_resolved = self.opc_home.resolve()
         if not str(resolved).startswith(str(opc_home_resolved)):
-            raise ValueError(f"Attachment path escapes OPC home: {ref.disk_path}")
+            raise ValueError(f"Attachment path escapes AutoSwarm home: {ref.disk_path}")
         return resolved
 
 

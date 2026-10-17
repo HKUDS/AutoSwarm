@@ -1,4 +1,4 @@
-"""Single policy model for OpenOPC Native tool permissions.
+"""Single policy model for AutoSwarm Native tool permissions.
 
 External-agent harnesses intentionally do not consume this policy.  The
 resolver is scoped by the root UI/CLI session so every native company role and

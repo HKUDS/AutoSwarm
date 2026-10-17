@@ -94,7 +94,8 @@ The Python backend must be restarted to load the changed staffing compiler and
 legacy-card projection, then the browser refreshed. The existing test0001
 checkpoint can be used after restart; recreating the project is unnecessary.
 The observed Office UI process was launched with `opc ui --port 8799` from this
-repository. This work does not restart that user-owned process.
+repository. That command remains compatible; new launches can use
+`autoswarm ui --port 8799`. This work does not restart that user-owned process.
 
 ## Cross-project and cross-session verification
 

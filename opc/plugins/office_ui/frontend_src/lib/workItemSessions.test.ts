@@ -425,7 +425,7 @@ const project0009CtoResult = [
   '',
   '## Dispatch Summary',
   '',
-  '**Work Item 1: OpenOPC Source Code Architecture Deep-Dive Analysis**',
+  '**Work Item 1: AutoSwarm Source Code Architecture Deep-Dive Analysis**',
   '- ID: `1ed5f5f1-ac41-49a1-b1fa-23bbc9adab82`',
   '- Owner: senior_engineer',
   '- Scope: `openopc-source-analysis`',
@@ -442,7 +442,7 @@ const project0009CtoResult = [
 ].join('\n')
 
 const project0009WorkItemSuffix = project0009CtoResult.slice(
-  project0009CtoResult.indexOf('OpenOPC Source Code Architecture Deep-Dive Analysis'),
+  project0009CtoResult.indexOf('AutoSwarm Source Code Architecture Deep-Dive Analysis'),
 )
 const project0009IdSuffix = project0009CtoResult.slice(
   project0009CtoResult.indexOf('`1ed5f5f1-ac41-49a1-b1fa-23bbc9adab82`'),

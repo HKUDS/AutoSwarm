@@ -1300,7 +1300,7 @@ def render_meetings_section(
 
 
 _README_TEMPLATE = """\
-# OpenOPC Comms Layout
+# AutoSwarm Comms Layout
 
 This directory is the file-based collaboration substrate for project
 `{project_id}`, session `{session_id}`. It is OPC-managed runtime
@@ -1309,14 +1309,14 @@ state — you do not need to write into it directly.
 ## Layout
 
 - `inbox/<role>/new/`     — unread messages addressed to <role>
-- `inbox/<role>/seen/`    — messages OpenOPC has archived for <role>
+- `inbox/<role>/seen/`    — messages AutoSwarm has archived for <role>
 - `inbox/<role>/outbox/`  — copies of messages <role> has sent (audit)
 - `handoffs/<projection_id>/`  — formal work-item-level handoffs
 - `meetings/<meeting_id>/` — multi-party meeting transcripts
 
 ## How agents collaborate
 
-Mailbox delivery is **runtime-owned**. OpenOPC reads `.opc-comms`,
+Mailbox delivery is **runtime-owned**. AutoSwarm reads `.opc-comms`,
 classifies inbox state, archives `new/ -> seen/`, and injects the
 actionable mailbox snapshot into each agent's turn context.
 
@@ -1386,7 +1386,7 @@ def render_inbox_section(
     lines: list[str] = []
     lines.append("### Mailbox")
     lines.append(
-        f"Mailbox delivery for role `{role}` is runtime-owned; OpenOPC has already "
+        f"Mailbox delivery for role `{role}` is runtime-owned; AutoSwarm has already "
         f"prepared the actionable snapshot for this turn. Use `reply_message` to "
         f"answer, `inbox(action=\"ack\")` to acknowledge handled messages that need "
         f"no reply, and other collaboration tools only when you need to delegate, "

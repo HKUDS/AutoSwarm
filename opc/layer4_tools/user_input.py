@@ -167,7 +167,7 @@ def normalize_user_input_request(
         "input_questions": input_questions,
         "required_fields": normalized_required_fields,
         "context_note": _clean_text(context_note),
-        "resume_hint": "Choose an option or provide the missing details, and OpenOPC will continue the task.",
+        "resume_hint": "Choose an option or provide the missing details, and AutoSwarm will continue the task.",
     }
 
 

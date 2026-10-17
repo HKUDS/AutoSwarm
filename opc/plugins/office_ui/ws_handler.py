@@ -1083,7 +1083,7 @@ class WSHandler:
         return ws
 
     # ══════════════════════════════════════════════════════════════════════
-    # Outbound: OPC → Frontend
+    # Outbound: AutoSwarm → Frontend
     # ══════════════════════════════════════════════════════════════════════
 
     async def broadcast(self, envelope: dict[str, Any]) -> None:
@@ -1307,7 +1307,7 @@ class WSHandler:
         runtime_engine: Any | None = None,
         project_id: str | None = None,
     ) -> None:
-        """EventBus subscriber. Translates OPC events and broadcasts."""
+        """EventBus subscriber. Translates AutoSwarm events and broadcasts."""
         engine = runtime_engine or self.engine
         pid = self._normalize_project_id(project_id or getattr(engine, "project_id", None))
         event_payload = dict(event.payload or {})
@@ -1941,7 +1941,7 @@ class WSHandler:
             msg = await self.chat_store.insert_message(
                 channel_id=target_channel,
                 sender="system",
-                sender_name="OPC",
+                sender_name="AutoSwarm",
                 content=display_text,
                 metadata=msg_meta or None,
                 project_id=pid,
@@ -1956,7 +1956,7 @@ class WSHandler:
                     parent_channel = f"session:{parent_task_id}"
                     # Resolve agent identity for the forwarded message
                     fwd_sender = "system"
-                    fwd_sender_name = "OPC"
+                    fwd_sender_name = "AutoSwarm"
                     if agent_role_id:
                         fwd_sender = self.event_adapter._resolve_role_to_agent(agent_role_id)
                         fwd_sender_name = agent_name or agent_role_id.replace("_", " ").title()
@@ -2941,7 +2941,7 @@ class WSHandler:
         msg = await self.chat_store.insert_message(
             channel_id=channel_id,
             sender="assistant",
-            sender_name="OPC",
+            sender_name="AutoSwarm",
             content=text,
             project_id=project_id,
             metadata=reply_metadata,
@@ -3452,7 +3452,7 @@ class WSHandler:
             await self._send_service_error(ws, exc, action="kanban_delete_task")
 
     async def _handle_kanban_delete_board(self, ws: Any, data: dict) -> None:
-        # No-op for OPC's project-based boards
+        # No-op for AutoSwarm's project-based boards
         _engine, project_id = await self._engine_for_request(data)
         await self._send_ack(ws, ok=True, project_id=project_id)
 
@@ -4629,7 +4629,7 @@ class WSHandler:
             msg = await self.chat_store.insert_message(
                 channel_id=channel_id,
                 sender="system",
-                sender_name="OPC",
+                sender_name="AutoSwarm",
                 content=f"Error: {_session_error_message(exc)}",
                 project_id=pid,
             )
@@ -4966,7 +4966,7 @@ class WSHandler:
             msg = await self.chat_store.insert_message(
                 channel_id=error_channel,
                 sender="system",
-                sender_name="OPC",
+                sender_name="AutoSwarm",
                 content=f"Task error: {e}",
                 metadata=err_meta or None,
                 project_id=pid,
@@ -5910,7 +5910,7 @@ class WSHandler:
             helper = await self.chat_store.insert_message(
                 channel_id=channel_id,
                 sender="assistant",
-                sender_name="OPC",
+                sender_name="AutoSwarm",
                 content="\n".join(helper_lines),
                 project_id=pid,
                 metadata={"type": "system"},
@@ -6688,7 +6688,7 @@ class WSHandler:
                     helper = await self.chat_store.insert_message(
                         channel_id=f"session:{task_id}",
                         sender="assistant",
-                        sender_name="OPC",
+                        sender_name="AutoSwarm",
                         content=content,
                         project_id=run_project_id,
                         metadata={"type": "system", "reason": reason},
@@ -6758,7 +6758,7 @@ class WSHandler:
                 helper = await self.chat_store.insert_message(
                     channel_id=f"session:{task_id}",
                     sender="assistant",
-                    sender_name="OPC",
+                    sender_name="AutoSwarm",
                     content="Stop is still finalizing. Send your update again after the runtime reaches Suspended.",
                     project_id=run_project_id,
                     metadata={"type": "system", "reason": "company_stop_finalize_in_progress"},
@@ -6978,7 +6978,7 @@ class WSHandler:
                             msg = await self.chat_store.insert_message(
                                 channel_id=channel_id,
                                 sender="system",
-                                sender_name="OPC",
+                                sender_name="AutoSwarm",
                                 content=f"Error: {_session_error_message(exc)}",
                                 project_id=pid,
                             )
@@ -7126,7 +7126,7 @@ class WSHandler:
                 msg = await self.chat_store.insert_message(
                     channel_id=channel_id,
                     sender="assistant",
-                    sender_name="OPC",
+                    sender_name="AutoSwarm",
                     content=result.response,
                     project_id=pid,
                 )
@@ -7280,7 +7280,7 @@ class WSHandler:
                         msg = await self.chat_store.insert_message(
                             channel_id=channel_id,
                             sender="system",
-                            sender_name="OPC",
+                            sender_name="AutoSwarm",
                             content=f"Error: {exc.message}",
                             project_id=pid,
                         )
@@ -7481,7 +7481,7 @@ class WSHandler:
                 msg = await self.chat_store.insert_message(
                     channel_id=channel_id,
                     sender="system",
-                    sender_name="OPC",
+                    sender_name="AutoSwarm",
                     content=f"Error: {_session_error_message(e)}",
                     project_id=pid,
                 )
@@ -7756,8 +7756,8 @@ class WSHandler:
             "sender_name": str(
                 metadata.get("work_item_projection_title")
                 or metadata.get("requesting_role_id")
-                or "OPC"
-            ).strip() or "OPC",
+                or "AutoSwarm"
+            ).strip() or "AutoSwarm",
             "content": content,
             "created_at": created_at,
             "reply_to_id": None,
@@ -9161,7 +9161,7 @@ class WSHandler:
         await ws.send_json({"type": "org_config_import", "payload": {"ok": ok, **payload}})
 
     # ------------------------------------------------------------------
-    # OPC Market handlers
+    # AutoSwarm Market handlers
     # ------------------------------------------------------------------
 
     async def _handle_market_browse(self, ws: Any, data: dict) -> None:
@@ -9454,7 +9454,7 @@ class WSHandler:
         "import_employee_as_agent": _handle_import_employee_as_agent,
         "employee_detail":     _handle_employee_detail,
         "reorg_list":          _handle_reorg_list,
-        # OPC Market
+        # AutoSwarm Market
         "market_browse":       _handle_market_browse,
         "market_preview":      _handle_market_preview,
         "market_apply_preset": _handle_market_apply_preset,

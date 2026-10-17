@@ -1,4 +1,4 @@
-"""OPC Market service."""
+"""AutoSwarm Market service."""
 
 from __future__ import annotations
 

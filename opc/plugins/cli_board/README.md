@@ -1,21 +1,21 @@
-# OpenOPC CLI Board
+# AutoSwarm CLI Board
 
-`opc board` provides a full-screen terminal command center for OpenOPC.
+`autoswarm board` provides a full-screen terminal command center for AutoSwarm.
 
 ## Install
 
 The board uses the optional `textual` dependency.
 
 ```bash
-pip install "opc[cli-board]"
+pip install "autoswarm[cli-board]"
 ```
 
 ## Run
 
 ```bash
-opc board
-opc board --project demo
-opc board --project demo --refresh-interval 1.5
+autoswarm board
+autoswarm board --project demo
+autoswarm board --project demo --refresh-interval 1.5
 ```
 
 ## Interaction Model

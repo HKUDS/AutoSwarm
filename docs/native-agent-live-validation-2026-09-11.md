@@ -1,6 +1,6 @@
 # Native Agent 真实模型验证记录
 
-2026-09-11。补充 [优化实施记录](native-agent-hardening-2026-09-10.md) 中的自动化回归，验证修改后的 OpenOPC 工作区。没有修改 Talen，也没有提交、推送或部署代码。
+2026-09-11。补充 [优化实施记录](native-agent-hardening-2026-09-10.md) 中的自动化回归，验证修改后的 AutoSwarm 工作区。没有修改 Talen，也没有提交、推送或部署代码。
 
 ## 实跑结果
 

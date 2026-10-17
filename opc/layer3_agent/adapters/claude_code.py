@@ -115,7 +115,7 @@ class ClaudeCodeAdapter(ExternalAgentAdapter):
             }
 
         Those vars are only set when ``claude`` is invoked *through the
-        shell*. OpenOPC spawns claude via
+        shell*. AutoSwarm spawns claude via
         :func:`asyncio.create_subprocess_exec`, which bypasses the shell
         and the function — so the proxy never reaches claude and the API
         call lands on a network gateway that returns ``403 Request not
@@ -202,7 +202,7 @@ class ClaudeCodeAdapter(ExternalAgentAdapter):
 
     def post_install_agent_home(self, home: str) -> None:
         # Claude Code discovers skills from the active user config directory.
-        # Because we do not set CLAUDE_CONFIG_DIR, install the OpenOPC skill
+        # Because we do not set CLAUDE_CONFIG_DIR, install the AutoSwarm skill
         # into the user's normal Claude home and let the CLI use its existing
         # authenticated state.
         Path(home).mkdir(parents=True, exist_ok=True)
@@ -530,7 +530,7 @@ class ClaudeCodeAdapter(ExternalAgentAdapter):
             stripped = str(text or "").strip()
             if not stripped:
                 return None
-            # Drop Claude's harmless stdin-probe message; OpenOPC owns initial
+            # Drop Claude's harmless stdin-probe message; AutoSwarm owns initial
             # prompt transport explicitly via argv or stdin metadata.
             if "no stdin data received" in stripped.lower():
                 return None

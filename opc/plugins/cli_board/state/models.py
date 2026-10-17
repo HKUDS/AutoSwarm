@@ -1,4 +1,4 @@
-"""State models used by the OpenOPC CLI board."""
+"""State models used by the AutoSwarm CLI board."""
 
 from __future__ import annotations
 

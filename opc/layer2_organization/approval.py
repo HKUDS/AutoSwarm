@@ -453,7 +453,7 @@ class ApprovalEngine:
         if memory_path_access:
             level = self.native_policy.context_for_task(task).level
             effects = permission_effects_for_tool(tool)
-            # Canonical memory is an OpenOPC-managed path, so auto mode may
+            # Canonical memory is an AutoSwarm-managed path, so auto mode may
             # access it without treating it as an arbitrary outside-workspace
             # path. Read-only still asks before any mutation, and an
             # undeclared look-alike tool never inherits this exception.
@@ -462,7 +462,7 @@ class ApprovalEngine:
             ):
                 return self._predict_decision(
                     PermissionResolution.ALLOW, RiskLevel.LOW,
-                    "Direct agent access to canonical OpenOPC memory files.",
+                    "Direct agent access to canonical AutoSwarm memory files.",
                     source="memory_path_policy",
                     metadata=self.native_policy.approved_call_metadata(
                         tool,
@@ -1454,7 +1454,7 @@ class ApprovalEngine:
         scope = self._session_allowlist.get(session_scope_id)
         if scope is None:
             # Hydrate from the persisted allowlist so "Allow for this session"
-            # grants survive `opc ui` restarts and re-entering the session.
+            # grants survive `autoswarm ui` restarts and re-entering the session.
             scope = {}
             if self.allowlist:
                 try:
@@ -1908,7 +1908,7 @@ class ApprovalEngine:
                     action=ApprovalAction.ESCALATE,
                     risk_level=RiskLevel.MEDIUM,
                     rationale=(
-                        f"External agent launch uses OpenOPC approval mode `{approval_mode}`, "
+                        f"External agent launch uses AutoSwarm approval mode `{approval_mode}`, "
                         "but external-agent auto-approval is disabled; direct user approval is required before start."
                     ),
                     confidence=0.95,
@@ -1919,8 +1919,8 @@ class ApprovalEngine:
                 action=ApprovalAction.AUTO_APPROVE,
                 risk_level=RiskLevel.LOW,
                 rationale=(
-                    f"External agent launch uses OpenOPC approval mode `{approval_mode}`; "
-                    "startup is audited while runtime permission requests remain bridged to OpenOPC."
+                    f"External agent launch uses AutoSwarm approval mode `{approval_mode}`; "
+                    "startup is audited while runtime permission requests remain bridged to AutoSwarm."
                 ),
                 confidence=0.95,
                 policy_source="external_agent_launch_policy",
@@ -3087,7 +3087,7 @@ class ApprovalEngine:
         return ApprovalDecision(
             action=ApprovalAction.AUTO_APPROVE,
             risk_level=RiskLevel.LOW,
-            rationale="Allowed direct agent access to canonical OpenOPC memory files.",
+            rationale="Allowed direct agent access to canonical AutoSwarm memory files.",
             confidence=0.99,
             policy_source="memory_path_policy",
             metadata=metadata,

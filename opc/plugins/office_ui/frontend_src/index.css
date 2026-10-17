@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   OpenOPC Office UI — Redesigned
+   AutoSwarm Office UI — Redesigned
    ═══════════════════════════════════════════════════════ */
 @import './kanban/kanban.css';
 @import './chat/chat.css';
@@ -157,7 +157,7 @@ html, body, #root {
   --accent-glow: rgba(245, 158, 11, 0.3);
 }
 
-/* ── OpenOPC theme ─────────────────────────────────── */
+/* ── AutoSwarm theme ─────────────────────────────────── */
 /* Warm terracotta accent on near-black for focused work. */
 .app-shell[data-theme="openopc"] {
   --bg: #0a0a0a;

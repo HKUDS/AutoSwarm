@@ -12,7 +12,7 @@ Nothing runs unless ``--execute`` is supplied.  A normal invocation is:
     OPC_HOME=/tmp/openopc-issue35-native-e2e/repo/.opc \
       python scripts/issue35_company_e2e.py --execute
 
-The working project root is inferred as ``OPC_HOME.parent`` so OpenOPC's normal
+The working project root is inferred as ``OPC_HOME.parent`` so AutoSwarm's normal
 workplace resolver writes into the sibling ``repo_workplace`` directory.
 """
 

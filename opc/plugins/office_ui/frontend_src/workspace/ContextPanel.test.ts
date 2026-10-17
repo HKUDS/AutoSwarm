@@ -109,7 +109,7 @@ const multiSessionMessages = Object.fromEntries(openSessions.map((session, index
     id: `message-${index}`,
     channelId: session.channelId,
     sender: 'assistant',
-    senderName: 'OPC',
+    senderName: 'AutoSwarm',
     content: `Preview ${index + 1}`,
     timestamp: index + 1,
     mentions: [],

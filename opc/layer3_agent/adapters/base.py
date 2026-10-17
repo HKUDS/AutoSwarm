@@ -204,7 +204,7 @@ class ExternalAgentAdapter(abc.ABC):
 
         External teams remain opaque execution units.  This optional hook is
         display-only: the broker may persist/broadcast the returned records,
-        but must never translate them into OpenOPC agents, tasks, or work
+        but must never translate them into AutoSwarm agents, tasks, or work
         items.  Providers without an official team event protocol return no
         telemetry by default.
         """
@@ -233,7 +233,7 @@ class ExternalAgentAdapter(abc.ABC):
         cmd: list[str],
         metadata: dict[str, Any] | None = None,
     ) -> bool:
-        """Whether OpenOPC should bridge this process' live approval prompts.
+        """Whether AutoSwarm should bridge this process' live approval prompts.
 
         The broker can only answer a provider approval prompt when the child
         process has a live stdin transport that accepts the formatted response.
@@ -245,8 +245,8 @@ class ExternalAgentAdapter(abc.ABC):
     # ------------------------------------------------------------------
     # Skill-based collaboration surface.
     #
-    # OpenOPC-spawned agents can use a dedicated home dir
-    # (``<opc_home>/agent_homes/<slug>/``) so OpenOPC can install the
+    # AutoSwarm-spawned agents can use a dedicated home dir
+    # (``<opc_home>/agent_homes/<slug>/``) so AutoSwarm can install the
     # ``opc-collab`` skill + CLI shim there. Adapters may still choose to keep
     # native user config for authentication-sensitive CLIs.
     # ------------------------------------------------------------------

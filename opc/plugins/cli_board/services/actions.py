@@ -54,7 +54,7 @@ class BoardActions:
     ) -> Task:
         engine = await self.facade.ensure_ready()
         if not engine.store:
-            raise RuntimeError("OPC store is not available.")
+            raise RuntimeError("AutoSwarm store is not available.")
 
         normalized_title = str(title or "").strip() or "New Chat"
         normalized_description = str(description or "").strip()
@@ -122,7 +122,7 @@ class BoardActions:
     ) -> str:
         engine = await self.facade.ensure_ready()
         if not engine.store:
-            raise RuntimeError("OPC store is not available.")
+            raise RuntimeError("AutoSwarm store is not available.")
 
         async with self._get_task_lock(task_id):
             if existing := self._task_bg_map.get(task_id):
@@ -173,7 +173,7 @@ class BoardActions:
     async def move_task(self, task_id: str, column_id: str) -> Task:
         engine = await self.facade.ensure_ready()
         if not engine.store:
-            raise RuntimeError("OPC store is not available.")
+            raise RuntimeError("AutoSwarm store is not available.")
 
         task = await self._get_task(task_id)
         target_status = column_to_task_status(column_id)
@@ -191,14 +191,14 @@ class BoardActions:
     async def complete_task(self, task_id: str) -> Task:
         engine = await self.facade.ensure_ready()
         if not engine.store:
-            raise RuntimeError("OPC store is not available.")
+            raise RuntimeError("AutoSwarm store is not available.")
         await self._run_office_service(lambda svc: svc.session.complete(project_id=self._project_id, task_id=task_id))
         return await self._get_task(task_id)
 
     async def cancel_task(self, task_id: str) -> None:
         engine = await self.facade.ensure_ready()
         if not engine.store:
-            raise RuntimeError("OPC store is not available.")
+            raise RuntimeError("AutoSwarm store is not available.")
 
         background = self._task_bg_map.get(task_id)
         if background and not background.done() and background is not asyncio.current_task():
@@ -211,7 +211,7 @@ class BoardActions:
     async def approve_checkpoint(self, task_id: str, *, approved: bool = True, reply: str | None = None) -> str:
         engine = await self.facade.ensure_ready()
         if not engine.store:
-            raise RuntimeError("OPC store is not available.")
+            raise RuntimeError("AutoSwarm store is not available.")
 
         if reply is not None:
             message = reply
@@ -265,7 +265,7 @@ class BoardActions:
     async def _get_task(self, task_id: str) -> Task:
         engine = await self.facade.ensure_ready()
         if not engine.store:
-            raise RuntimeError("OPC store is not available.")
+            raise RuntimeError("AutoSwarm store is not available.")
         task = await engine.store.get_task(task_id)
         if task is None:
             raise ValueError(f"Unknown task: {task_id}")
@@ -279,7 +279,7 @@ class BoardActions:
 
         engine = await self.facade.ensure_ready()
         if not engine.store:
-            raise RuntimeError("OPC store is not available.")
+            raise RuntimeError("AutoSwarm store is not available.")
         target_id = str(target_id or "").strip()
         if not target_id:
             raise ValueError("A task or work-item id is required.")

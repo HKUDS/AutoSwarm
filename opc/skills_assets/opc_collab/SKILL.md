@@ -1,17 +1,17 @@
 ---
 name: opc-collab
-description: Collaborate with other agents in OpenOPC company mode via the `opc-collab` CLI — send messages, request user input, delegate work, read the manager board, respond in meetings, propose task adjustments.
+description: Collaborate with other agents in AutoSwarm company mode via the `opc-collab` CLI — send messages, request user input, delegate work, read the manager board, respond in meetings, propose task adjustments.
 ---
 
-# OpenOPC company-mode collaboration
+# AutoSwarm company-mode collaboration
 
-You are running inside an OpenOPC "company mode" run as one of several agents
+You are running inside an AutoSwarm "company mode" run as one of several agents
 collaborating on a larger task. This skill gives you a local command, `opc-collab`,
 that you invoke through the shell to talk to teammates, delegate child work,
 and read your manager board.
 
 The CLI is on your `PATH`. Every invocation reads its identity (who you are,
-which project/session, which task) from environment variables that OpenOPC
+which project/session, which task) from environment variables that AutoSwarm
 already set for you before launching this process — you do NOT pass those.
 
 ## When to use this skill
@@ -42,7 +42,7 @@ Prefer `--args-json-file` or `--args-stdin` over inline JSON. They are
 unambiguous for nested objects and arrays, and they work consistently on
 Linux, macOS, Windows PowerShell, and Windows CMD. If `OPC_COLLAB_CLI` is set,
 use that executable path; otherwise use `opc-collab` from `PATH`.
-In OpenOPC-spawned Windows runs, do not use `--args-json` or pipe JSON into
+In AutoSwarm-spawned Windows runs, do not use `--args-json` or pipe JSON into
 `--args-stdin`; command-line and PowerShell pipeline text can corrupt non-ASCII
 before it reaches the CLI. Write the JSON object to a UTF-8 file and call
 `opc-collab <tool> --args-json-file <file>` instead.
@@ -137,7 +137,7 @@ prints an error telling you which tools ARE allowed.
 - **`request_user_input`** — pause your own current work item and ask the
   user for missing input. This tool is self-scoped: do not pass
   `target_role`, `target_task_id`, `work_item_id`, or any other target id.
-  OpenOPC reads your role, task, seat, and work item from the runtime
+  AutoSwarm reads your role, task, seat, and work item from the runtime
   environment. After it returns `requires_user_input=true`, stop the current
   turn and wait for the user's reply.
   ```json

@@ -2688,7 +2688,7 @@ class TestWSHandlerProjectSwitch(unittest.IsolatedAsyncioTestCase):
         checkpoint_message = await self.chat_store.insert_message(
             channel_id=f"session:{self.task_id}",
             sender="assistant",
-            sender_name="OPC",
+            sender_name="AutoSwarm",
             content="Recruitment Plan",
             metadata={
                 "checkpoint_id": "recruitment-2",
@@ -2762,7 +2762,7 @@ class TestWSHandlerProjectSwitch(unittest.IsolatedAsyncioTestCase):
         checkpoint_message = await self.chat_store.insert_message(
             channel_id=f"session:{self.task_id}",
             sender="assistant",
-            sender_name="OPC",
+            sender_name="AutoSwarm",
             content="Pending recruitment",
             metadata={
                 "checkpoint_id": "recruitment-old",
@@ -2797,7 +2797,7 @@ class TestWSHandlerProjectSwitch(unittest.IsolatedAsyncioTestCase):
         checkpoint_message = await self.chat_store.insert_message(
             channel_id=f"session:{self.task_id}",
             sender="assistant",
-            sender_name="OPC",
+            sender_name="AutoSwarm",
             content="Pending delivery review",
             metadata={
                 "checkpoint_id": "delivery-ignore",
@@ -4088,7 +4088,7 @@ class TestWSHandlerSessionDetail(unittest.IsolatedAsyncioTestCase):
         await self.chat_store.insert_message(
             channel_id="session:legacy-approval-task",
             sender="assistant",
-            sender_name="OPC",
+            sender_name="AutoSwarm",
             content="Legacy action required",
             metadata={
                 "checkpoint_type": "human_escalation",
@@ -4150,7 +4150,7 @@ class TestWSHandlerSessionDetail(unittest.IsolatedAsyncioTestCase):
         await self.chat_store.insert_message(
             channel_id="session:staffing-task",
             sender="assistant",
-            sender_name="OPC",
+            sender_name="AutoSwarm",
             content="Select staff manually, or run automatic recruitment.",
             metadata={
                 "checkpoint_type": "company_staffing_selection",
@@ -4438,7 +4438,7 @@ class TestWSHandlerSessionDetail(unittest.IsolatedAsyncioTestCase):
             [message["content"] for message in payload["messages"]],
             ["What tasks can you help with?", final_reply],
         )
-        self.assertEqual(payload["messages"][1]["sender_name"], "OPC")
+        self.assertEqual(payload["messages"][1]["sender_name"], "AutoSwarm")
 
     async def test_session_detail_full_includes_runtime_context_and_runtime_reply(self) -> None:
         ws = MagicMock()
@@ -4532,7 +4532,7 @@ class TestWSHandlerSessionDetail(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["messages"][1]["metadata"]["transcript_kind"], "runtime_v2_user_turn")
         self.assertIn("Execution Context", payload["messages"][1]["content"])
         self.assertEqual(payload["messages"][2]["content"], final_reply)
-        self.assertEqual(payload["messages"][2]["sender_name"], "OPC")
+        self.assertEqual(payload["messages"][2]["sender_name"], "AutoSwarm")
         self.assertEqual(payload["messages"][2]["metadata"]["transcript_kind"], "runtime_v2_assistant")
         self.assertEqual(payload["messages"][2]["metadata"]["detail_visibility"], "summary")
 
@@ -4963,7 +4963,7 @@ class TestWSHandlerSessionDetail(unittest.IsolatedAsyncioTestCase):
         await self.chat_store.insert_message(
             channel_id,
             "system",
-            "OPC",
+            "AutoSwarm",
             "Approval required",
             metadata={
                 "source": "ui",
@@ -4977,7 +4977,7 @@ class TestWSHandlerSessionDetail(unittest.IsolatedAsyncioTestCase):
         await self.chat_store.insert_message(
             channel_id,
             "system",
-            "OPC",
+            "AutoSwarm",
             "Legacy execution notice",
             metadata={"source": "ui", "detail_visibility": "summary"},
             message_id="ui-only-new",
@@ -7240,7 +7240,7 @@ class TestSnapshotBuilderSessionData(unittest.IsolatedAsyncioTestCase):
             await chat_store.insert_message(
                 channel_id="session:dup-1",
                 sender="assistant",
-                sender_name="OPC",
+                sender_name="AutoSwarm",
                 content="Here is the rollout plan.",
                 message_id="manual-assistant-1",
                 project_id="p1",
@@ -7338,7 +7338,7 @@ class TestSnapshotBuilderSessionData(unittest.IsolatedAsyncioTestCase):
             await chat_store.insert_message(
                 channel_id="session:dup-history",
                 sender="assistant",
-                sender_name="OPC",
+                sender_name="AutoSwarm",
                 content="Fixed the issue.",
                 message_id="legacy-manual",
                 project_id="p1",
@@ -7422,7 +7422,7 @@ class TestSnapshotBuilderSessionData(unittest.IsolatedAsyncioTestCase):
             channel_messages = await chat_store.get_channel_messages("session:task-speaker", limit=20, project_id="p1")
 
             self.assertEqual(len(channel_messages), 1)
-            self.assertEqual(channel_messages[0]["sender_name"], "OPC")
+            self.assertEqual(channel_messages[0]["sender_name"], "AutoSwarm")
 
             await chat_store.insert_message(
                 channel_id="session:task-speaker",
@@ -7442,7 +7442,7 @@ class TestSnapshotBuilderSessionData(unittest.IsolatedAsyncioTestCase):
                 message for message in channel_messages
                 if message["message_id"] == "runtime-company-assistant-legacy"
             )
-            self.assertEqual(legacy_message["sender_name"], "OPC")
+            self.assertEqual(legacy_message["sender_name"], "AutoSwarm")
         finally:
             await chat_store._db.close()
 
@@ -7543,7 +7543,7 @@ class TestSnapshotBuilderSessionData(unittest.IsolatedAsyncioTestCase):
                     await chat_store.insert_message(
                         channel_id=channel_id,
                         sender="assistant",
-                        sender_name="OPC",
+                        sender_name="AutoSwarm",
                         content="Reply text",
                         message_id="engine-race-1",
                         project_id="p1",
@@ -7556,7 +7556,7 @@ class TestSnapshotBuilderSessionData(unittest.IsolatedAsyncioTestCase):
             await chat_store.backfill_messages(channel_id, [{
                 "message_id": "engine-race-1",
                 "sender": "assistant",
-                "sender_name": "OPC",
+                "sender_name": "AutoSwarm",
                 "content": "Reply text",
                 "timestamp": time.time(),
                 "metadata": {"source": "engine", "role": "assistant"},

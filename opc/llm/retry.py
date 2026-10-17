@@ -1,6 +1,6 @@
 """Unified retry helper for LLM calls that expect structured (JSON) output.
 
-The orchestration layers of OPC frequently ask an LLM to produce a JSON object
+The orchestration layers of AutoSwarm frequently ask an LLM to produce a JSON object
 that is then parsed, type-validated, and fed into downstream business logic
 (work-item assignments, gate harness decisions, approval reviews, memory
 extraction, permission classifications, etc.).

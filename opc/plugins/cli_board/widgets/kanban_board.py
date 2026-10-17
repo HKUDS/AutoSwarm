@@ -75,7 +75,7 @@ class KanbanBoardWidget(Static):
     def _render_welcome(self, focused: bool) -> RenderableType:
         item_label = "work item" if self._company_mode() else "task"
         text = Text()
-        text.append("OpenOPC CLI Board\n\n", style="bold #38bdf8")
+        text.append("AutoSwarm CLI Board\n\n", style="bold #38bdf8")
         text.append("Get started:\n", style="bold white")
         text.append("  n", style="bold cyan")
         text.append(f"   Create a {item_label} - describe what you need\n", style="white")

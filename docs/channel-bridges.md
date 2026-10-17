@@ -1,6 +1,6 @@
 # Channel Bridge Providers
 
-Some channel providers need a companion bridge service in addition to the OpenOPC Python runtime. OpenOPC connects to these bridges through the provider adapter; it does not start or manage the external bridge process for you.
+Some channel providers need a companion bridge service in addition to the AutoSwarm Python runtime. AutoSwarm connects to these bridges through the provider adapter; it does not start or manage the external bridge process for you.
 
 ## WhatsApp
 
@@ -15,8 +15,8 @@ Some channel providers need a companion bridge service in addition to the OpenOP
   1. Start the companion WhatsApp bridge service.
   2. Complete QR/device pairing in the bridge environment.
   3. Set `channels.whatsapp.bridge_url` in `.opc/config/channel_config.yaml`.
-  4. Run `opc channels status`.
-  5. Start OpenOPC with `opc channels start -p <project>` or `opc run -p <project>`.
+  4. Run `autoswarm channels status`.
+  5. Start AutoSwarm with `autoswarm channels start -p <project>` or `autoswarm run -p <project>`.
 
 ## Mochat
 

@@ -1,7 +1,7 @@
 """Realistic end-to-end test suite for EventAdapter.
 
 Each test scenario simulates a real agent↔LLM interaction trajectory,
-replaying the exact OPC event sequence and verifying the resulting
+replaying the exact AutoSwarm event sequence and verifying the resulting
 visual events match what the Phaser frontend expects.
 
 Event sources traced from:
@@ -47,7 +47,7 @@ def types_for(events: list[dict], agent_id: str) -> list[str]:
 
 
 def collect(adapter: EventAdapter, opc_events: list[FakeEvent]) -> list[dict]:
-    """Feed a sequence of OPC events and collect all visual events."""
+    """Feed a sequence of AutoSwarm events and collect all visual events."""
     results = []
     for ev in opc_events:
         results.extend(adapter.translate(ev))

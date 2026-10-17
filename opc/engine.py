@@ -1,4 +1,4 @@
-"""OPC Engine — the central orchestrator that wires all layers together."""
+"""AutoSwarm Engine — the central orchestrator that wires all layers together."""
 
 from __future__ import annotations
 
@@ -740,7 +740,7 @@ class OPCEngine:
 
         self.opc_home.mkdir(parents=True, exist_ok=True)
         setup_logging(self.opc_home / "logs", self.config.system.log_level)
-        logger.info("Initializing OPC Engine...")
+        logger.info("Initializing AutoSwarm Engine...")
 
         # Database
         if self.store is None:
@@ -970,7 +970,7 @@ class OPCEngine:
             )
             await self._recover_interaction_consumers()
             await self._recover_company_work_item_gate_continuations()
-        logger.info("OPC Engine initialized successfully")
+        logger.info("AutoSwarm Engine initialized successfully")
         if reconciled:
             logger.warning(
                 "Reconciled {} interrupted task(s) for project {} during startup",
@@ -8478,7 +8478,7 @@ class OPCEngine:
             )
         if status == "done":
             return (
-                f"Execution for work item `{projection_id}` finished in the external agent, but OpenOPC was interrupted "
+                f"Execution for work item `{projection_id}` finished in the external agent, but AutoSwarm was interrupted "
                 "before the work-item result was persisted locally. Use `continue` to rerun it safely."
             )
         if status == "cancelled":
@@ -11344,11 +11344,11 @@ class OPCEngine:
     def _resolve_comms_workspace_root(self, target_output_dir: str | None) -> str | None:
         """Pick the directory under which the file-based comms tree lives.
 
-        Comms is OPC's collaboration substrate, NOT a deliverable — it
+        Comms is AutoSwarm's collaboration substrate, NOT a deliverable — it
         belongs at the *workspace* root (sibling to project deliverables),
         not inside the project's specific output folder. Putting it
         inside the deliverable folder pollutes that folder with
-        OpenOPC-internal state.
+        AutoSwarm-internal state.
 
         Resolution order:
 
@@ -12911,7 +12911,7 @@ class OPCEngine:
         parts: list[str] = [
             "## Attachments",
             "Uploaded files have been staged inside the external agent workspace. "
-            "Use the Agent path below when reading them; the Store path is OpenOPC's canonical copy.",
+            "Use the Agent path below when reading them; the Store path is AutoSwarm's canonical copy.",
         ]
         mounted_refs: list[dict[str, Any]] = []
         remaining_budget = 5000
@@ -13174,7 +13174,7 @@ class OPCEngine:
                 description_parts.append(f"## Collaboration Context\n{collaboration_context}")
         else:
             if layers.openopc_context:
-                description_parts.append(f"## OpenOPC Context\n{layers.openopc_context}")
+                description_parts.append(f"## AutoSwarm Context\n{layers.openopc_context}")
         if layers.attachments_state_context:
             runtime_context = self._demote_prompt_headings(layers.attachments_state_context)
             description_parts.append(f"## Runtime Context\n{runtime_context}")
@@ -13379,7 +13379,7 @@ class OPCEngine:
     def _build_external_runtime_tool_hints(self, task: Task, *, role_id: str = "") -> str:
         """Render external collaboration instructions for company-mode runs.
 
-        OpenOPC-spawned agents talk to the rest of the company through the
+        AutoSwarm-spawned agents talk to the rest of the company through the
         ``opc-collab`` CLI — installed on their PATH and also described by
         a skill under their isolated agent home. The CLI is the only
         transport taught here. Staying focused on the CLI keeps external
@@ -21280,7 +21280,7 @@ class OPCEngine:
         """Perform one ordered shutdown while the Store remains available."""
 
         self._shutting_down = True
-        logger.info("Shutting down OPC Engine...")
+        logger.info("Shutting down AutoSwarm Engine...")
         if self._owns_active_task_run_registry:
             # First reject every new ingress.  Existing driver contexts remain
             # able to register the child of an already-committed WorkItem
@@ -21397,4 +21397,4 @@ class OPCEngine:
                 f"estimated_cost=${stats['estimated_cost']:.4f}"
             )
 
-        logger.info("OPC Engine shut down.")
+        logger.info("AutoSwarm Engine shut down.")

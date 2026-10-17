@@ -1,6 +1,6 @@
 """Local RPC transport for ``opc-collab`` calls.
 
-The external agent still invokes the normal ``opc-collab`` CLI. When OpenOPC
+The external agent still invokes the normal ``opc-collab`` CLI. When AutoSwarm
 spawns that agent, the broker exposes a short-lived local endpoint and injects
 its address/token into the environment. The CLI then sends the collaboration
 tool call to the already-running broker, so database writes stay in the host

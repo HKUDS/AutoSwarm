@@ -182,7 +182,7 @@ class PackageExporter:
         lines = [
             f"# {manifest.name}",
             "",
-            manifest.description or "An OPC architecture package.",
+            manifest.description or "An AutoSwarm architecture package.",
             "",
             f"- **Version**: {manifest.version}",
             f"- **Category**: {manifest.category}",

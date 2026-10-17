@@ -1,6 +1,6 @@
 """``opc-collab`` CLI — company-mode collaboration surface for external agents.
 
-External agents spawned by OpenOPC (codex, claude code, opencode, cursor) talk
+External agents spawned by AutoSwarm (codex, claude code, opencode, cursor) talk
 to the rest of the company via this CLI.
 
 The CLI reads the collaboration environment contract (``OPC_COMMS_FROM``,
@@ -59,13 +59,13 @@ def _reject_unsafe_windows_rpc_args_if_needed(opts: argparse.Namespace) -> None:
         return
     if getattr(opts, "args_json", ""):
         raise SystemExit(
-            "opc-collab: --args-json is disabled on Windows for OpenOPC-spawned "
+            "opc-collab: --args-json is disabled on Windows for AutoSwarm-spawned "
             "external agents because command-line JSON can corrupt non-ASCII text; "
             "use --args-json-file with a UTF-8 file instead"
         )
     if getattr(opts, "args_stdin", False):
         raise SystemExit(
-            "opc-collab: --args-stdin is disabled on Windows for OpenOPC-spawned "
+            "opc-collab: --args-stdin is disabled on Windows for AutoSwarm-spawned "
             "external agents because shell pipelines can corrupt non-ASCII text; "
             "use --args-json-file with a UTF-8 file instead"
         )
@@ -135,8 +135,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="opc-collab",
         description=(
-            "Call OpenOPC company-mode collaboration tools from an external "
-            "agent spawned by OpenOPC. Output is JSON on stdout."
+            "Call AutoSwarm company-mode collaboration tools from an external "
+            "agent spawned by AutoSwarm. Output is JSON on stdout."
         ),
     )
     subparsers = parser.add_subparsers(dest="tool", required=True, metavar="<tool>")
@@ -148,7 +148,7 @@ def _build_parser() -> argparse.ArgumentParser:
             name,
             help=f"Invoke the `{name}` collaboration tool",
             description=(
-                f"Invoke the OPC collaboration tool `{name}`. Arguments come from "
+                f"Invoke the AutoSwarm collaboration tool `{name}`. Arguments come from "
                 "--args-json-file, --args-stdin, or --args-json and may be "
                 "overridden by key=value pairs supplied via --set."
             ),

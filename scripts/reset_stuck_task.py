@@ -1,4 +1,4 @@
-"""Safely recover a stuck OpenOPC task/session when the UI becomes unresponsive.
+"""Safely recover a stuck AutoSwarm task/session when the UI becomes unresponsive.
 
 Typical symptoms it fixes:
   - The Stop button does nothing and you cannot send new messages.
@@ -24,7 +24,7 @@ Usage:
 Exit codes: 0 on success / clean inspection, 2 on usage error, 3 if the
 project database cannot be opened.
 
-IMPORTANT: the OpenOPC server keeps in-memory state (asyncio locks,
+IMPORTANT: the AutoSwarm server keeps in-memory state (asyncio locks,
 session->task maps, background tasks). If the server process is still
 running against the same DB, also restart it or reload the browser tab
 after this script prints the "next steps" block. DB edits alone will not
@@ -283,9 +283,9 @@ def main() -> int:
         print(f"  runtime_sessions ended              : {counts['runtime_sessions_ended']}")
 
         print("\nNext steps (required for in-memory recovery):")
-        print("  1. Restart the OPC office_ui server (it holds asyncio locks in memory).")
+        print("  1. Restart the AutoSwarm office_ui server (it holds asyncio locks in memory).")
         print("  2. In the browser, hard-reload the tab (Ctrl+Shift+R) to drop stale client state.")
-        print("     Optional: clear localStorage for the OpenOPC origin if the board still looks stale.")
+        print("     Optional: clear localStorage for the AutoSwarm origin if the board still looks stale.")
         return 0
     finally:
         conn.close()

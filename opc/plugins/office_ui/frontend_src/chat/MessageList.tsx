@@ -313,7 +313,7 @@ const WELCOME: Record<ViewKind, { icon: React.ReactNode; title: string; hint: st
   session: {
     icon: <IconChat />,
     title: 'New Conversation',
-    hint: 'Send a message to start working with your OPC system',
+    hint: 'Send a message to start working with your AutoSwarm system',
   },
   activity: {
     icon: <IconActivity />,
@@ -663,7 +663,7 @@ const UserRow = React.memo(function UserRow({ msg, showDate, dateStr, isGrouped,
 })
 
 /**
- * Recognise OPC's operational system messages — the ones that historically
+ * Recognise AutoSwarm's operational system messages — the ones that historically
  * dumped raw command strings ("[Delegating to codex] task=... | cmd=codex
  * exec -C /Users/...") straight into the transcript. We pull these out into
  * a one-line collapsed log row instead of a full agent-card so the chat
@@ -945,7 +945,7 @@ function projectUpdateLabel(payload: ProjectUpdatePayload): string {
 }
 
 const ProjectUpdateRow = React.memo(function ProjectUpdateRow({ msg, payload, showDate, dateStr, isCopied, onCopy }: ProjectUpdateRowProps) {
-  const color = agentColor(msg.sender === 'system' ? (msg.senderName || 'OPC') : msg.sender)
+  const color = agentColor(msg.sender === 'system' ? (msg.senderName || 'AutoSwarm') : msg.sender)
   const displayName = msg.senderDeleted ? '[Deleted]' : msg.senderName
   const label = projectUpdateLabel(payload)
   const summary = payload.summary || payload.acceptanceSummary || label
@@ -1032,7 +1032,7 @@ interface AgentRowProps {
 const AgentRow = React.memo(function AgentRow({ msg, showDate, dateStr, isGrouped, isCopied, isCheckpointResponded, suppressCheckpointPanel, keepExpanded, onCopy, onInteractionReply }: AgentRowProps) {
   const isDeleted = !!msg.senderDeleted
   const displayName = isDeleted ? '[Deleted]' : msg.senderName
-  const color = agentColor(msg.sender === 'system' ? (msg.senderName || 'OPC') : msg.sender)
+  const color = agentColor(msg.sender === 'system' ? (msg.senderName || 'AutoSwarm') : msg.sender)
   const replyTaskId = msg.channelId.startsWith('session:')
     ? msg.channelId.slice('session:'.length)
     : (msg.metadata?.taskId ?? msg.metadata?.task_id)

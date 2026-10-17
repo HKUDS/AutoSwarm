@@ -10,7 +10,7 @@ const persistentTimestamps = __chatStoreTestUtils.latestPersistentMessageTimesta
     id: 'db-assistant-1',
     channelId: 'session:read-test',
     sender: 'assistant',
-    senderName: 'OPC',
+    senderName: 'AutoSwarm',
     content: 'First persisted reply',
     timestamp: 10,
     mentions: [],
@@ -29,7 +29,7 @@ const persistentTimestamps = __chatStoreTestUtils.latestPersistentMessageTimesta
     id: 'db-assistant-2',
     channelId: 'session:read-test',
     sender: 'assistant',
-    senderName: 'OPC',
+    senderName: 'AutoSwarm',
     content: 'Latest persisted reply',
     timestamp: 20,
     mentions: [],
@@ -180,7 +180,7 @@ assert.deepEqual(
       id: 'db-assistant-unread',
       channelId: 'session:task-1',
       sender: 'assistant',
-      senderName: 'OPC',
+      senderName: 'AutoSwarm',
       content: 'Persisted reply',
       timestamp: 90,
       mentions: [],
@@ -295,7 +295,7 @@ const ctoDispatchContent = `Both work items have been successfully dispatched to
 
 ## Dispatch Summary
 
-**Work Item 1: OpenOPC Source Code Architecture Deep-Dive Analysis**
+**Work Item 1: AutoSwarm Source Code Architecture Deep-Dive Analysis**
 - ID: \`1ed5f5f1-ac41-49a1-b1fa-23bbc9adab82\`
 - Owner: senior_engineer
 - Scope: \`openopc-source-analysis\`
@@ -350,7 +350,7 @@ for (let replay = 0; replay < 6; replay += 1) {
 }
 
 const truncatedCtoContent = ctoDispatchContent.slice(
-  ctoDispatchContent.indexOf('OpenOPC Source Code Architecture Deep-Dive Analysis**'),
+  ctoDispatchContent.indexOf('AutoSwarm Source Code Architecture Deep-Dive Analysis**'),
 )
 const truncatedCtoFinal: ChatMessage = {
   ...ctoCompanyFinal,
@@ -424,6 +424,17 @@ const mappedTaskGeneralistMessage = mapBackendMessage({
   },
 })
 
-assert.equal(mappedTaskGeneralistMessage.senderName, 'OPC')
+assert.equal(mappedTaskGeneralistMessage.senderName, 'AutoSwarm')
+
+for (const legacyName of ['OPC', 'OpenOPC']) {
+  const stored = { sender: 'system', sender_name: legacyName, content: `Saved by ${legacyName}`, message_id: 'legacy-id' }
+  const mapped = mapBackendMessage(stored)
+  assert.equal(mapped.senderName, 'AutoSwarm')
+  assert.equal(mapped.sender, 'system')
+  assert.equal(mapped.id, 'legacy-id')
+  assert.equal(mapped.content, stored.content, 'rebranding must preserve historical message content')
+  assert.equal(stored.sender_name, legacyName, 'display normalization must not mutate stored identities')
+  assert.equal(mapBackendMessage({ ...stored, sender: 'user' }).senderName, legacyName)
+}
 
 console.log('ChatStore.test.ts: OK (read cursors, optimistic, checkpoint, and company result identity merging)')

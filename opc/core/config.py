@@ -1,4 +1,4 @@
-"""Configuration management for OPC system."""
+"""Configuration management for AutoSwarm system."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def _find_project_root() -> Path:
 
 
 def get_opc_home() -> Path:
-    """Return the OPC data directory.
+    """Return the AutoSwarm data directory.
 
     Resolution order:
       1. $OPC_HOME environment variable (explicit override)
@@ -46,7 +46,7 @@ def get_opc_home() -> Path:
 
 
 def get_default_workplace_root() -> Path:
-    """Return the default shared workplace root beside the OpenOPC repo."""
+    """Return the default shared workplace root beside the AutoSwarm repo."""
     project_root = _find_project_root()
     return project_root.parent / f"{project_root.name}_workplace"
 
@@ -204,7 +204,7 @@ def read_company_index(config_dir: Path) -> str | None:
     schema_version = int(data.get("schema_version", COMPANY_INDEX_SCHEMA_VERSION) or COMPANY_INDEX_SCHEMA_VERSION)
     if schema_version > COMPANY_INDEX_SCHEMA_VERSION:
         raise ValueError(
-            f"{COMPANY_INDEX_FILENAME} schema_version {schema_version} is not supported by this version of OpenOPC"
+            f"{COMPANY_INDEX_FILENAME} schema_version {schema_version} is not supported by this version of AutoSwarm"
         )
     active_id = data.get("active_organization_id") or DEFAULT_ORGANIZATION_ID
     return validate_organization_id(active_id)
@@ -378,7 +378,7 @@ class ExternalAgentConfig(BaseModel):
     show_thinking: bool = False
     # Optional provider-specific transport/runtime settings.  They are kept
     # on the shared external-agent model so project-local YAML can configure
-    # Jiuwen without importing Jiuwen/OpenJiuwen into the OpenOPC process.
+    # Jiuwen without importing Jiuwen/OpenJiuwen into the AutoSwarm process.
     transport: Literal["cli", "gateway"] = "cli"
     gateway_url: str = ""
     provider_mode: str = ""
@@ -401,7 +401,7 @@ class AgentsConfig(BaseModel):
             show_thinking=True,
         ),
         # ``jiuwen`` is a normal single external agent. ``jiuwenswarm`` is an
-        # opaque execution team: OpenOPC owns one Task/WorkItem while Jiuwen
+        # opaque execution team: AutoSwarm owns one Task/WorkItem while Jiuwen
         # owns every internal teammate and subtask.
         "jiuwen": ExternalAgentConfig(
             command="jiuwenswarm",
@@ -1401,7 +1401,7 @@ def _validate_company_org_payload(path: Path, data: dict[str, Any]) -> dict[str,
     schema_version = int(data.get("schema_version", 1) or 1)
     if schema_version > COMPANY_ORG_SCHEMA_VERSION:
         raise ValueError(
-            f"{path.name} schema_version {schema_version} is not supported by this version of OpenOPC"
+            f"{path.name} schema_version {schema_version} is not supported by this version of AutoSwarm"
         )
     kind = str(data.get("kind", "") or "").strip()
     if schema_version >= COMPANY_ORG_SCHEMA_VERSION and kind and kind != COMPANY_ORG_KIND:
@@ -1415,7 +1415,7 @@ def _company_org_payload_to_org_mapping(data: dict[str, Any], *, source_path: Pa
     raw_org_id = data.get("organization_id") or DEFAULT_ORGANIZATION_ID
     org_id = validate_organization_id(raw_org_id)
     org_name = str(data.get("organization_name") or company.get("name") or org_id).strip()
-    company_name = str(company.get("name") or org_name or "My OPC").strip()
+    company_name = str(company.get("name") or org_name or "My AutoSwarm").strip()
     org: dict[str, Any] = {
         "organization_id": org_id,
         "organization_name": org_name or company_name,
@@ -1469,7 +1469,7 @@ def _read_legacy_corporate_config(config_dir: Path) -> dict[str, Any]:
         schema_ver = int(data.get("schema_version", 1) or 1)
         if schema_ver > 1:
             raise ValueError(
-                f"company_corporate_config.yaml schema_version {schema_ver} is not supported by this version of OpenOPC"
+                f"company_corporate_config.yaml schema_version {schema_ver} is not supported by this version of AutoSwarm"
             )
         return data
     return {}

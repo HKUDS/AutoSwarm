@@ -1,4 +1,4 @@
-"""Built-in talent templates for OPC Market.
+"""Built-in talent templates for AutoSwarm Market.
 
 These ensure the marketplace is never empty, even before a user imports
 any external talent repository.  Each template maps to roles in the

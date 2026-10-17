@@ -42,8 +42,8 @@ test('keeps Jiuwen heading emphasis scoped to the intended field', () => {
     '## 当前项目工作空间',
     '**当前项目目录**：`/workspace/0000`',
     '这是主要工作目录。',
-    '## OpenOPC系统目录',
-    '**OpenOPC根目录**：`/workspace/OpenOPC`',
+    '## AutoSwarm系统目录',
+    '**AutoSwarm根目录**：`/workspace/OpenOPC`',
     '-技能目录：`/workspace/OpenOPC/.opc/skills/`',
     '-项目内存：`/workspace/OpenOPC/.opc/memory/`',
     '##团队工作空间（共享）',
@@ -57,7 +57,7 @@ test('keeps Jiuwen heading emphasis scoped to the intended field', () => {
   const repaired = restoreCollapsedMarkdown(collapsed)
 
   assert.match(repaired, /## 当前项目工作空间\n\n\*\*当前项目目录\*\*/)
-  assert.match(repaired, /## OpenOPC系统目录\n\n\*\*OpenOPC根目录\*\*/)
+  assert.match(repaired, /## AutoSwarm系统目录\n\n\*\*AutoSwarm根目录\*\*/)
   assert.match(repaired, /\n- 技能目录：/)
   assert.match(repaired, /\n- 项目内存：/)
   assert.match(repaired, /## 团队工作空间（共享）\n\n\*\*绝对路径\*\*/)

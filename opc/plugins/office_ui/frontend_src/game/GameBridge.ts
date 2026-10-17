@@ -230,7 +230,7 @@ export class GameBridge extends Phaser.Events.EventEmitter {
 
     if (timeline.length === 0 && agentEntries.length === 0) {
       console.warn('[GameBridge] applySnapshot — empty snapshot, creating fallback agent')
-      this.scene.ensureAgent('openopc-main', 'OpenOPC')
+      this.scene.ensureAgent('openopc-main', 'AutoSwarm')
     }
 
     console.log('[GameBridge] applySnapshot done — total agents:', this.scene.agents.size)

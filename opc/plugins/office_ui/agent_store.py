@@ -1,7 +1,7 @@
 """Agent Store — dynamic character registry with flexible office assignment.
 
 Each agent is an individual character/person with appearance, office assignment,
-and a backing OPC role for execution. Persisted in SQLite.
+and a backing AutoSwarm role for execution. Persisted in SQLite.
 
 Tables:
   agents              — active agent registry (cleared & rebuilt on preset switch)
@@ -451,7 +451,7 @@ class AgentStore:
         return agents
 
     async def _load_from_role_infos(self, roles: list[Any], model_name: str) -> list[dict[str, Any]]:
-        """Load from OPC AgentInfo objects.
+        """Load from AutoSwarm AgentInfo objects.
 
         Groups agents into offices: leaders in office-0, workers spread across office-1/2.
         """
@@ -669,7 +669,7 @@ class AgentStore:
         return await self._get_one(agent_id)
 
     async def update_status(self, agent_id: str, status: str) -> None:
-        """Update character status from OPC events."""
+        """Update character status from AutoSwarm events."""
         if not agent_id:
             return
         await self._db.execute(
@@ -697,7 +697,7 @@ class AgentStore:
     async def get_templates(self, org_engine: Any = None) -> list[dict[str, Any]]:
         """Generate agent templates for UI create-agent dialog.
 
-        Reads from OPC org_engine to get available roles.
+        Reads from AutoSwarm org_engine to get available roles.
         """
         if not org_engine or not hasattr(org_engine, "list_agents"):
             return []
@@ -784,7 +784,7 @@ class AgentStore:
     async def get_role_agent_map(self) -> dict[str, str]:
         """Return {opc_role_id: agent_id} for all agents.
 
-        Used by EventAdapter to resolve OPC role_id → UI agent_id.
+        Used by EventAdapter to resolve AutoSwarm role_id → UI agent_id.
         If multiple agents share a role, last one wins (acceptable for status routing).
         """
         cursor = await self._db.execute(

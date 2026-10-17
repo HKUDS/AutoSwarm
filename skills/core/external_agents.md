@@ -17,14 +17,14 @@ trigger: "When deciding whether to use the native agent or an external CLI agent
 # External Agent Selection Skill
 
 ## Goal
-Choose between the OPC native agent and available external agents based on the actual task,
+Choose between the AutoSwarm native agent and available external agents based on the actual task,
 the configured agent profile, and expected execution style. Do not rely on fixed domain
 rules alone.
 
 ## Native Agent
 - Strong default choice for lightweight reasoning, conversation, clarification, and tasks
-  that benefit from tight integration with OPC memory, organization, and tool orchestration.
-- Prefer native when direct continuity inside OPC matters more than delegating to an
+  that benefit from tight integration with AutoSwarm memory, organization, and tool orchestration.
+- Prefer native when direct continuity inside AutoSwarm matters more than delegating to an
   external CLI agent.
 
 ## External CLI Agents
@@ -32,7 +32,7 @@ rules alone.
   tool-heavy, multi-step execution where a dedicated CLI agent can work in an isolated
   workspace.
 - Treat `jiuwen` as a normal single external execution unit. Treat `jiuwenswarm` as one
-  opaque Team: its internal teammates never become OpenOPC Tasks, roles, sessions, or cards.
+  opaque Team: its internal teammates never become AutoSwarm Tasks, roles, sessions, or cards.
 - Their strengths are not limited to writing code. They can also handle bash-driven tasks
   such as generating or transforming Markdown, documents, PDFs, slide content, reports,
   scripts, and repository-wide edits.
@@ -45,7 +45,7 @@ rules alone.
 - Prefer an external agent when the request is complex enough that a specialized coding or
   CLI workflow is likely to outperform the native agent.
 - Prefer native when the task is simple, mostly conversational, or better served by keeping
-  reasoning and tool use inside OPC itself.
+  reasoning and tool use inside AutoSwarm itself.
 - If multiple external agents are available, pick the one whose configured profile best
   matches the task instead of following a fixed ranking.
 

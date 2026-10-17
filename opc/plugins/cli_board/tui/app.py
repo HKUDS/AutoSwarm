@@ -1,4 +1,4 @@
-"""Textual application for the OpenOPC CLI board."""
+"""Textual application for the AutoSwarm CLI board."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 
 class CliBoardApp(App[None]):
-    """Terminal command center for OpenOPC."""
+    """Terminal command center for AutoSwarm."""
 
     CSS_PATH = "board.tcss"
 

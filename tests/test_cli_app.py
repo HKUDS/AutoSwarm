@@ -1088,7 +1088,7 @@ class CliSlashCommandTests(unittest.TestCase):
         self.assertIn("project:demo", toolbar)
         self.assertIn("session:sess-1", toolbar)
         self.assertIn("mode:task", toolbar)
-        self.assertIn("agent:OpenOPC Native", toolbar)
+        self.assertIn("agent:AutoSwarm Native", toolbar)
         self.assertIn("/project", toolbar)
 
     def test_startup_selector_chooses_session_instead_of_auto_restoring(self) -> None:
@@ -2172,7 +2172,7 @@ class CliSlashCommandTests(unittest.TestCase):
         self.assertNotIn("status_snapshot", rendered)
         self.assertNotIn("┃", rendered)
         self.assertNotIn("Created", rendered)
-        self.assertNotIn("Initializing OPC Engine", rendered)
+        self.assertNotIn("Initializing AutoSwarm Engine", rendered)
 
     def test_work_items_logs_parses_codex_stream_without_raw_json(self) -> None:
         console = Console(record=True, force_terminal=False, width=220)
@@ -3411,7 +3411,7 @@ class CliChannelCommandTests(unittest.TestCase):
 
         self.assertEqual(result.exit_code, 0)
         self.assertIn(".opc/config/channel_config.yaml", result.stdout)
-        self.assertIn("opc channels start", result.stdout)
+        self.assertIn("autoswarm channels start", result.stdout)
 
     def test_channels_start_runs_runtime_helper(self) -> None:
         config = OPCConfig()

@@ -523,7 +523,7 @@ class SkillModeFilteringTests(unittest.TestCase):
         (memory_dir / "SKILL.md").write_text(
             "---\n"
             "name: memory\n"
-            "description: Read and edit canonical OpenOPC memory.\n"
+            "description: Read and edit canonical AutoSwarm memory.\n"
             "always: true\n"
             "---\n\n"
             "# Memory\n\n"

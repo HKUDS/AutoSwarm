@@ -1,4 +1,4 @@
-"""Command-line entrypoint for the OpenOPC CLI board."""
+"""Command-line entrypoint for the AutoSwarm CLI board."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def _require_textual() -> None:
         _console.print(
             "[red]CLI board requires the optional Textual dependency.[/red]\n"
             "Install it with one of these commands:\n"
-            "  [bold]pip install 'opc[cli-board]'[/bold]\n"
+            "  [bold]pip install 'autoswarm[cli-board]'[/bold]\n"
             "  [bold]pip install textual>=8.1.1[/bold]"
         )
         raise SystemExit(1) from exc

@@ -1,2 +1,2 @@
-"""Presentation helpers shared by multiple OpenOPC frontends."""
+"""Presentation helpers shared by multiple AutoSwarm frontends."""
 

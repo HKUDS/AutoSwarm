@@ -1336,7 +1336,7 @@ class ApprovalEngineAllowlistTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(decision.policy_source, "human_escalation")
             self.assertEqual(len(escalation.calls), 1)
 
-            # A fresh engine over the same OPC home simulates an `opc ui`
+            # A fresh engine over the same AutoSwarm home simulates an `autoswarm ui`
             # restart: the session grant must survive, not re-prompt.
             engine_restarted = ApprovalEngine(
                 llm=_LLMStub(),

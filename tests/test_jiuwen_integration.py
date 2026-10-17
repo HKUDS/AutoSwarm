@@ -820,7 +820,7 @@ def test_opaque_team_contract_includes_full_compiled_responsibilities() -> None:
         },
     )
     contract = build_company_work_item_contract(task, audience="external")
-    assert "## OpenOPC WorkItem" in contract
+    assert "## AutoSwarm WorkItem" in contract
     assert "Final response: one JSON object" in contract
     assert "Jiuwen" not in contract
     assert "Opaque External Team" not in contract
@@ -907,7 +907,7 @@ def test_team_result_contract_validates_identity_and_maps_artifacts() -> None:
 
     # Jiuwen uses JSON null when a completed external-team boundary has no
     # downstream recipient.  This is a valid terminal handoff and must not
-    # cause OpenOPC to retry the entire provider execution.
+    # cause AutoSwarm to retry the entire provider execution.
     assert adapter.validate_result_output(_team_envelope(handoff=None), task) is None
     assert adapter.validate_result_output(
         _team_envelope(handoff=[{"next": "review"}]),
@@ -1393,8 +1393,8 @@ def test_jiuwen_result_repairs_heading_scope_and_adjacent_lists(
         "## 当前项目工作空间"
         "**当前项目目录**：`/workspace/0000`"
         "这是主要工作目录。"
-        "## OpenOPC系统目录"
-        "**OpenOPC根目录**：`/workspace/OpenOPC`"
+        "## AutoSwarm系统目录"
+        "**AutoSwarm根目录**：`/workspace/OpenOPC`"
         "-技能目录：`/workspace/OpenOPC/.opc/skills/`"
         "-项目内存：`/workspace/OpenOPC/.opc/memory/`"
         "##团队工作空间（共享）"
@@ -1408,7 +1408,7 @@ def test_jiuwen_result_repairs_heading_scope_and_adjacent_lists(
     repaired = adapter._restore_stream_markdown(collapsed)
 
     assert "## 当前项目工作空间\n\n**当前项目目录**" in repaired
-    assert "## OpenOPC系统目录\n\n**OpenOPC根目录**" in repaired
+    assert "## AutoSwarm系统目录\n\n**AutoSwarm根目录**" in repaired
     assert "\n- 技能目录：" in repaired
     assert "\n- 项目内存：" in repaired
     assert "## 团队工作空间（共享）\n\n**绝对路径**" in repaired

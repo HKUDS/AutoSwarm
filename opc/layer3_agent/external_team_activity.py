@@ -1,6 +1,6 @@
 """Read-only telemetry projection for opaque external teams.
 
-This module deliberately has no dependency on OpenOPC scheduling models.  It
+This module deliberately has no dependency on AutoSwarm scheduling models.  It
 reduces provider observations into a UI summary and cannot mutate an Agent,
 Task, DelegationWorkItem, gate, or controller state.
 """

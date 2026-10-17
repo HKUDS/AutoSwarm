@@ -1,8 +1,9 @@
 import type { TaskPreferredAgent } from '../types/kanban'
+import { NATIVE_AGENT_LABEL } from './branding'
 
 /** Shared agent catalogue for every Office selector and runtime badge. */
 export const TASK_AGENT_LABELS: Record<TaskPreferredAgent, string> = {
-  native: 'OpenOPC Native',
+  native: NATIVE_AGENT_LABEL,
   codex: 'Codex',
   claude_code: 'Claude Code',
   cursor: 'Cursor',

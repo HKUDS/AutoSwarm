@@ -133,7 +133,7 @@ class ApprovalAllowlistManager:
         return added
 
     # "Allow for this session" grants used to live only in ApprovalEngine
-    # memory, so a `opc ui` restart or re-entering the session re-prompted for
+    # memory, so a `autoswarm ui` restart or re-entering the session re-prompted for
     # commands the user had already approved. They are now persisted here,
     # keyed by the session scope id, capped to the most recent entries.
     _MAX_SESSION_SCOPES = 200

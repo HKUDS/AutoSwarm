@@ -1,7 +1,7 @@
 """Small stdio-to-Jiuwen Gateway bridge used by the external broker.
 
 The bridge deliberately depends only on Jiuwen's public ``/tui`` WebSocket
-protocol.  OpenOPC and Jiuwen therefore keep independent Python environments,
+protocol.  AutoSwarm and Jiuwen therefore keep independent Python environments,
 while the broker still gets JSONL progress, durable session ids, HITL replies,
 and a graceful ``chat.interrupt`` path.
 """
@@ -227,7 +227,7 @@ async def _main(args: argparse.Namespace) -> int:
     initial = await _stdin_json()
     prompt = str(initial.get("prompt") or initial.get("content") or "").strip()
     if not prompt:
-        _emit({"type": "event", "event": "chat.error", "payload": {"error": "empty OpenOPC prompt"}})
+        _emit({"type": "event", "event": "chat.error", "payload": {"error": "empty AutoSwarm prompt"}})
         return 2
 
     url = _gateway_url(args.gateway_url)
@@ -253,7 +253,7 @@ async def _main(args: argparse.Namespace) -> int:
         if ack.get("type") != "event" or ack.get("event") != "connection.ack":
             raise RuntimeError(f"expected connection.ack, got {ack!r}")
 
-        # This synthetic public event lets OpenOPC persist the provider token
+        # This synthetic public event lets AutoSwarm persist the provider token
         # before the first model/tool event, including across process crashes.
         _emit(
             {

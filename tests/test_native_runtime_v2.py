@@ -592,7 +592,7 @@ class NativeRuntimeV2Tests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(set(ui_ids)), 2)
         self.assertEqual(
             [item["kwargs"]["metadata"].get("visible_speaker") for item in memory.appended_messages],
-            ["OPC", "OPC"],
+            ["AutoSwarm", "AutoSwarm"],
         )
 
     async def test_company_mode_assistant_turn_is_raw_role_turn_not_task_generalist(self) -> None:
@@ -699,7 +699,7 @@ class NativeRuntimeV2Tests(unittest.IsolatedAsyncioTestCase):
 
         metadata = memory.appended_messages[-1]["kwargs"]["metadata"]
         self.assertEqual(metadata["kind"], "runtime_v2_assistant")
-        self.assertEqual(metadata["visible_speaker"], "OPC")
+        self.assertEqual(metadata["visible_speaker"], "AutoSwarm")
         self.assertEqual(metadata["ui_message_id"], "runtime-v2-assistant:ui-turn:task")
         self.assertNotIn("company_runtime_raw_turn", metadata)
 

@@ -274,7 +274,7 @@ class BoardActionsTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         super().setUp()
         # Safety net: even if a code path slipped past the factory patch it
-        # must never touch the real OPC home.
+        # must never touch the real AutoSwarm home.
         tmp = tempfile.TemporaryDirectory(prefix="opc-cli-board-actions-test-")
         self.addCleanup(tmp.cleanup)
         env_patcher = mock.patch.dict(os.environ, {"OPC_HOME": tmp.name})

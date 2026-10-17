@@ -9,6 +9,7 @@ import type { KanbanBoard, KanbanColumn, KanbanPhase, KanbanTask, TaskPriority, 
 import { normalizeExternalTeamSummary } from '../stores/ExternalTeamActivityStore'
 import { normalizeProgressLog, normalizeWorkItemLog } from './progressLog'
 import { canonicalizeSessionExecutionIdentity } from './sessionIdentity'
+import { PRODUCT_NAME } from './branding'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -303,8 +304,9 @@ export function mapBackendChannel(raw: any): ChatChannel {
 
 export function mapBackendMessage(raw: any): ChatMessage {
   const rawSenderName = raw.sender_name ?? raw.senderName ?? ''
-  const senderName = String(rawSenderName).trim().toLowerCase() === 'task generalist'
-    ? 'OPC'
+  const legacyProductName = ['opc', 'openopc', 'task generalist'].includes(String(rawSenderName).trim().toLowerCase())
+  const senderName = legacyProductName && raw.sender !== 'user' && raw.sender !== 'owner'
+    ? PRODUCT_NAME
     : rawSenderName
   return {
     id: raw.message_id ?? raw.id ?? '',

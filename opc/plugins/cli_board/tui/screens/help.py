@@ -60,7 +60,7 @@ class HelpScreen(ModalScreen[None]):
             "  ?: this help            q: quit"
         )
         with Vertical(classes="help-dialog"):
-            yield Static("OpenOPC CLI Board Help", id="help-title")
+            yield Static("AutoSwarm CLI Board Help", id="help-title")
             yield Static(help_text, classes="help-copy")
 
     def action_close(self) -> None:

@@ -1,4 +1,4 @@
-"""Security validation for OPC Market packages."""
+"""Security validation for AutoSwarm Market packages."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ SUSPICIOUS_PROMPT_PATTERNS = [
 
 
 class SandboxChecker:
-    """Validates an OPC package for security concerns before installation."""
+    """Validates an AutoSwarm package for security concerns before installation."""
 
     def validate(self, package: OPCPackage) -> SandboxReport:
         report = SandboxReport()

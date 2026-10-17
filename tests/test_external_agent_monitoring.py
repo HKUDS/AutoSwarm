@@ -1954,7 +1954,7 @@ class ExternalAgentMonitoringTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("agent_spawn(profile='explore')", external_task.description)
         self.assertNotIn("file_read", external_task.description)
         self.assertNotIn("git_*", external_task.description)
-        self.assertNotIn("OpenOPC task execution agent", external_task.description)
+        self.assertNotIn("AutoSwarm task execution agent", external_task.description)
         self.assertNotIn("## Core Operating Principles", external_task.description)
         self.assertNotIn("## Native Working Contract", external_task.description)
         self.assertNotIn("Tool Strategy", external_task.description)
@@ -2072,7 +2072,7 @@ class ExternalAgentMonitoringTests(unittest.IsolatedAsyncioTestCase):
 
         external_task = await engine._build_external_agent_task(task)
 
-        # OpenOPC-spawned agents (codex, claude, opencode, cursor) all use
+        # AutoSwarm-spawned agents (codex, claude, opencode, cursor) all use
         # the `opc-collab` CLI. The prompt deliberately teaches only that
         # supported collaboration surface.
         self.assertIn("## Company Runtime Context", external_task.description)
@@ -2267,9 +2267,9 @@ class ExternalAgentMonitoringTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("## Team Collaboration", external_task.description)
         self.assertNotIn("opc-collab", external_task.description)
         self.assertIn("## Task Brief", external_task.description)
-        self.assertIn("## OpenOPC Context", external_task.description)
+        self.assertIn("## AutoSwarm Context", external_task.description)
         self.assertNotIn("## Collaboration Context", external_task.description)
-        self.assertNotIn("OpenOPC task execution agent", external_task.description)
+        self.assertNotIn("AutoSwarm task execution agent", external_task.description)
         self.assertNotIn("## Core Operating Principles", external_task.description)
         self.assertNotIn("## Native Working Contract", external_task.description)
         self.assertNotIn("Tool Strategy", external_task.description)
@@ -3086,7 +3086,7 @@ class ExternalAgentMonitoringTests(unittest.IsolatedAsyncioTestCase):
         adapter = CodexAdapter()
         task = Task(
             title="demo",
-            description="## Task Brief\n如何看待agent的发展趋势\n\n## OpenOPC Context\nctx",
+            description="## Task Brief\n如何看待agent的发展趋势\n\n## AutoSwarm Context\nctx",
             metadata={"external_prompt_contract": "description_is_full_prompt"},
         )
 
@@ -3460,7 +3460,7 @@ class ExternalAgentMonitoringTests(unittest.IsolatedAsyncioTestCase):
         adapter = ClaudeCodeAdapter()
         task = Task(
             title="demo",
-            description="## Task Brief\n在工作区里创建一个 hello.py\n\n## OpenOPC Context\nctx",
+            description="## Task Brief\n在工作区里创建一个 hello.py\n\n## AutoSwarm Context\nctx",
             metadata={"external_prompt_contract": "description_is_full_prompt"},
         )
         prompt = adapter.build_task_prompt(task)
@@ -4452,7 +4452,7 @@ class ExternalAgentMonitoringTests(unittest.IsolatedAsyncioTestCase):
 
     def test_external_task_prompt_does_not_duplicate_existing_task_brief(self) -> None:
         adapter = OpenCodeAdapter(config=ExternalAgentConfig(command="opencode"))
-        task = Task(title="hello", description="## Task Brief\nhello\n\n## OpenOPC Context\nctx")
+        task = Task(title="hello", description="## Task Brief\nhello\n\n## AutoSwarm Context\nctx")
 
         prompt = adapter.build_task_prompt(task)
 
@@ -5104,7 +5104,7 @@ class ExternalAgentMonitoringTests(unittest.IsolatedAsyncioTestCase):
                 / "README.md"
             )
             runtime_readme.parent.mkdir(parents=True)
-            runtime_readme.write_text("OpenOPC runtime state", encoding="utf-8")
+            runtime_readme.write_text("AutoSwarm runtime state", encoding="utf-8")
             source = root / "source.txt"
             source.write_text("attest this file", encoding="utf-8")
 
@@ -5907,7 +5907,7 @@ class ExternalAgentMonitoringTests(unittest.IsolatedAsyncioTestCase):
         )
         result = TaskResult(
             status=TaskStatus.FAILED,
-            content="missing required OpenOPC output envelope",
+            content="missing required AutoSwarm output envelope",
             artifacts={
                 "external_retry_strategy": "repair_output_envelope",
                 "retry_output_excerpt": "previous substantive result",
@@ -5926,7 +5926,7 @@ class ExternalAgentMonitoringTests(unittest.IsolatedAsyncioTestCase):
         recovery = ContextAssembler(memory=SimpleNamespace()).build_recovery_context(task)
 
         self.assertIn("Retry 1 of 3; execution attempt 2", recovery)
-        self.assertIn("missing required OpenOPC output envelope", recovery)
+        self.assertIn("missing required AutoSwarm output envelope", recovery)
         self.assertIn("repair_output_envelope", recovery)
         self.assertIn("Do not repeat the underlying task", recovery)
         self.assertIn("previous substantive result", recovery)
@@ -5944,7 +5944,7 @@ class ExternalAgentMonitoringTests(unittest.IsolatedAsyncioTestCase):
             def validate_result_output(self, output: str, task: Task) -> str | None:
                 _ = output
                 _ = task
-                return "missing required OpenOPC output envelope"
+                return "missing required AutoSwarm output envelope"
 
             def result_validation_retry_strategy(
                 self,
@@ -5973,7 +5973,7 @@ class ExternalAgentMonitoringTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             result.artifacts["output_validation_error"],
-            "missing required OpenOPC output envelope",
+            "missing required AutoSwarm output envelope",
         )
         self.assertIn("substantive result", result.artifacts["retry_output_excerpt"])
         self.assertEqual(result.artifacts["resume_session_id"], "provider-session-repair")

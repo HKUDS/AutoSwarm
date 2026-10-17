@@ -167,7 +167,7 @@ def validate_org_config_payload(path: Path, data: dict[str, Any]) -> dict[str, A
     schema_version = int(data.get("schema_version", 1) or 1)
     if schema_version > ORG_CONFIG_SCHEMA_VERSION:
         raise ValueError(
-            f"{path.name} schema_version {schema_version} is not supported by this version of OpenOPC"
+            f"{path.name} schema_version {schema_version} is not supported by this version of AutoSwarm"
         )
     kind = str(data.get("kind", "") or "").strip()
     if schema_version >= ORG_CONFIG_SCHEMA_VERSION and kind and kind != ORG_CONFIG_KIND:

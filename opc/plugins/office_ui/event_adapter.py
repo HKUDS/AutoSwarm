@@ -3,7 +3,7 @@
 Tracks per-agent animation state to synthesize paired start/done events
 that the office-UI frontend expects.
 
-OPC emits linear transitions: thinking → executing → thinking → idle
+AutoSwarm emits linear transitions: thinking → executing → thinking → idle
 UI expects paired events:     reflect_start → reflect_done → tool_start → tool_done → waiting
 
 The EventAdapter bridges this gap by maintaining a state machine per agent.
@@ -20,7 +20,7 @@ from typing import Any
 from opc.layer2_organization.company_runtime_identity import is_runtime_auxiliary_metadata
 
 
-# ── OPC tool name → UI tool name mapping ──────────────────────────────────
+# ── AutoSwarm tool name → UI tool name mapping ──────────────────────────────────
 
 TOOL_MAP: dict[str, str] = {
     "file_read": "read",
@@ -117,7 +117,7 @@ def _add_execution_turn_aliases(data: dict[str, Any], task_id: Any | None = None
 # ── EventAdapter ───────────────────────────────────────────────────────────
 
 class EventAdapter:
-    """Stateful OPC → Visual event translator.
+    """Stateful AutoSwarm → Visual event translator.
 
     Maintains per-agent state machines to emit correct transition events.
     """
@@ -137,7 +137,7 @@ class EventAdapter:
         self._role_agent_map = dict(role_agent_map)
 
     def _resolve_role_to_agent(self, role_id: str) -> str:
-        """Map OPC role_id to UI agent_id. Falls back to role_id itself."""
+        """Map AutoSwarm role_id to UI agent_id. Falls back to role_id itself."""
         return self._role_agent_map.get(role_id, role_id)
 
     def _get_tracker(self, agent_id: str) -> AgentTracker:

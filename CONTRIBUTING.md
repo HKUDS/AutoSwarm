@@ -1,6 +1,6 @@
-# Contributing to OpenOPC
+# Contributing to AutoSwarm
 
-Thanks for your interest in improving OpenOPC! This guide covers how to set up, make changes, and submit them.
+Thanks for your interest in improving AutoSwarm! This guide covers how to set up, make changes, and submit them.
 
 ## Ways to contribute
 - **Report bugs** and **request features** via the [issue templates](.github/ISSUE_TEMPLATE).
@@ -9,18 +9,18 @@ Thanks for your interest in improving OpenOPC! This guide covers how to set up, 
 - **Discuss** in the Feishu / WeChat community groups linked in the [README](README.md).
 
 ## Development setup
-OpenOPC requires **Python >= 3.10** (3.12 recommended). [`uv`](https://docs.astral.sh/uv/) is the recommended tool.
+AutoSwarm requires **Python >= 3.10** (3.12 recommended). [`uv`](https://docs.astral.sh/uv/) is the recommended tool.
 
 ```bash
-git clone https://github.com/<your-username>/OpenOPC
-cd OpenOPC
+git clone https://github.com/<your-username>/OpenOPC AutoSwarm
+cd AutoSwarm
 uv venv --python 3.12
 source .venv/bin/activate
 uv pip install -e ".[dev]"
-uv run opc init
+uv run autoswarm init
 ```
 
-Run the UI with `opc ui` (needs Node.js >= 18 for the Office UI) or the CLI with `opc chat`.
+Run the UI with `autoswarm ui` (needs Node.js >= 18 for the Office UI) or the CLI with `autoswarm chat`.
 
 ## Making changes
 1. **Fork** the repo and create a branch: `git checkout -b my-change`.

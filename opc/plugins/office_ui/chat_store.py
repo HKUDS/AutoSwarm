@@ -1,6 +1,6 @@
 """Chat Store — channels, messages, and task progress persistence for the office-UI plugin.
 
-This is the ONLY genuinely new persistence (OPC has no channel concept).
+This is the ONLY genuinely new persistence (AutoSwarm has no channel concept).
 Channel/message format uses snake_case to match what collabSync.ts expects.
 """
 
@@ -933,7 +933,7 @@ class ChatStore:
                 "top_level_reply",
             }
         ):
-            sender_name = "OPC"
+            sender_name = "AutoSwarm"
         return {
             "message_id": row[0],
             "channel_id": row[1],

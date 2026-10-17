@@ -6,7 +6,7 @@ from typing import Optional
 
 
 def register_cli(parent_app) -> None:
-    """Register the `opc board` command on the parent Typer app."""
+    """Register the `autoswarm board` command on the parent Typer app."""
     import typer as _typer
 
     @parent_app.command("board")
@@ -26,7 +26,7 @@ def register_cli(parent_app) -> None:
             help="Cross-process reconcile interval in seconds",
         ),
     ) -> None:
-        """Launch the OpenOPC terminal Kanban board."""
+        """Launch the AutoSwarm terminal Kanban board."""
         # The board initializes its engine lazily.  Resolve workspace trust at
         # the CLI boundary first so an untrusted project never reaches the TUI.
         from opc.cli.app import _get_config

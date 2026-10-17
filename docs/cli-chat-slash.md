@@ -1,6 +1,6 @@
-# OPC Chat Slash Commands
+# AutoSwarm Chat Slash Commands
 
-`opc chat` includes an interactive slash console for managing context, sessions, runtime visibility, company work items, organization assets, and diagnostics without opening the Office UI.
+`autoswarm chat` includes an interactive slash console for managing context, sessions, runtime visibility, company work items, organization assets, and diagnostics without opening the Office UI.
 
 The source of truth for this table is `_SLASH_COMMANDS` in `opc/cli/app.py`.
 

@@ -23,7 +23,7 @@ def create_agent_runtime_tools() -> list[ToolDefinition]:
             description=(
                 "Spawn a native subagent. Use explore/plan for read-only investigation, "
                 "implement for isolated coding, and verify for adversarial validation. "
-                "Supports OpenOPC native subagent fields such as description, name, model, "
+                "Supports AutoSwarm native subagent fields such as description, name, model, "
                 "background, mode, and worktree isolation."
             ),
             parameters={
