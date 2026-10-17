@@ -138,6 +138,21 @@ Before any work begins, the right people must be in place. Given a goal, OpenOPC
 
 💡 Experienced employees carry accumulated context; fresh hires offer a clean slate when a role demands it.
 
+Before sending the first message, choose **Mode → Company** and use the **Company** selector:
+
+- **Adaptive team** uses the selected **Agent** to design responsibilities, reporting relationships and staff assignments in one planning decision. Sending the request opens a combined team/recruitment proposal directly; feedback revises it and approval starts a separate organization. A solo owner is valid, with no fixed team size or hierarchy depth. Members and management layers must justify their complementary contribution against smaller/merged alternatives and the total cost of time, context loading, communication, review, rework and integration.
+- **Fixed organization** uses Corporate or a saved organization with its roles and reporting relationships intact. Staff it manually or use **Auto Recruit**; recruitment does not redesign the organization.
+
+The choice is saved with the chat, survives reloads and is locked after the first message. Existing chats default to fixed organizations. CLI staffing cards still accept `auto team` for combined formation/recruitment and `auto recruit` for existing-role staffing. Formation and recruitment use the selected execution agent. External agents plan in separate temporary workspaces; Codex uses a read-only sandbox. Team size is a qualitative agent decision, not a guarantee of optimality; existing organization configurations are preserved.
+
+The chat's **Agent** handles formation, recruitment and default execution. Each role's **Execution Agent** can override its execution backend, saved per project and organization. Codex uses its own model configuration and runs Company work in a workspace sandbox with task-bound collaboration. An explicitly selected agent that is unavailable or lacks Company isolation support fails visibly rather than silently switching to Native or another agent. Stop/resume preserves explicit choices too.
+
+Approved adaptive hires are persisted and remain available for reuse in later adaptive runs from the same source organization and project, alongside their relevant experience.
+
+Adaptive teams are temporary by default: their runtime snapshots support conversation follow-ups and recovery, but do not appear in the saved organization picker. Only explicitly saved architectures become reusable organizations.
+
+Formation and automatic recruitment impose no extra fixed planning deadline or correction quota. Data validation feedback goes back to the selected agent for correction; the framework does not rewrite the team or substitute heuristic staffing decisions. Users can stop planning, and agent or provider failures are reported explicitly.
+
 **⚙️ 2. Self-Run — Executing the Work**
 
 With the team assembled, Self-Run orchestrates its members toward a finished deliverable. The central challenge is not raw execution but efficient collaboration under uncertainty, which manifests in two distinct problems.
@@ -432,6 +447,8 @@ To recruit: import talent templates first, then open `Org -> Employees`, search 
 ```bash
 opc talent import /path/to/agency-agents
 ```
+
+To refresh this repository's talent catalog without saving company configuration, run `PYTHONPATH=. python scripts/sync_agency_talent.py /path/to/agency-agents --opc-home .opc`. It updates matching source templates, adds new ones and records the source revision and content hashes. Local custom templates are retained; example workflows and organizational playbooks are excluded from recruitment imports.
 
 <details>
 <summary><strong>Where project files live</strong></summary>

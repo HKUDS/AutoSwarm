@@ -38,8 +38,8 @@ interface SocketHandlers {
   onRuntimeStatusSync?: (payload: RuntimeStatusSyncPayload) => void
   onWorkerNotification?: (payload: WorkerNotificationPayload) => void
   onKanbanViewData?: (payload: KanbanViewDataPayload) => void
-  onSessionCreated?: (payload: { project_id: string; task_id: string; channel_id: string; session_id?: string; parent_session_id?: string; origin_task_id?: string; title: string; status: string; created_at: number; assignee_ids?: string[]; exec_mode?: string; company_profile?: string; org_id?: string; organization_id?: string; preferred_agent?: TaskPreferredAgent; selected_execution_agent?: TaskPreferredAgent; native_approval_level?: NativeApprovalLevel; native_permission_scope_id?: string }) => void
-  onSessionUpdated?: (payload: { project_id: string; task_id: string; exec_mode?: string; company_profile?: string; org_id?: string; organization_id?: string; preferred_agent?: TaskPreferredAgent; selected_execution_agent?: TaskPreferredAgent; native_approval_level?: NativeApprovalLevel; native_permission_scope_id?: string }) => void
+  onSessionCreated?: (payload: { project_id: string; task_id: string; channel_id: string; session_id?: string; parent_session_id?: string; origin_task_id?: string; title: string; status: string; created_at: number; assignee_ids?: string[]; exec_mode?: string; company_profile?: string; company_team_strategy?: 'adaptive' | 'fixed'; recruitment_agent?: TaskPreferredAgent; org_id?: string; organization_id?: string; preferred_agent?: TaskPreferredAgent; selected_execution_agent?: TaskPreferredAgent; native_approval_level?: NativeApprovalLevel; native_permission_scope_id?: string }) => void
+  onSessionUpdated?: (payload: { project_id: string; task_id: string; exec_mode?: string; company_profile?: string; company_team_strategy?: 'adaptive' | 'fixed'; recruitment_agent?: TaskPreferredAgent; org_id?: string; organization_id?: string; preferred_agent?: TaskPreferredAgent; selected_execution_agent?: TaskPreferredAgent; native_approval_level?: NativeApprovalLevel; native_permission_scope_id?: string }) => void
   onNativePermissionDefaultUpdated?: (payload: { native_approval_default: NativeApprovalLevel }) => void
   onSessionMessage?: (payload: Record<string, unknown>) => void
   onSessionTitleUpdated?: (payload: { project_id: string; task_id: string; title: string }) => void
@@ -195,7 +195,6 @@ const PROJECT_SCOPED_MESSAGE_TYPES = new Set([
 ])
 
 const SESSION_DETAIL_REQUEST_TIMEOUT_MS = 30_000
-const INTERACTION_REPLY_TIMEOUT_MS = 30_000
 type SendDisposition = 'sent' | 'queued' | 'queue-full' | 'send-failed'
 
 export class VisualSocketClient {
@@ -220,7 +219,6 @@ export class VisualSocketClient {
   }> = []
   private pendingInteractionReplies = new Map<string, {
     wireData: string
-    timeout: ReturnType<typeof setTimeout>
     resolve: (payload: InteractionReplyReceipt) => void
   }>()
 
@@ -396,7 +394,7 @@ export class VisualSocketClient {
 
   // ── Session protocol ───────────────────────────────────────────────────
 
-  createSession(projectId: string, title?: string, execMode?: string, companyProfile?: string, preferredAgent?: TaskPreferredAgent, orgId?: string, nativeApprovalLevel?: NativeApprovalLevel): void {
+  createSession(projectId: string, title?: string, execMode?: string, companyProfile?: string, preferredAgent?: TaskPreferredAgent, orgId?: string, nativeApprovalLevel?: NativeApprovalLevel, companyTeamStrategy?: 'adaptive' | 'fixed', recruitmentAgent?: TaskPreferredAgent): void {
     const pid = this.requireProjectId(projectId, 'create_session')
     this.send({
       type: 'create_session',
@@ -404,6 +402,8 @@ export class VisualSocketClient {
       title: title ?? 'New Chat',
       exec_mode: execMode,
       company_profile: companyProfile,
+      company_team_strategy: companyTeamStrategy,
+      recruitment_agent: recruitmentAgent,
       preferred_agent: preferredAgent,
       org_id: orgId,
       native_approval_level: nativeApprovalLevel,
@@ -447,7 +447,6 @@ export class VisualSocketClient {
     return new Promise((resolve) => {
       const existing = this.pendingInteractionReplies.get(request.clientRequestId)
       if (existing) {
-        clearTimeout(existing.timeout)
         existing.resolve({
           ok: false,
           accepted: false,
@@ -457,22 +456,10 @@ export class VisualSocketClient {
           client_request_id: request.clientRequestId,
         })
       }
-      const timeout = setTimeout(() => {
-        const pending = this.pendingInteractionReplies.get(request.clientRequestId)
-        if (!pending) return
-        this.pendingInteractionReplies.delete(request.clientRequestId)
-        const queuedIndex = this.pendingQueue.indexOf(pending.wireData)
-        if (queuedIndex >= 0) this.pendingQueue.splice(queuedIndex, 1)
-        pending.resolve({
-          ok: false,
-          accepted: false,
-          error: 'request_timeout',
-          checkpoint_id: request.checkpointId,
-          checkpoint_type: request.checkpointType,
-          client_request_id: request.clientRequestId,
-        })
-      }, INTERACTION_REPLY_TIMEOUT_MS)
-      this.pendingInteractionReplies.set(request.clientRequestId, { wireData, timeout, resolve })
+      // A delayed durable receipt is still pending, never a rejection. Keep
+      // the exact request/idempotency key until ACK or an explicit disconnect;
+      // reconnect already replays it to recover a lost ACK.
+      this.pendingInteractionReplies.set(request.clientRequestId, { wireData, resolve })
       const disposition = this.send(payload)
       if (disposition === 'queue-full' || disposition === 'send-failed') {
         this.failInteractionReply(
@@ -493,7 +480,7 @@ export class VisualSocketClient {
     this.send({ type: 'session_update_title', project_id: pid, task_id: taskId, title })
   }
 
-  sessionUpdateConfig(projectId: string, taskId: string, execMode: string, companyProfile?: string, preferredAgent?: TaskPreferredAgent, orgId?: string): void {
+  sessionUpdateConfig(projectId: string, taskId: string, execMode: string, companyProfile?: string, preferredAgent?: TaskPreferredAgent, orgId?: string, companyTeamStrategy?: 'adaptive' | 'fixed', recruitmentAgent?: TaskPreferredAgent): void {
     const pid = this.requireProjectId(projectId, 'session_update_config')
     this.send({
       type: 'session_update_config',
@@ -501,6 +488,8 @@ export class VisualSocketClient {
       task_id: taskId,
       exec_mode: execMode,
       company_profile: companyProfile,
+      company_team_strategy: companyTeamStrategy,
+      recruitment_agent: recruitmentAgent,
       preferred_agent: preferredAgent,
       org_id: orgId,
     })
@@ -1077,7 +1066,6 @@ export class VisualSocketClient {
     const pending = this.pendingInteractionReplies.get(clientRequestId)
     if (!pending) return payload
     this.pendingInteractionReplies.delete(clientRequestId)
-    clearTimeout(pending.timeout)
     const queuedIndex = this.pendingQueue.indexOf(pending.wireData)
     if (queuedIndex >= 0) this.pendingQueue.splice(queuedIndex, 1)
     pending.resolve({
@@ -1099,7 +1087,6 @@ export class VisualSocketClient {
     const pending = this.pendingInteractionReplies.get(clientRequestId)
     if (!pending) return
     this.pendingInteractionReplies.delete(clientRequestId)
-    clearTimeout(pending.timeout)
     const queuedIndex = this.pendingQueue.indexOf(pending.wireData)
     if (queuedIndex >= 0) this.pendingQueue.splice(queuedIndex, 1)
     let checkpointId = ''

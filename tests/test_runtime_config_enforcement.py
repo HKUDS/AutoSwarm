@@ -1034,7 +1034,7 @@ class RuntimeConfigEnforcementTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(checkpoint.status, "invalid")
         engine._create_company_self_evolution_root_work_item.assert_not_awaited()
 
-    async def test_company_materialized_work_item_forces_native_execution(self) -> None:
+    async def test_company_materialized_work_item_rejects_unfenced_explicit_executor(self) -> None:
         saved_tasks: list[Task] = []
 
         async def save_task(task: Task) -> None:
@@ -1093,29 +1093,10 @@ class RuntimeConfigEnforcementTests(unittest.IsolatedAsyncioTestCase):
             metadata={"seat_id": "seat-engineer", "team_id": "team::engineering"},
         )
 
-        tasks = await executor._materialize_work_item_tasks([root_task], [work_item])
-        created = next(task for task in tasks if task.id != root_task.id)
-
-        self.assertIsNone(created.assigned_external_agent)
-        self.assertEqual(created.metadata["selected_execution_agent"], "native")
-        self.assertIsNone(created.metadata["preferred_external_agent"])
-        self.assertEqual(
-            created.metadata["work_item_execution_strategy"],
-            WorkItemExecutionStrategy.NATIVE.value,
-        )
-        self.assertTrue(created.metadata["execution_agent_locked"])
-        self.assertTrue(created.metadata["force_native_execution"])
-        self.assertTrue(created.metadata["company_native_execution_enforced"])
-        self.assertEqual(created.metadata["native_approval_level"], "full-access")
-        self.assertEqual(
-            created.metadata["native_permission_scope_id"],
-            "sess-company",
-        )
-        self.assertEqual(
-            created.metadata["selected_execution_agent_source"],
-            "company_isolation_boundary",
-        )
-        self.assertIsNone(saved_tasks[0].assigned_external_agent)
+        with self.assertRaisesRegex(RuntimeError, "cursor.*lacks the company workspace fence"):
+            await executor._materialize_work_item_tasks([root_task], [work_item])
+        self.assertEqual(saved_tasks, [])
+        self.assertEqual(root_task.metadata["runtime_topology"]["seats"][0]["selected_execution_agent"], "cursor")
 
     async def test_company_materialization_persists_durable_org_on_new_role_task(self) -> None:
         executor = CompanyWorkItemExecutor(

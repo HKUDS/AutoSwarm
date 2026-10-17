@@ -9,7 +9,7 @@ import type {
   StaffingTemplateOption,
 } from '../types/chat'
 import type { TaskPreferredAgent } from '../types/kanban'
-import { RECRUITMENT_AGENT_OPTIONS, TASK_AGENT_LABELS, TASK_AGENT_OPTIONS } from '../lib/externalAgents'
+import { TASK_AGENT_LABELS, TASK_AGENT_OPTIONS } from '../lib/externalAgents'
 import { buildDynamicTeamCoverage } from './StaffingSelectionPanel'
 
 const DEFAULT_ROLE_AGENT: TaskPreferredAgent = 'codex'
@@ -205,7 +205,8 @@ export const RecruitmentPanel = React.memo(function RecruitmentPanel({
   const [feedback, setFeedback] = useState('')
   const [selections, setSelections] = useState<Record<string, StaffingSelectionValue>>(() => buildSelectionsFromMeta(meta, roles))
   const [roleAgents, setRoleAgents] = useState<Record<string, TaskPreferredAgent>>(() => buildRoleAgentsFromMeta(meta, roles))
-  const [recruitmentAgent, setRecruitmentAgent] = useState<TaskPreferredAgent>(meta.recruitment_agent ?? DEFAULT_RECRUITMENT_AGENT)
+  const lead = roles.find(role => role.reports_to === 'owner') ?? roles.find(role => !role.reports_to)
+  const recruitmentAgent = (lead && roleAgents[String(lead.role_id)]) ?? meta.recruitment_agent ?? DEFAULT_RECRUITMENT_AGENT
   const isResponded = responded
   const dynamicTeamCoverage = useMemo(
     () => buildDynamicTeamCoverage(roles, roleAgents),
@@ -216,12 +217,7 @@ export const RecruitmentPanel = React.memo(function RecruitmentPanel({
     if (!isResponded || !hasSubmittedCheckpointMetadata(meta)) return
     setSelections(buildSelectionsFromMeta(meta, roles))
     setRoleAgents(buildRoleAgentsFromMeta(meta, roles))
-    setRecruitmentAgent(meta.recruitment_agent ?? DEFAULT_RECRUITMENT_AGENT)
   }, [isResponded, meta, roles])
-
-  useEffect(() => {
-    setRecruitmentAgent(meta.recruitment_agent ?? DEFAULT_RECRUITMENT_AGENT)
-  }, [meta.recruitment_agent])
 
   const buildReplyMetadata = useCallback((kind: NonNullable<CheckpointReplyMetadata['checkpoint_reply_kind']>): CheckpointReplyMetadata => {
     const checkpointId = String(meta.checkpoint_id ?? '').trim()
@@ -265,28 +261,16 @@ export const RecruitmentPanel = React.memo(function RecruitmentPanel({
             <path d="M12 5v4M10 7h4" />
           </svg>
         </div>
-        <div className="ckpt-title">Recruitment Review</div>
-        <span className="ckpt-badge ckpt-badge-profile">{meta.company_profile || 'corporate'}</span>
+        <div className="ckpt-title">{meta.company_team_strategy === 'adaptive' ? 'Team & Recruitment Review' : 'Recruitment Review'}</div>
+        <span className="ckpt-badge ckpt-badge-profile">{meta.company_team_strategy === 'adaptive' ? 'Adaptive team' : meta.company_profile || 'corporate'}</span>
         {isResponded && <span className="ckpt-badge ckpt-badge-responded">Responded</span>}
       </div>
 
       {meta.summary && <div className="ckpt-summary">{meta.summary}</div>}
 
       <div className="ckpt-recruiter-agent">
-        <label className="ckpt-agent-label" htmlFor={`recruitment-recruiter-agent-${meta.checkpoint_id}`}>
-          Recruiter Agent
-        </label>
-        <select
-          id={`recruitment-recruiter-agent-${meta.checkpoint_id}`}
-          className="ckpt-agent-select"
-          value={recruitmentAgent}
-          onChange={event => setRecruitmentAgent(event.target.value as TaskPreferredAgent)}
-          disabled={isResponded}
-        >
-          {RECRUITMENT_AGENT_OPTIONS.map(agent => (
-            <option key={agent} value={agent}>{TASK_AGENT_LABELS[agent]}</option>
-          ))}
-        </select>
+        <span className="ckpt-agent-label">Formation &amp; Recruitment Agent</span>
+        <span>{TASK_AGENT_LABELS[recruitmentAgent]}</span>
       </div>
 
       {rationales.length > 0 && (

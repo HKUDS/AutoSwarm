@@ -60,21 +60,44 @@ static void sensor_task(void *arg) {
 
 void app_main(void) {
     sensor_queue = xQueueCreate(8, sizeof(sensor_data_t));
-    xTaskCreate(sensor_task, "sensor", TASK_STACK_SIZE, NULL, TASK_PRIORITY, NULL);
+    if (sensor_queue == NULL) {
+        // Never start a task that will send to an invalid queue.
+        return; // Report allocation failure through the application's fault path.
+    }
+    if (xTaskCreate(sensor_task, "sensor", TASK_STACK_SIZE, NULL,
+                    TASK_PRIORITY, NULL) != pdPASS) {
+        vQueueDelete(sensor_queue);
+        sensor_queue = NULL;
+        return; // No task owns the queue; release it before reporting the fault.
+    }
 }
 ```
 
 
-### STM32 LL SPI Transfer (non-blocking)
+### STM32 LL SPI Transfer (bounded polling, task context)
 
 ```c
-void spi_write_byte(SPI_TypeDef *spi, uint8_t data) {
-    while (!LL_SPI_IsActiveFlag_TXE(spi));
+#include <stdbool.h>
+#include <stdint.h>
+
+// STM32 SPI with TXE/BSY flags (e.g. STM32F4); not an ISR-safe or non-blocking API.
+// HAL_GetTick must advance while polling. One deadline covers both waits.
+bool spi_write_byte(SPI_TypeDef *spi, uint8_t data, uint32_t timeout_ms) {
+    const uint32_t started = HAL_GetTick();
+    while (!LL_SPI_IsActiveFlag_TXE(spi)) {
+        if ((uint32_t)(HAL_GetTick() - started) >= timeout_ms) return false;
+    }
     LL_SPI_TransmitData8(spi, data);
-    while (LL_SPI_IsActiveFlag_BSY(spi));
+    while (LL_SPI_IsActiveFlag_BSY(spi)) {
+        if ((uint32_t)(HAL_GetTick() - started) >= timeout_ms) return false;
+    }
+    return true;
 }
 ```
 
+A `false` result after the transmit write means completion is unknown: recover the
+peripheral using the target MCU reference manual and errata before retrying; do not
+blindly resend. Use interrupts or DMA when the caller must remain non-blocking.
 
 ### Nordic nRF BLE Advertisement (nRF Connect SDK / Zephyr)
 

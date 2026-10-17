@@ -18,10 +18,14 @@ from typing import Any, Mapping
 
 from opc.core.config import validate_organization_id
 from opc.core.execution_agents import EXECUTION_AGENTS, normalize_execution_agent
-from opc.layer2_organization.company_runtime_identity import is_company_runtime_task
+from opc.layer2_organization.company_runtime_identity import is_company_runtime_task, is_pure_company_ui_anchor
 
 # Backwards-compatible UI name backed by the process-wide source of truth.
 PREFERRED_AGENTS = EXECUTION_AGENTS
+
+
+def normalize_company_team_strategy(value: Any) -> str:
+    return "adaptive" if str(value or "").strip().lower() == "adaptive" else "fixed"
 
 
 @dataclass(frozen=True)
@@ -190,6 +194,41 @@ def execution_identity_from_task(
         default_preferred_agent=default_preferred_agent,
         explicit_exec_mode=explicit,
     )
+
+
+def selected_execution_agent_from_task(task: Any | None, *, default_agent: str = "native") -> str:
+    """Project a chat's committed choice or a runtime Task's own execution agent.
+
+    A Company UI anchor is a configuration container. Its legacy empty/Native
+    runtime selection must never replace the user's persisted chat preference.
+    Role Tasks retain their own execution identity, including explicit Native.
+    """
+    metadata = task_metadata(task)
+    preferred = metadata.get("preferred_agent")
+    if (
+        preferred not in (None, "", [], {})
+        and execution_identity_from_task(task).is_company_runtime
+        and is_pure_company_ui_anchor(task, str(getattr(task, "session_id", "") or ""))
+    ):
+        return normalize_preferred_agent(preferred, default=default_agent)
+
+    selected = metadata.get("selected_execution_agent")
+    is_task_mode = (
+        str(metadata.get("mode", "") or "").strip().lower() == "task"
+        or str(metadata.get("exec_mode", "") or "").strip().lower() in {"task", "project", "single"}
+        or str(metadata.get("execution_mode", "") or "").strip().lower() in {"task", "task_mode", "project"}
+        or metadata.get("task_mode_contract") == "single_full_capability_main_agent"
+    )
+    selection = dict(metadata.get("agent_selection", {}) or {})
+    candidates = (
+        (selected, preferred, selection.get("selected"))
+        if is_task_mode
+        else (selection.get("selected"), selected)
+    )
+    for candidate in (*candidates, getattr(task, "assigned_external_agent", None)):
+        if candidate not in (None, "", [], {}):
+            return normalize_preferred_agent(candidate, default=default_agent)
+    return normalize_preferred_agent(default_agent)
 
 
 def resolve_delivery_task_org_identity(

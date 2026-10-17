@@ -39,39 +39,53 @@ Concrete examples of what you produce:
 export async function optimizeAndRoute(
   serviceTask: string,
   providers: Provider[],
-  securityLimits: { maxRetries: 3, maxCostPerRun: 0.05 }
+  securityLimits: { maxRetries: number, maxCostPerRun: number }
 ) {
-  // Sort providers by historical 'Optimization Score' (Speed + Cost + Accuracy)
+  if (!Number.isInteger(securityLimits.maxRetries) || securityLimits.maxRetries < 0 ||
+      !Number.isFinite(securityLimits.maxCostPerRun) || securityLimits.maxCostPerRun <= 0) {
+    throw new Error('Require a nonnegative retry count and a positive finite budget');
+  }
   const rankedProviders = rankByHistoricalPerformance(providers);
+  let attempts = 0;
+  let spentCost = 0;
 
   for (const provider of rankedProviders) {
     if (provider.circuitBreakerTripped) continue;
-
+    if (attempts >= securityLimits.maxRetries + 1) break;
+    attempts += 1;
+    let result;
     try {
-      const result = await provider.executeWithTimeout(5000);
-      const cost = calculateCost(provider, result.tokens);
-      
-      if (cost > securityLimits.maxCostPerRun) {
-         triggerAlert('WARNING', `Provider over cost limit. Rerouting.`);
-         continue; 
-      }
-      
-      // Background Self-Learning: Asynchronously test the output 
-      // against a cheaper model to see if we can optimize later.
-      shadowTestAgainstAlternative(serviceTask, result, getCheapestProvider(providers));
-      
-      return result;
-
+      result = await provider.executeWithTimeout(5000);
     } catch (error) {
-       logFailure(provider);
-       if (provider.failures > securityLimits.maxRetries) {
-           tripCircuitBreaker(provider);
-       }
+      logFailure(provider);
+      if (provider.failures > securityLimits.maxRetries) tripCircuitBreaker(provider);
+      continue;
     }
+
+    // Cost is already incurred. Stop routing; do not spend again to hide an overrun.
+    const cost = calculateCost(provider, result.tokens);
+    if (!Number.isFinite(cost) || cost < 0) {
+      throw new Error('Provider cost is unknown or invalid; stop routing');
+    }
+    spentCost += cost;
+    if (spentCost > securityLimits.maxCostPerRun) {
+      triggerAlert('WARNING', 'Run budget exceeded; stopping provider attempts.');
+      throw new Error('Run budget exceeded');
+    }
+    // Shadow evaluation needs a separately reserved budget; this routing loop
+    // does not start additional paid work after returning the production result.
+    return result;
   }
-  throw new Error('All fail-safes tripped. Aborting task to prevent runaway costs.');
+  throw new Error('No provider succeeded within the retry budget.');
 }
+
 ```
+
+This is a post-charge stop, not proof of a prepaid hard cost ceiling. Reserve a
+conservative per-attempt token/cost bound before invoking a paid provider; include
+failed or timed-out charges in the provider ledger and reconcile unknown charges
+before another attempt. Give optional shadow evaluation a separate explicit budget
+and queue. A five-second timeout alone does not cancel remote billing.
 
 ## 🔄 Your Workflow Process
 1. **Phase 1: Baseline & Boundaries:** Identify the current production model. Ask the developer to establish hard limits: "What is the maximum $ you are willing to spend per execution?"

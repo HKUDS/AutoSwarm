@@ -54,6 +54,8 @@ from opc.layer2_organization.company_runtime_identity import (
     ACTIVE_COMPANY_RUNTIME_CHECKPOINT_STATUSES,
     COMPANY_RUNTIME_CHECKPOINT_TYPES,
     is_company_runtime_task,
+    is_runtime_auxiliary_metadata,
+    is_runtime_auxiliary_task,
     load_company_runtime_identity_index,
 )
 from opc.layer2_organization.work_item_identity import (
@@ -99,6 +101,17 @@ from opc.plugins.office_ui.org_architecture_snapshot import (
     apply_org_architecture_snapshot,
     parse_org_architecture_snapshot,
 )
+
+
+def _session_error_message(error: BaseException) -> str:
+    """Preserve meaningful exceptions and give empty ones a useful UI message."""
+
+    detail = str(error).strip()
+    if detail:
+        return detail
+    if isinstance(error, TimeoutError):
+        return "The request timed out before it completed. Please retry."
+    return f"{type(error).__name__}: the request could not be completed."
 
 
 def _add_execution_turn_aliases(
@@ -1297,6 +1310,29 @@ class WSHandler:
         """EventBus subscriber. Translates OPC events and broadcasts."""
         engine = runtime_engine or self.engine
         pid = self._normalize_project_id(project_id or getattr(engine, "project_id", None))
+        event_payload = dict(event.payload or {})
+        if event.event_type == "runtime_event" and event_payload.get("type") == "interaction_checkpoint_changed":
+            # An internal worker can require a real human decision. Render
+            # the durable checkpoint at its owner anchor, without exposing
+            # the waiting auxiliary Task as a separate chat/runtime stream.
+            await self._handle_runtime_event_progress(event_payload, engine=engine, project_id=pid)
+            return
+        if is_runtime_auxiliary_metadata(event_payload):
+            return
+        # Older runtimes emitted auxiliary events without their visibility
+        # markers. Consult the durable Task before mutating UI trackers or
+        # projecting any events, channels, progress, or sessions.
+        event_task_id = str(event_payload.get("task_id", "") or "").strip()
+        if event_task_id and self._store_is_ready(getattr(engine, "store", None)):
+            try:
+                event_task = await engine.store.get_task(event_task_id)
+            except Exception as exc:
+                if self._is_expected_shutdown_error(exc) or self._is_closed_database_error(exc):
+                    logger.debug("Skipping UI event after Task store closed: {}", event_task_id)
+                    return
+                raise
+            if event_task is not None and is_runtime_auxiliary_task(event_task):
+                return
         if event.event_type == "runtime_event":
             runtime_payload = dict(event.payload or {})
             runtime_type = str(runtime_payload.get("type", "") or "").strip()
@@ -2693,7 +2729,7 @@ class WSHandler:
             task = await runtime_engine.store.get_task(task_id)
         except Exception:
             task = None
-        if task is None:
+        if task is None or is_runtime_auxiliary_task(task):
             return
 
         session_id = str(getattr(task, "session_id", "") or "").strip()
@@ -2929,7 +2965,7 @@ class WSHandler:
             return 0
 
         task = await store.get_task(task_id)
-        if not task:
+        if not task or is_runtime_auxiliary_task(task):
             return 0
 
         transcript_loader = getattr(store, "get_session_transcript", None)
@@ -3869,18 +3905,8 @@ class WSHandler:
         # Sync role→agent mapping for EventAdapter
         await self._sync_role_map()
 
-        # B4: Clean orphan references — clear assigned_to on pending tasks
-        # whose role no longer exists, and prune stale DM channels
-        new_agents = await self.agent_store.get_all()
-        valid_agent_ids = {a["agent_id"] for a in new_agents}
-        valid_role_ids = {a.get("opc_role_id", a["agent_id"]) for a in new_agents}
-        if self.engine.store:
-            pending_tasks = await self.engine.store.get_tasks(project_id=self.engine.project_id or "default")
-            for task in pending_tasks:
-                if task.assigned_to and task.assigned_to not in valid_role_ids:
-                    task.assigned_to = ""
-                    await self.engine.store.save_task(task)
-        await self.chat_store.prune_stale_channels(valid_agent_ids, project_id=self.engine.project_id or "default")
+        # A new-chat default does not retire roles in existing organizations.
+        # Their tasks and DM channels remain owned by those sessions/runs.
         # Ensure activity channel exists (session channels are on-demand)
         await self.chat_store.ensure_activity_channel(project_id=self.engine.project_id or "default")
 
@@ -4604,7 +4630,7 @@ class WSHandler:
                 channel_id=channel_id,
                 sender="system",
                 sender_name="OPC",
-                content=f"Error: {exc}",
+                content=f"Error: {_session_error_message(exc)}",
                 project_id=pid,
             )
             await self.broadcast({"type": "session_message", "payload": msg})
@@ -4845,11 +4871,7 @@ class WSHandler:
             # The Company router uses this preference to seed staffing.  A
             # JiuwenSwarm Team choice must therefore cross the same ingress
             # boundary as a Task-mode external-agent choice.
-            engine_preferred_agent = (
-                preferred_agent
-                if engine_mode == "project" or preferred_agent != "native"
-                else None
-            )
+            engine_preferred_agent = preferred_agent
             permission_config = (
                 self._ensure_office_services().session.resolve_task_native_permission_config(
                     config_task or task,
@@ -5084,6 +5106,8 @@ class WSHandler:
                 preferred_agent=data.get("preferred_agent", self._task_preferred_agent),
                 org_id=data.get("org_id") or data.get("organization_id"),
                 native_approval_level=data.get("native_approval_level"),
+                company_team_strategy=data.get("company_team_strategy"),
+                recruitment_agent=data.get("recruitment_agent"),
                 interface="office_ui",
             )
             self._session_to_task.update(self.services_context.session_to_task)
@@ -5104,6 +5128,8 @@ class WSHandler:
                 preferred_agent=data.get("preferred_agent"),
                 org_id=data.get("org_id") or data.get("organization_id"),
                 native_approval_level=data.get("native_approval_level"),
+                company_team_strategy=data.get("company_team_strategy"),
+                recruitment_agent=data.get("recruitment_agent"),
             )
             await self._publish_service_result(result)
             await self._send_ack(ws, ok=True, **result.payload)
@@ -5180,6 +5206,20 @@ class WSHandler:
         task = await store.get_task(task_id)
         if not task:
             await self._send_ack(ws, ok=False, error="task_not_found", project_id=request_project_id, task_id=task_id, view_generation=view_generation, action="session_detail")
+            return
+
+        if is_runtime_auxiliary_task(task):
+            # A stale browser may still hold a former UI projection. Settle
+            # its exact request and retire only that projection; the internal
+            # Task/transcript stays durable and never enters Company config
+            # resolution or channel bootstrap.
+            await self._send_ack(
+                ws, ok=True, action="session_detail",
+                project_id=request_project_id, task_id=task_id,
+                view_generation=view_generation,
+                detail_level=_normalize_transcript_detail_level(data.get("detail_level", "summary")),
+                session_visible=False, messages=[], message_count=0, has_more=False,
+            )
             return
 
         channel_id = f"session:{task_id}"
@@ -5352,6 +5392,10 @@ class WSHandler:
             "exec_mode": exec_mode_val,
             "company_profile": company_profile_val,
             "org_id": org_id_val,
+            "preferred_agent": identity.preferred_agent,
+            "selected_execution_agent": self._resolve_task_selected_execution_agent(task),
+            "company_team_strategy": (getattr(config_task or task, "metadata", {}) or {}).get("company_team_strategy", "fixed"),
+            "recruitment_agent": self._resolve_task_preferred_agent(config_task or task),
             **permission_config,
             "channel_id": channel_id,
             "title": getattr(task, "title", "") or "Session",
@@ -6128,32 +6172,18 @@ class WSHandler:
         task = await store.get_task(task_id)
         if task is None:
             return None
-        project_id = self._normalize_project_id(
-            getattr(task, "project_id", None) or getattr(runtime_engine, "project_id", None)
-        )
-        identity_index = await load_company_runtime_identity_index(store, project_id)
-        identity = identity_index.resolve(
-            task_id=task_id,
-            runtime_session_id=runtime_session_id,
-            checkpoint_id=checkpoint_id,
-        )
-        if identity is None:
-            return None
-        ui_anchor_task_id = identity.ui_anchor_task_id
-        config_task = identity_index.task(identity.config_source_task_id) or task
-
+        try:
+            target = await self._ensure_office_services().session._resolve_company_runtime_target(
+                runtime_engine, task, runtime_session_id=runtime_session_id, checkpoint_id=checkpoint_id,
+            )
+        except ServiceError as exc:
+            if exc.code == "company_runtime_identity_mismatch":
+                return None
+            raise
         return {
+            **target,
             "task": task,
             "engine": runtime_engine,
-            "identity": identity,
-            "runtime_session_id": identity.runtime_session_id,
-            "ui_channel_task_id": task_id,
-            "ui_anchor_task_id": ui_anchor_task_id,
-            "config_source_task_id": identity.config_source_task_id,
-            "config_task": config_task,
-            "checkpoint": identity.checkpoint,
-            "origin_task_id": ui_anchor_task_id,
-            "affected_task_ids": list(identity.runtime_task_ids),
         }
 
     async def _broadcast_company_runtime_control(
@@ -6906,11 +6936,7 @@ class WSHandler:
                     mode=engine_mode,
                     org_id=session_org_id or None,
                     company_profile=company_profile,
-                    preferred_agent=(
-                        resolved_preferred_agent
-                        if resolved_preferred_agent != "native"
-                        else None
-                    ),
+                    preferred_agent=resolved_preferred_agent,
                     origin_task_id=execution_anchor_task_id or None,
                     attachment_refs=attachment_refs,
                     message_metadata=engine_message_metadata or None,
@@ -6953,7 +6979,7 @@ class WSHandler:
                                 channel_id=channel_id,
                                 sender="system",
                                 sender_name="OPC",
-                                content=f"Error: {exc}",
+                                content=f"Error: {_session_error_message(exc)}",
                                 project_id=pid,
                             )
                             await self.broadcast({"type": "session_message", "payload": msg})
@@ -7368,11 +7394,7 @@ class WSHandler:
                     session_exec_mode,
                     session_company_profile,
                 )
-                engine_preferred_agent = (
-                    session_preferred_agent
-                    if session_exec_mode == "task" or session_preferred_agent != "native"
-                    else None
-                )
+                engine_preferred_agent = session_preferred_agent
                 engine_message_metadata = dict(message_metadata or {})
                 engine_message_metadata.update(_ui_message_identity_metadata(
                     message_id=user_message_id,
@@ -7388,6 +7410,11 @@ class WSHandler:
                         engine,
                     )
                 )
+                source_metadata = dict(getattr(config_task or task, "metadata", {}) or {})
+                engine_message_metadata.update({
+                    "company_team_strategy": source_metadata.get("company_team_strategy", "fixed"),
+                    "recruitment_agent": session_preferred_agent,
+                })
                 await engine.process_message(
                     content,
                     project_id=pid,
@@ -7455,7 +7482,7 @@ class WSHandler:
                     channel_id=channel_id,
                     sender="system",
                     sender_name="OPC",
-                    content=f"Error: {e}",
+                    content=f"Error: {_session_error_message(e)}",
                     project_id=pid,
                 )
                 await self.broadcast({"type": "session_message", "payload": msg})
@@ -8494,7 +8521,7 @@ class WSHandler:
                 channel_id=secretary_channel,
                 sender="system",
                 sender_name="Secretary",
-                content=f"Error: {e}",
+                content=f"Error: {_session_error_message(e)}",
                 project_id=pid,
             )
             await self.broadcast({"type": "session_message", "payload": msg})

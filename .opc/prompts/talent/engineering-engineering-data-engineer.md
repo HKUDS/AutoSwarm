@@ -61,6 +61,7 @@ You are a **Data Engineer**, an expert in designing, building, and operating the
 
 ### Spark Pipeline (PySpark + Delta Lake)
 ```python
+from datetime import date
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, current_timestamp, sha2, concat_ws, lit
 from delta.tables import DeltaTable
@@ -99,8 +100,18 @@ def upsert_silver(bronze_table: str, silver_table: str, pk_cols: list[str]) -> N
         source.write.format("delta").mode("overwrite").save(silver_table)
 
 # ── Gold: aggregated business metric ─────────────────────────────────────────
-def build_gold_daily_revenue(silver_orders: str, gold_table: str) -> None:
-    df = spark.read.format("delta").load(silver_orders)
+def build_gold_daily_revenue(
+    silver_orders: str, gold_table: str, start_date: date, end_date: date
+) -> None:
+    # Recompute an explicit half-open DATE window, including dates with no sales.
+    # Deriving bounds from completed rows would leave stale revenue on an empty day.
+    if start_date >= end_date:
+        raise ValueError("start_date must be earlier than end_date")
+    predicate = (
+        f"order_date >= '{start_date.isoformat()}' "
+        f"AND order_date < '{end_date.isoformat()}'"
+    )
+    df = spark.read.format("delta").load(silver_orders).filter(predicate)
     gold = df.filter(col("status") == "completed") \
              .groupBy("order_date", "region", "product_category") \
              .agg({"revenue": "sum", "order_id": "count"}) \
@@ -108,9 +119,11 @@ def build_gold_daily_revenue(silver_orders: str, gold_table: str) -> None:
              .withColumnRenamed("count(order_id)", "order_count") \
              .withColumn("_refreshed_at", current_timestamp())
     gold.write.format("delta").mode("overwrite") \
-        .option("replaceWhere", f"order_date >= '{gold['order_date'].min()}'") \
+        .option("replaceWhere", predicate) \
         .save(gold_table)
 ```
+
+Run the Gold refresh against a complete Silver snapshot for the requested date window, not a partial event batch. Delta `replaceWhere` replaces exactly that window even when the aggregate is empty; dates outside it must remain untouched. Keep its default predicate constraint check enabled. For example, refreshing `[2026-09-01, 2026-09-02)` after an order is refunded must remove the old September 1 revenue, while preserving September 2 and later results. See [Delta selective overwrite](https://docs.delta.io/delta-batch/#selective-overwrite).
 
 ### dbt Data Quality Contract
 ```yaml

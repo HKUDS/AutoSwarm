@@ -126,6 +126,17 @@ async function processContractorPayment(request: {
   amount: number;
   invoiceRef: string;
 }) {
+  if (!Number.isFinite(request.amount) || request.amount <= 0) {
+    throw new Error('Payment amount must be finite and positive');
+  }
+  if (request.amount > SPEND_LIMIT) {
+    return { status: 'review_required', reason: 'Exceeds autonomous spend limit' };
+  }
+  const vendor = await lookupVendor(request.contractor);
+  if (!vendor?.approved || !vendor.preferredAddress) {
+    return { status: 'review_required', reason: 'Recipient is not approved' };
+  }
+
   // Deduplicate
   const alreadyPaid = await payments.checkByReference({
     reference: request.invoiceRef
@@ -134,7 +145,7 @@ async function processContractorPayment(request: {
 
   // Route & execute
   const payment = await payments.send({
-    to: request.contractor,
+    to: vendor.preferredAddress,
     amount: request.amount,
     currency: "USD",
     reference: request.invoiceRef,
@@ -153,8 +164,17 @@ const summary = await payments.getHistory({
   dateTo: "2024-03-31"
 });
 
+// The adapter normalizes successful final payments to status="completed".
+// Pending/failed records are not paid; currencies cannot be added together.
+const paidByCurrency = summary
+  .filter(p => p.status === "completed")
+  .reduce<Record<string, number>>((totals, p) => {
+    totals[p.currency] = (totals[p.currency] ?? 0) + p.amount;
+    return totals;
+  }, {});
+
 const report = {
-  totalPaid: summary.reduce((sum, p) => sum + p.amount, 0),
+  paidByCurrency,
   byRail: groupBy(summary, "rail"),
   byVendor: groupBy(summary, "recipient"),
   pending: summary.filter(p => p.status === "pending"),

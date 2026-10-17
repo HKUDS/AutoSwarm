@@ -55,23 +55,23 @@ You are **Analytics Reporter**, an expert data analyst and reporting specialist 
 
 ### Executive Dashboard Template
 ```sql
--- Key Business Metrics Dashboard
+-- PostgreSQL: Key Business Metrics Dashboard
 WITH monthly_metrics AS (
   SELECT 
     DATE_TRUNC('month', date) as month,
     SUM(revenue) as monthly_revenue,
     COUNT(DISTINCT customer_id) as active_customers,
     AVG(order_value) as avg_order_value,
-    SUM(revenue) / COUNT(DISTINCT customer_id) as revenue_per_customer
+    SUM(revenue) * 1.0 / NULLIF(COUNT(DISTINCT customer_id), 0) as revenue_per_customer
   FROM transactions 
-  WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
+  WHERE date >= CURRENT_DATE - INTERVAL '12 months'
   GROUP BY DATE_TRUNC('month', date)
 ),
 growth_calculations AS (
   SELECT *,
     LAG(monthly_revenue, 1) OVER (ORDER BY month) as prev_month_revenue,
-    (monthly_revenue - LAG(monthly_revenue, 1) OVER (ORDER BY month)) / 
-     LAG(monthly_revenue, 1) OVER (ORDER BY month) * 100 as revenue_growth_rate
+    (monthly_revenue - LAG(monthly_revenue, 1) OVER (ORDER BY month)) * 100.0 /
+     NULLIF(LAG(monthly_revenue, 1) OVER (ORDER BY month), 0) as revenue_growth_rate
   FROM monthly_metrics
 )
 SELECT 
@@ -82,6 +82,7 @@ SELECT
   revenue_per_customer,
   revenue_growth_rate,
   CASE 
+    WHEN revenue_growth_rate IS NULL THEN 'No Comparable Baseline'
     WHEN revenue_growth_rate > 10 THEN 'High Growth'
     WHEN revenue_growth_rate > 0 THEN 'Positive Growth'
     ELSE 'Needs Attention'
@@ -115,10 +116,16 @@ def customer_segmentation_analysis(df):
         'revenue': 'monetary'
     })
     
-    # Create RFM scores
-    rfm['r_score'] = pd.qcut(rfm['recency'], 5, labels=[5,4,3,2,1])
-    rfm['f_score'] = pd.qcut(rfm['frequency'].rank(method='first'), 5, labels=[1,2,3,4,5])
-    rfm['m_score'] = pd.qcut(rfm['monetary'], 5, labels=[1,2,3,4,5])
+    # Percentile bands tolerate sparse cohorts and keep identical values together.
+    # These are relative scores within this cohort, not absolute value thresholds.
+    def score(values, higher_is_better=True):
+        percentile = values.rank(method='average', pct=True)
+        band = np.ceil(percentile * 5).clip(1, 5).astype(int)
+        return band if higher_is_better else 6 - band
+
+    rfm['r_score'] = score(rfm['recency'], higher_is_better=False)
+    rfm['f_score'] = score(rfm['frequency'])
+    rfm['m_score'] = score(rfm['monetary'])
     
     # Customer segments
     rfm['rfm_score'] = rfm['r_score'].astype(str) + rfm['f_score'].astype(str) + rfm['m_score'].astype(str)
@@ -164,25 +171,31 @@ def generate_customer_insights(rfm_df):
 // Marketing Attribution and ROI Analysis
 const marketingDashboard = {
   // Multi-touch attribution model
+  // conversions.conversion_id and marketing_touchpoints.touchpoint_id are unique IDs.
+  // Each conversion has its own journey; two touches split revenue equally.
   attributionAnalysis: `
     WITH customer_touchpoints AS (
       SELECT 
-        customer_id,
-        channel,
-        campaign,
-        touchpoint_date,
-        conversion_date,
-        revenue,
-        ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY touchpoint_date) as touch_sequence,
-        COUNT(*) OVER (PARTITION BY customer_id) as total_touches
+        c.conversion_id,
+        mt.customer_id,
+        mt.channel,
+        mt.campaign,
+        mt.touchpoint_date,
+        c.conversion_date,
+        c.revenue,
+        ROW_NUMBER() OVER (
+          PARTITION BY c.conversion_id ORDER BY mt.touchpoint_date, mt.touchpoint_id
+        ) as touch_sequence,
+        COUNT(*) OVER (PARTITION BY c.conversion_id) as total_touches
       FROM marketing_touchpoints mt
       JOIN conversions c ON mt.customer_id = c.customer_id
-      WHERE touchpoint_date <= conversion_date
+      WHERE mt.touchpoint_date <= c.conversion_date
     ),
     attribution_weights AS (
       SELECT *,
         CASE 
-          WHEN touch_sequence = 1 AND total_touches = 1 THEN 1.0  -- Single touch
+          WHEN total_touches = 1 THEN 1.0                        -- Single touch
+          WHEN total_touches = 2 THEN 0.5                        -- Two-touch journey
           WHEN touch_sequence = 1 THEN 0.4                       -- First touch
           WHEN touch_sequence = total_touches THEN 0.4           -- Last touch
           ELSE 0.2 / (total_touches - 2)                        -- Middle touches
@@ -193,25 +206,25 @@ const marketingDashboard = {
       channel,
       campaign,
       SUM(revenue * attribution_weight) as attributed_revenue,
-      COUNT(DISTINCT customer_id) as attributed_conversions,
-      SUM(revenue * attribution_weight) / COUNT(DISTINCT customer_id) as revenue_per_conversion
+      COUNT(DISTINCT conversion_id) as attributed_conversions,
+      SUM(revenue * attribution_weight) / COUNT(DISTINCT conversion_id) as revenue_per_conversion
     FROM attribution_weights
     GROUP BY channel, campaign
     ORDER BY attributed_revenue DESC;
   `,
   
-  // Campaign ROI calculation
+  // PostgreSQL campaign ROI: conversions is the per-row numeric total.
   campaignROI: `
     SELECT 
       campaign_name,
       SUM(spend) as total_spend,
       SUM(attributed_revenue) as total_revenue,
-      (SUM(attributed_revenue) - SUM(spend)) / SUM(spend) * 100 as roi_percentage,
-      SUM(attributed_revenue) / SUM(spend) as revenue_multiple,
-      COUNT(conversions) as total_conversions,
-      SUM(spend) / COUNT(conversions) as cost_per_conversion
+      (SUM(attributed_revenue) - SUM(spend)) * 100.0 / SUM(spend) as roi_percentage,
+      SUM(attributed_revenue) * 1.0 / SUM(spend) as revenue_multiple,
+      SUM(conversions) as total_conversions,
+      SUM(spend) * 1.0 / NULLIF(SUM(conversions), 0) as cost_per_conversion
     FROM campaign_performance
-    WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
+    WHERE date >= CURRENT_DATE - INTERVAL '90 days'
     GROUP BY campaign_name
     HAVING SUM(spend) > 1000  -- Filter for significant spend
     ORDER BY roi_percentage DESC;

@@ -1,7 +1,16 @@
-import type { Session } from '../types/kanban'
+import type { Session, TaskPreferredAgent } from '../types/kanban'
 
 export type CanonicalSessionExecMode = 'task' | 'company' | 'org'
 export type CanonicalCompanyProfile = 'corporate' | 'custom'
+
+export function composerAgentForSession(session: Partial<Session>, fallback: TaskPreferredAgent): TaskPreferredAgent {
+  // A role's runtime telemetry cannot change the committed primary chat agent.
+  // Child views show that role's own execution agent instead.
+  const child = session.mode === 'child' || !!session.parentSessionId
+  return (child
+    ? session.selectedExecutionAgent || session.preferredAgent
+    : session.preferredAgent || session.selectedExecutionAgent) || fallback
+}
 
 export function normalizeSessionExecMode(value?: string | null): CanonicalSessionExecMode {
   const normalized = String(value ?? '').trim().toLowerCase()

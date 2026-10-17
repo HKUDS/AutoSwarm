@@ -64,6 +64,7 @@ from opc.plugins.office_ui.execution_identity import (
     normalize_company_profile,
     normalize_exec_mode,
     normalize_preferred_agent,
+    selected_execution_agent_from_task,
 )
 
 
@@ -1933,34 +1934,7 @@ def _resolve_task_selected_execution_agent(
     *,
     default_agent: str = "native",
 ) -> str:
-    metadata = _task_metadata(task)
-    mode = str(metadata.get("mode", "") or "").strip().lower()
-    exec_mode = str(metadata.get("exec_mode", "") or "").strip().lower()
-    execution_mode = str(metadata.get("execution_mode", "") or "").strip().lower()
-    task_mode_contract = str(metadata.get("task_mode_contract", "") or "").strip()
-    is_task_mode = (
-        mode == "task"
-        or exec_mode in {"task", "project", "single"}
-        or execution_mode in {"task", "task_mode", "project"}
-        or task_mode_contract == "single_full_capability_main_agent"
-    )
-    explicit_selected = metadata.get("selected_execution_agent")
-    if is_task_mode:
-        if explicit_selected not in (None, "", [], {}):
-            return _normalize_session_preferred_agent(explicit_selected, default=default_agent)
-        preferred = metadata.get("preferred_agent")
-        if preferred not in (None, "", [], {}):
-            return _normalize_session_preferred_agent(preferred, default=default_agent)
-    agent_selection = dict(metadata.get("agent_selection", {}) or {})
-    selected = agent_selection.get("selected")
-    if selected not in (None, "", [], {}):
-        return _normalize_session_preferred_agent(selected, default=default_agent)
-    if explicit_selected not in (None, "", [], {}):
-        return _normalize_session_preferred_agent(explicit_selected, default=default_agent)
-    assigned = getattr(task, "assigned_external_agent", None)
-    if assigned not in (None, "", [], {}):
-        return _normalize_session_preferred_agent(assigned, default=default_agent)
-    return _normalize_session_preferred_agent("native", default=default_agent)
+    return selected_execution_agent_from_task(task, default_agent=default_agent)
 
 
 def _task_mode_origin_ui_task_id(task: Any, task_meta: dict[str, Any] | None = None) -> str:
@@ -2309,6 +2283,12 @@ async def _build_snapshot_checkpoint_meta(engine: "OPCEngine", task: Any) -> dic
             for agent in (org_engine.list_agents() if org_engine else [])
             if str(getattr(agent, "role_id", "") or "").strip()
         }
+        adaptive_roles = {
+            str(role.get("id", "")): role
+            for role in dict(plan_metadata.get("adaptive_team_plan", {}) or {}).get("roles", [])
+            if isinstance(role, dict)
+        }
+        reports_to_by_role.update({key: str(role.get("parent_id") or "owner") for key, role in adaptive_roles.items()})
         talent_market = getattr(engine, "talent_market", None)
         is_placeholder = getattr(engine, "_is_placeholder_staffing_employee", lambda _employee: False)
         employee_payload = getattr(engine, "_staffing_employee_payload", None)
@@ -2464,7 +2444,7 @@ async def _build_snapshot_checkpoint_meta(engine: "OPCEngine", task: Any) -> dic
                     {
                         "role_id": role_id,
                         "role_label": role_label,
-                        "role_responsibility": "",
+                        "role_responsibility": str(adaptive_roles.get(role_id, {}).get("responsibility", "")),
                         "reports_to": reports_to_by_role.get(role_id, ""),
                         "default_selection": default_selection,
                         "same_role_employee_ids": sorted(same_role_ids),
@@ -2492,6 +2472,7 @@ async def _build_snapshot_checkpoint_meta(engine: "OPCEngine", task: Any) -> dic
             "checkpoint_type": "company_recruitment_confirmation",
             "checkpoint_id": checkpoint.checkpoint_id,
             "company_profile": recruitment_plan.get("company_profile", "corporate"),
+            "company_team_strategy": "adaptive" if plan_metadata.get("adaptive_team_plan") else "fixed",
             "proposals": proposals,
             "summary": recruitment_plan.get("summary", ""),
             "recruitment_agent": recruitment_agent,
@@ -3353,6 +3334,8 @@ async def build_project_index_sync(
             "mode": session_mode,
             "exec_mode": exec_mode_val,
             "company_profile": resolved_company_profile,
+            "company_team_strategy": t_meta.get("company_team_strategy") or identity_meta.get("company_team_strategy") or "fixed",
+            "recruitment_agent": preferred_agent_val,
             "org_id": org_id,
             "preferred_agent": preferred_agent_val,
             "selected_execution_agent": selected_execution_agent_val,
@@ -3990,6 +3973,8 @@ async def build_collab_sync(
             "mode": session_mode,
             "exec_mode": exec_mode_val,
             "company_profile": resolved_company_profile,
+            "company_team_strategy": t_meta.get("company_team_strategy") or identity_meta.get("company_team_strategy") or "fixed",
+            "recruitment_agent": preferred_agent_val,
             "org_id": org_id,
             "preferred_agent": preferred_agent_val,
             "selected_execution_agent": selected_execution_agent_val,
@@ -4018,6 +4003,8 @@ async def build_collab_sync(
             # Company Mode metadata
             **identity_payload,
             "company_profile": resolved_company_profile,
+            "company_team_strategy": t_meta.get("company_team_strategy") or identity_meta.get("company_team_strategy") or "fixed",
+            "recruitment_agent": preferred_agent_val,
             **({} if is_task_mode_runtime else _work_item_role_payload(identity_task)),
             "work_item_gate": None if is_task_mode_runtime else (identity_meta.get("work_item_gate") or t_meta.get("work_item_gate")),
             "employee_assignment": employee_assignment or None,

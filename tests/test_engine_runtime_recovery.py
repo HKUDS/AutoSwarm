@@ -13,6 +13,7 @@ import pytest
 
 from opc.core.active_task_runs import ActiveTaskRunRegistry
 from opc.core.company_controller import CompanyRunControllerLeaseLost
+from opc.core.config import OPCConfig
 from opc.core.models import (
     CompanyMemberSession,
     DelegationRun,
@@ -518,7 +519,12 @@ async def test_initialize_fails_closed_when_startup_checkpoint_write_fails(
         await store.save_task(
             _runtime_task(task_id="startup-write-failure", status=TaskStatus.RUNNING)
         )
+        # Startup recovery must not depend on installed CLIs or a live Gateway.
+        config = OPCConfig()
+        for agent in config.agents.agents.values():
+            agent.enabled = False
         engine = OPCEngine(
+            config=config,
             opc_home=tmp_path / "opc-home",
             project_id="project-a",
             store=store,

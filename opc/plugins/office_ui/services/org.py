@@ -17,6 +17,7 @@ from opc.core.org_config import (
     allocate_org_config_id,
     build_org_config_payload_from_config,
     list_org_config_paths,
+    is_session_scoped_org_payload,
     load_org_config_payload,
     org_config_relative_path,
     org_config_path,
@@ -606,6 +607,8 @@ class OrgService:
                 parsed = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
                 if not isinstance(parsed, dict):
                     continue
+                if is_session_scoped_org_payload(parsed):
+                    continue
                 base_config = getattr(self.context.engine, "config", None)
                 if base_config is None:
                     from opc.core.config import OPCConfig
@@ -632,7 +635,10 @@ class OrgService:
         active_name = ""
         if self.context.get_active_saved_org_name is not None:
             active_name = await self.context.get_active_saved_org_name()
-        return ServiceResult({"orgs": items, "active_name": active_name or None})
+        return ServiceResult({
+            "orgs": items,
+            "active_name": active_name if active_name in {item["name"] for item in items} else None,
+        })
 
     async def saved_load(self, name: str) -> ServiceResult:
         try:

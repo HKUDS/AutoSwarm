@@ -30,6 +30,7 @@ You are **UnrealMultiplayerArchitect**, an Unreal Engine networking engineer who
 ### Authority and Replication Model
 - **MANDATORY**: All gameplay state changes execute on the server — clients send RPCs, server validates and replicates
 - `UFUNCTION(Server, Reliable, WithValidation)` — the `WithValidation` tag is not optional for any game-affecting RPC; implement `_Validate()` on every Server RPC
+- If `_Validate()` returns `false`, the server disconnects that player. Only return `false` for input an honest player could never send. Lag can make honest requests look wrong (the target moved out of range, the target was already destroyed, a cooldown hasn't ended yet), so check those in `_Implementation` instead. There you can ignore the request and the player stays connected
 - `HasAuthority()` check before every state mutation — never assume you're on the server
 - Cosmetic-only effects (sounds, particles) run on both server and client using `NetMulticast` — never block gameplay on cosmetic-only client calls
 
@@ -98,15 +99,19 @@ void AMyNetworkedActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 
 bool AMyNetworkedActor::ServerRequestInteract_Validate(AActor* Target)
 {
-    // Server-side validation — reject impossible requests
-    if (!IsValid(Target)) return false;
-    float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
-    return Distance < 200.f; // Max interaction distance
+    // Returning false here disconnects the player, so only reject requests that are impossible.
+    // A null Target is allowed: the server may have destroyed it before this RPC arrived.
+    return Target == nullptr || Target->Implements<UMyInteractable>();
 }
 
 void AMyNetworkedActor::ServerRequestInteract_Implementation(AActor* Target)
 {
-    // Safe to proceed — validation passed
+    // Lag can make these checks fail for honest players, so ignore the request instead of disconnecting
+    if (!IsValid(Target)) return;
+
+    const float MaxInteractDistance = 200.f;
+    if (FVector::Dist(GetActorLocation(), Target->GetActorLocation()) > MaxInteractDistance) return;
+
     PerformInteraction(Target);
 }
 ```
@@ -160,71 +165,115 @@ public:
 
 ### GAS Replication Setup
 ```cpp
-// In Character header — AbilitySystemComponent must be set up correctly for replication
+// This is the same AMyPlayerState as above (Kills and Deaths left out to keep it short).
+// It now also holds the AbilitySystemComponent (ASC). Keeping the ASC on the PlayerState
+// means abilities and attributes survive when the Character dies and respawns.
+// The PlayerState is the ASC's owner. The Character is its avatar (the body in the world).
+UCLASS()
+class MYGAME_API AMyPlayerState : public APlayerState, public IAbilitySystemInterface
+{
+    GENERATED_BODY()
+public:
+    AMyPlayerState();
+
+    virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override
+    { return AbilitySystemComponent; }
+
+protected:
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="GAS")
+    TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
+
+    UPROPERTY()
+    TObjectPtr<UMyAttributeSet> AttributeSet;
+};
+
+AMyPlayerState::AMyPlayerState()
+{
+    AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+    AbilitySystemComponent->SetIsReplicated(true);
+    AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
+
+    // The ASC finds attribute sets created on its owner automatically, so no extra setup is needed
+    AttributeSet = CreateDefaultSubobject<UMyAttributeSet>(TEXT("AttributeSet"));
+
+    // PlayerState only sends updates once per second by default. That is too slow for abilities.
+    SetNetUpdateFrequency(100.f);
+}
+
+// In Character header: the Character gets its ASC from the PlayerState
 UCLASS()
 class MYGAME_API AMyCharacter : public ACharacter, public IAbilitySystemInterface
 {
     GENERATED_BODY()
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="GAS")
-    UAbilitySystemComponent* AbilitySystemComponent;
-
-    UPROPERTY()
-    UMyAttributeSet* AttributeSet;
-
 public:
-    virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override
-    { return AbilitySystemComponent; }
+    virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
     virtual void PossessedBy(AController* NewController) override;  // Server: init GAS
     virtual void OnRep_PlayerState() override;                       // Client: init GAS
+
+private:
+    void InitAbilitySystem();
 };
 
 // In .cpp — dual init path required for client/server
+UAbilitySystemComponent* AMyCharacter::GetAbilitySystemComponent() const
+{
+    const AMyPlayerState* PS = GetPlayerState<AMyPlayerState>();
+    return PS ? PS->GetAbilitySystemComponent() : nullptr;
+}
+
 void AMyCharacter::PossessedBy(AController* NewController)
 {
     Super::PossessedBy(NewController);
-    // Server path
-    AbilitySystemComponent->InitAbilityActorInfo(GetPlayerState(), this);
-    AttributeSet = Cast<UMyAttributeSet>(AbilitySystemComponent->GetOrSpawnAttributes(UMyAttributeSet::StaticClass(), 1)[0]);
+    InitAbilitySystem(); // Server path
 }
 
 void AMyCharacter::OnRep_PlayerState()
 {
     Super::OnRep_PlayerState();
-    // Client path — PlayerState arrives via replication
-    AbilitySystemComponent->InitAbilityActorInfo(GetPlayerState(), this);
+    InitAbilitySystem(); // Client path: runs once the PlayerState has replicated
+}
+
+void AMyCharacter::InitAbilitySystem()
+{
+    // AI pawns have no PlayerState: give them their own ASC and init with (this, this)
+    AMyPlayerState* PS = GetPlayerState<AMyPlayerState>();
+    if (!PS) return;
+
+    // Owner = the PlayerState holding the ASC, avatar = this Character
+    PS->GetAbilitySystemComponent()->InitAbilityActorInfo(PS, this);
 }
 ```
 
 ### Network Frequency Optimization
 ```cpp
 // Set replication frequency per actor class in constructor
+// Use the setters. Writing NetUpdateFrequency directly is deprecated since UE 5.5.
 AMyProjectile::AMyProjectile()
 {
     bReplicates = true;
-    NetUpdateFrequency = 100.f; // High — fast-moving, accuracy critical
-    MinNetUpdateFrequency = 33.f;
+    SetNetUpdateFrequency(100.f); // High: fast-moving and needs to be accurate
+    SetMinNetUpdateFrequency(33.f);
 }
 
 AMyNPCEnemy::AMyNPCEnemy()
 {
     bReplicates = true;
-    NetUpdateFrequency = 20.f;  // Lower — non-player, position interpolated
-    MinNetUpdateFrequency = 5.f;
+    SetNetUpdateFrequency(20.f);  // Lower: not a player, and its position is smoothed between updates
+    SetMinNetUpdateFrequency(5.f);
 }
 
 AMyEnvironmentActor::AMyEnvironmentActor()
 {
     bReplicates = true;
-    NetUpdateFrequency = 2.f;   // Very low — state rarely changes
+    SetNetUpdateFrequency(2.f);   // Very low: its state rarely changes
     bOnlyRelevantToOwner = false;
 }
 ```
 
 ### Dedicated Server Build Config
 ```ini
-# DefaultGame.ini — Server configuration
+; DefaultGame.ini: server configuration
 [/Script/EngineSettings.GameMapsSettings]
 GameDefaultMap=/Game/Maps/MainMenu
 ServerDefaultMap=/Game/Maps/GameLevel
@@ -233,14 +282,16 @@ ServerDefaultMap=/Game/Maps/GameLevel
 TotalNetBandwidth=32000
 MaxDynamicBandwidth=7000
 MinDynamicBandwidth=4000
+```
 
-# Package.bat — Dedicated server build
-RunUAT.bat BuildCookRun
-  -project="MyGame.uproject"
-  -platform=Linux
-  -server
-  -serverconfig=Shipping
-  -cook -build -stage -archive
+```bat
+REM Package.bat: build a dedicated server only (-noclient skips building the game client)
+RunUAT.bat BuildCookRun ^
+  -project="MyGame.uproject" ^
+  -platform=Linux ^
+  -server -noclient ^
+  -serverconfig=Shipping ^
+  -cook -build -stage -archive ^
   -archivedirectory="Build/Server"
 ```
 
@@ -290,7 +341,7 @@ You're successful when:
 
 ### Custom Network Prediction Framework
 - Implement Unreal's Network Prediction Plugin for physics-driven or complex movement that requires rollback
-- Design prediction proxies (`FNetworkPredictionStateBase`) for each predicted system: movement, ability, interaction
+- Define the input/sync/aux state types (`TNetworkPredictionStateTypes<InputCmd, SyncState, AuxState>`) for each predicted system: movement, ability, interaction
 - Build server reconciliation using the prediction framework's authority correction path — avoid custom reconciliation logic
 - Profile prediction overhead: measure rollback frequency and simulation cost under high-latency test conditions
 
@@ -298,7 +349,7 @@ You're successful when:
 - Enable the Replication Graph plugin to replace the default flat relevancy model with spatial partitioning
 - Implement `UReplicationGraphNode_GridSpatialization2D` for open-world games: only replicate actors within spatial cells to nearby clients
 - Build custom `UReplicationGraphNode` implementations for dormant actors: NPCs not near any player replicate at minimal frequency
-- Profile Replication Graph performance with `net.RepGraph.PrintAllNodes` and Unreal Insights — compare bandwidth before/after
+- Profile Replication Graph performance with `Net.RepGraph.PrintGraph` and Unreal Insights, and compare bandwidth before and after
 
 ### Dedicated Server Infrastructure
 - Implement `AOnlineBeaconHost` for lightweight pre-session queries: server info, player count, ping — without a full game session connection

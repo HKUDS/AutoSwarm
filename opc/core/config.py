@@ -1914,7 +1914,10 @@ class OPCConfig(BaseModel):
             from opc.core.org_config import (
                 build_org_config_payload_from_config,
                 org_config_path,
+                runtime_org_config_path,
+                RUNTIME_ORG_CONFIGS_DIRNAME,
                 write_org_config_payload,
+                write_runtime_org_config_payload,
                 write_org_index,
             )
 
@@ -1923,7 +1926,11 @@ class OPCConfig(BaseModel):
                 organization_id=organization_id,
                 organization_name=organization_name,
             )
-            custom_path = org_config_path(config_dir, organization_id)
+            is_runtime_snapshot = Path(self.org.organization_config_file).parent.name == RUNTIME_ORG_CONFIGS_DIRNAME
+            custom_path = (
+                runtime_org_config_path(config_dir, organization_id)
+                if is_runtime_snapshot else org_config_path(config_dir, organization_id)
+            )
             if not self.org.roles and custom_path.exists():
                 try:
                     with open(custom_path, encoding="utf-8") as f:
@@ -1942,8 +1949,11 @@ class OPCConfig(BaseModel):
                         return
                 except Exception:
                     pass
-            write_org_config_payload(config_dir, organization_id, payload)
-            write_org_index(config_dir, organization_id)
+            if is_runtime_snapshot:
+                write_runtime_org_config_payload(config_dir, organization_id, payload)
+            else:
+                write_org_config_payload(config_dir, organization_id, payload)
+                write_org_index(config_dir, organization_id)
         else:
             corporate_data = build_company_org_payload_from_config(
                 self,

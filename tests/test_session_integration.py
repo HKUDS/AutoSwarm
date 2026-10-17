@@ -10,6 +10,7 @@ import asyncio
 import base64
 import json
 import shutil
+import sqlite3
 import tempfile
 import time
 import unittest
@@ -200,6 +201,7 @@ def _make_engine(store: StubStore | None = None, memory: StubMemory | None = Non
     engine.memory = memory or StubMemory()
     engine.project_id = "test-project"
     engine.on_progress = AsyncMock()
+    engine.approval_engine.reconcile_pending_tool_permissions = AsyncMock(return_value=[])
     engine.process_message = AsyncMock(return_value="Test response")
     engine.get_latest_pending_checkpoint_for_session = AsyncMock(return_value=None)
     return engine
@@ -427,6 +429,19 @@ class TestWSHandlerCreateSession(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ack_kwargs["company_profile"], "corporate")
         self.assertEqual(ack_kwargs["preferred_agent"], "codex")
 
+    async def test_create_session_persists_adaptive_team_and_planning_agent(self) -> None:
+        await self.handler._handle_create_session(MagicMock(), {
+            "project_id": "test-project", "title": "Adaptive team", "exec_mode": "company",
+            "company_team_strategy": "adaptive", "preferred_agent": "codex", "recruitment_agent": "native",
+        })
+        task = next(iter(self.store._tasks.values()))
+        self.assertEqual(task.metadata["company_team_strategy"], "adaptive")
+        self.assertEqual(task.metadata["recruitment_agent"], "codex")
+        self.assertEqual(self.memory.sessions[task.session_id]["metadata"]["company_team_strategy"], "adaptive")
+        created = next(b["payload"] for b in self.broadcasts if b["type"] == "session_created")
+        self.assertEqual(created["company_team_strategy"], "adaptive")
+        self.assertEqual(created["recruitment_agent"], "codex")
+
     async def test_create_session_persists_native_permission_scope(self) -> None:
         ws = MagicMock()
         await self.handler._handle_create_session(ws, {
@@ -517,6 +532,7 @@ class TestWSHandlerCreateSession(unittest.IsolatedAsyncioTestCase):
         ws = MagicMock()
         self.handler._load_active_org_config_into_engine = MagicMock(return_value=True)
         self.handler._set_active_saved_org_name = AsyncMock()
+        self.handler._ensure_office_services().session._validate_session_org = MagicMock()
 
         await self.handler._handle_create_session(ws, {
             "project_id": "test-project",
@@ -539,7 +555,8 @@ class TestWSHandlerCreateSession(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(session_msg["payload"]["exec_mode"], "org")
         self.assertEqual(session_msg["payload"]["company_profile"], "custom")
         self.assertEqual(session_msg["payload"]["org_id"], "lab")
-        self.handler._set_active_saved_org_name.assert_awaited_once_with("lab")
+        self.handler._set_active_saved_org_name.assert_not_awaited()
+        self.handler._load_active_org_config_into_engine.assert_not_called()
 
         ack_kwargs = self.handler._send_ack.call_args.kwargs
         self.assertEqual(ack_kwargs["exec_mode"], "org")
@@ -994,6 +1011,16 @@ class TestWSHandlerSessionSend(unittest.IsolatedAsyncioTestCase):
         call_kwargs = self.engine.process_message.call_args
         self.assertEqual(call_kwargs.kwargs.get("session_id"), self.session_id)
 
+    async def test_session_timeout_always_projects_a_readable_error(self) -> None:
+        self.engine.process_message.side_effect = TimeoutError()
+        await self.handler._process_session_message(
+            self.task_id, "Build a two-person research team", session_id=self.session_id,
+        )
+        errors = [item["payload"]["content"] for item in self.broadcasts
+                  if item.get("type") == "session_message" and item["payload"].get("sender") == "system"]
+        self.assertTrue(any("timed out" in content for content in errors), errors)
+        self.assertNotIn("Error: ", errors)
+
     async def test_session_send_passes_ui_identity_to_engine(self) -> None:
         task = await self.store.get_task(self.task_id)
         assert task is not None
@@ -1025,6 +1052,8 @@ class TestWSHandlerSessionSend(unittest.IsolatedAsyncioTestCase):
             "exec_mode": "company",
             "company_profile": "corporate",
             "preferred_agent": "codex",
+            "company_team_strategy": "adaptive",
+            "recruitment_agent": "native",
         }
         await self.store.save_task(task)
         self.handler._exec_mode = "task"
@@ -1041,6 +1070,9 @@ class TestWSHandlerSessionSend(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(call_kwargs["mode"], "company")
         self.assertEqual(call_kwargs["company_profile"], "corporate")
         self.assertEqual(call_kwargs["preferred_agent"], "codex")
+
+        self.assertEqual(call_kwargs["message_metadata"]["company_team_strategy"], "adaptive")
+        self.assertEqual(call_kwargs["message_metadata"]["recruitment_agent"], "codex")
 
     async def test_company_session_message_broadcasts_runtime_control_running_then_idle(self) -> None:
         task = await self.store.get_task(self.task_id)
@@ -3052,6 +3084,7 @@ class TestWSHandlerSessionUpdateConfig(unittest.IsolatedAsyncioTestCase):
         ws = MagicMock()
         self.handler._load_active_org_config_into_engine = MagicMock(return_value=True)
         self.handler._set_active_saved_org_name = AsyncMock()
+        self.handler._ensure_office_services().session._validate_session_org = MagicMock()
 
         await self.handler._handle_session_update_config(ws, {
             "project_id": "test-project",
@@ -3072,7 +3105,8 @@ class TestWSHandlerSessionUpdateConfig(unittest.IsolatedAsyncioTestCase):
 
         updates = [b for b in self.broadcasts if b["type"] == "session_updated"]
         self.assertEqual(updates[-1]["payload"]["org_id"], "lab")
-        self.handler._set_active_saved_org_name.assert_awaited_once_with("lab")
+        self.handler._set_active_saved_org_name.assert_not_awaited()
+        self.handler._load_active_org_config_into_engine.assert_not_called()
 
         ack_kwargs = self.handler._send_ack.call_args.kwargs
         self.assertTrue(ack_kwargs["ok"])
@@ -3165,6 +3199,7 @@ class TestWSHandlerSessionUpdateConfig(unittest.IsolatedAsyncioTestCase):
         ws = MagicMock()
         self.handler._load_active_org_config_into_engine = MagicMock(return_value=True)
         self.handler._set_active_saved_org_name = AsyncMock()
+        self.handler._ensure_office_services().session._validate_session_org = MagicMock()
         await self.handler._handle_session_update_config(ws, {
             "project_id": "test-project",
             "task_id": self.task_id,
@@ -3188,7 +3223,7 @@ class TestWSHandlerSessionUpdateConfig(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(session["metadata"].get("mode"), "org")
         self.assertEqual(session["metadata"].get("execution_mode"), "company_mode")
         self.assertEqual(session["metadata"].get("task_mode_contract"), "")
-        self.assertEqual(session["metadata"].get("selected_execution_agent"), "")
+        self.assertEqual(session["metadata"].get("selected_execution_agent"), "codex")
 
         self.handler._send_ack.reset_mock()
         await self.handler._handle_session_detail(ws, {
@@ -3199,6 +3234,9 @@ class TestWSHandlerSessionUpdateConfig(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(detail_kwargs["ok"])
         self.assertEqual(detail_kwargs["session_state"]["exec_mode"], "org")
         self.assertEqual(detail_kwargs["session_state"]["company_profile"], "custom")
+        self.assertEqual(detail_kwargs["session_state"]["preferred_agent"], "codex")
+        self.assertEqual(detail_kwargs["session_state"]["selected_execution_agent"], "codex")
+        self.assertEqual(detail_kwargs["session_state"]["recruitment_agent"], "codex")
 
     async def test_update_config_rejects_after_session_has_messages(self) -> None:
         await self.chat_store.insert_message(
@@ -3320,9 +3358,25 @@ class TestWSHandlerSessionUpdateConfig(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ack_kwargs["error"], "invalid_native_approval_level")
 
 
+    async def test_switch_between_adaptive_and_fixed_company_preserves_the_selected_strategy(self) -> None:
+        for strategy in ("adaptive", "fixed"):
+            await self.handler._handle_session_update_config(MagicMock(), {
+                "project_id": "test-project", "task_id": self.task_id, "exec_mode": "company",
+                "company_team_strategy": strategy, "preferred_agent": "codex", "recruitment_agent": "native",
+            })
+            task = await self.store.get_task(self.task_id)
+            self.assertEqual(task.metadata["company_team_strategy"], strategy)
+            self.assertEqual(self.memory.sessions[self.session_id]["metadata"]["company_team_strategy"], strategy)
+            event = [b["payload"] for b in self.broadcasts if b["type"] == "session_updated"][-1]
+            self.assertEqual(event["company_team_strategy"], strategy)
+            self.assertEqual(event["recruitment_agent"], "codex")
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Test 5: WSHandler — _handle_session_delete
 # ═══════════════════════════════════════════════════════════════════════
+
+
 
 class TestWSHandlerSessionDelete(unittest.IsolatedAsyncioTestCase):
     """Test session deletion."""
@@ -3551,6 +3605,105 @@ class TestWSHandlerChildSessionEvent(unittest.IsolatedAsyncioTestCase):
         evt.event_type = event_type
         evt.payload = payload
         return evt
+
+    async def test_auxiliary_events_do_not_create_ui_sessions_or_mutate_agent_state(self) -> None:
+        for kind in ("role_prompt", "meeting_turn", "native_subagent"):
+            task = Task(
+                id=f"source::aux::{kind}", session_id=f"source-session:aux:{kind}",
+                parent_session_id="source-session", project_id="test-project",
+                assigned_to="ceo", metadata={
+                    "runtime_auxiliary_task": True,
+                    "runtime_auxiliary_kind": kind,
+                    "runtime_auxiliary_source_task_id": "source",
+                },
+            )
+            await self.store.save_task(task)
+            # Historical events lack auxiliary markers and carry the wrong
+            # work-item fallback. New events carry the explicit contract.
+            for marked in (False, True):
+                for event_type in (
+                    "status_snapshot", "turn_started", "assistant_delta",
+                    "thinking_delta", "turn_completed", "member_session_started",
+                ):
+                    payload = {
+                        "type": event_type, "task_id": task.id,
+                        "work_item_projection_id": task.id, "role_id": "ceo",
+                        "text": "Internal assessment",
+                        **(task.metadata if marked else {}),
+                    }
+                    await self.handler.on_opc_event(self._make_opc_event("runtime_event", payload))
+            await self.handler.on_opc_event(self._make_opc_event("child_session_created", {
+                "task_id": task.id, "session_id": task.session_id,
+                "parent_session_id": task.parent_session_id,
+            }))
+            await self.handler._materialize_runtime_task_visibility({"task_id": task.id})
+            self.assertEqual(await self.handler._sync_task_transcript_messages(task.id), 0)
+
+        self.assertEqual(self.broadcasts, [])
+        self.assertEqual(self.adapter._trackers, {})
+        self.assertEqual(self.adapter.task_display_counter, 0)
+        self.assertEqual(self.handler._progress_buffer, {})
+        self.assertEqual(self.handler._session_to_task, {})
+        self.assertEqual(await self.chat_store.get_session_channels("test-project"), [])
+
+    async def test_parent_subagent_progress_stays_visible(self) -> None:
+        task = Task(id="parent", session_id="parent-session", project_id="test-project",
+                    metadata={"mode": "task", "execution_mode": "task_mode"})
+        await self.store.save_task(task)
+        await self.handler.on_opc_event(self._make_opc_event("runtime_event", {
+            "type": "subagent_completed", "task_id": task.id,
+            "agent_id": "parent-agent", "subagent_id": "internal-child",
+            "execution_mode": "task_mode",
+        }))
+        self.assertTrue(any(
+            message.get("payload", {}).get("type") == "subagent_completed"
+            for message in self.broadcasts if message["type"] == "event"
+        ))
+
+    async def test_runtime_visibility_check_during_store_shutdown_does_not_raise_or_project(self) -> None:
+        with patch.object(self.store, "get_task", AsyncMock(side_effect=sqlite3.ProgrammingError("Cannot operate on a closed database."))):
+            await self.handler.on_opc_event(self._make_opc_event("runtime_event", {
+                "type": "turn_completed", "task_id": "late-auxiliary-task",
+            }))
+        self.assertEqual(self.broadcasts, [])
+        self.assertEqual(self.adapter._trackers, {})
+
+    async def test_auxiliary_permission_checkpoint_still_renders_at_its_owner_chat(self) -> None:
+        root = Task(id="owner", session_id="owner-session", project_id="test-project")
+        auxiliary = Task(id="owner::subagent", session_id="owner-session:aux:child",
+                         parent_session_id=root.session_id, project_id="test-project",
+                         metadata={"runtime_auxiliary_task": True, "runtime_auxiliary_kind": "native_subagent"})
+        await self.store.save_task(root)
+        await self.store.save_task(auxiliary)
+        await self.chat_store.create_session_channel(root.id, "Owner", project_id="test-project")
+        checkpoint = ExecutionCheckpoint(
+            checkpoint_id="auxiliary-permission", project_id="test-project",
+            task_id=auxiliary.id, session_id=auxiliary.session_id,
+            checkpoint_type="tool_permission", status="pending", payload={
+                "interaction": {
+                    "kind": "tool_permission", "prompt": "Approve web_search?",
+                    "options": [{"id": "approve_once", "label": "Approve once"}],
+                    "ownership": {
+                        "ui_anchor_task_id": root.id, "ui_anchor_session_id": root.session_id,
+                        "waiting_task_id": auxiliary.id, "waiting_session_id": auxiliary.session_id,
+                    },
+                },
+                "tool_call": {"id": "child-call", "name": "web_search"}, "approval": {},
+            },
+        )
+        await self.store.save_execution_checkpoint(checkpoint)
+        self.engine.can_answer_checkpoint = AsyncMock(return_value=True)
+        self.handler._load_execution_checkpoint_for_reply = AsyncMock(return_value=checkpoint)
+        await self.handler.on_opc_event(self._make_opc_event("runtime_event", {
+            "type": "interaction_checkpoint_changed", "task_id": auxiliary.id,
+            "checkpoint_id": checkpoint.checkpoint_id, "checkpoint_type": checkpoint.checkpoint_type,
+            **auxiliary.metadata,
+        }))
+        card = next(message["payload"] for message in self.broadcasts if message["type"] == "session_message")
+        self.assertEqual(card["channel_id"], "session:owner")
+        self.assertEqual(card["metadata"]["checkpoint_id"], checkpoint.checkpoint_id)
+        self.assertEqual(self.adapter._trackers, {})
+        self.assertEqual([channel["channel_id"] for channel in await self.chat_store.get_session_channels("test-project")], ["session:owner"])
 
     async def test_child_session_creates_chat_channel(self) -> None:
         """child_session_created should create a chat_store session channel."""
@@ -3797,6 +3950,60 @@ class TestWSHandlerSessionDetail(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self) -> None:
         await self.chat_store._db.close()
+
+    async def test_repeated_auxiliary_detail_requests_retire_ui_projection_without_identity_resolution(self) -> None:
+        ws = MagicMock()
+        ws.send_json = AsyncMock()
+        self.handler._resolve_session_runtime_config_task = AsyncMock(
+            side_effect=AssertionError("an auxiliary Task is not a Company chat")
+        )
+        self.handler._load_session_transcript_page = AsyncMock()
+        for index in (1, 2):
+            task = Task(
+                id=f"delivery-{index}::ceo_pre_delivery_assessment::attempt",
+                session_id=f"root:delivery:{index}:aux:assessment",
+                parent_session_id=f"root:delivery:{index}",
+                project_id="test-project", org_id="saved-org",
+                status=TaskStatus.DONE, result="Durable internal assessment",
+                metadata={
+                    "runtime_auxiliary_task": True,
+                    "company_runtime_auxiliary_task": True,
+                    "runtime_auxiliary_kind": "role_prompt",
+                    "runtime_auxiliary_source_task_id": f"delivery-{index}",
+                    "delegation_run_id": "company-run",
+                },
+            )
+            await self.store.save_task(task)
+            for detail_level in ("summary", "full", "full"):
+                await self.handler._route_message(ws, json.dumps({
+                    "type": "session_detail", "project_id": "test-project",
+                    "task_id": task.id, "view_generation": 7, "detail_level": detail_level,
+                }))
+                payload = ws.send_json.await_args.args[0]["payload"]
+                self.assertTrue(payload["ok"])
+                self.assertIs(payload["session_visible"], False)
+                self.assertEqual(payload["task_id"], task.id)
+                self.assertEqual(payload["project_id"], "test-project")
+                self.assertEqual(payload["view_generation"], 7)
+                self.assertEqual(payload["detail_level"], detail_level)
+                self.assertEqual(payload["messages"], [])
+                self.assertNotIn("session_state", payload)
+            self.assertIs(await self.store.get_task(task.id), task)
+            self.assertEqual(task.status, TaskStatus.DONE)
+            self.assertEqual(task.result, "Durable internal assessment")
+
+        self.handler._resolve_session_runtime_config_task.assert_not_awaited()
+        self.handler._load_session_transcript_page.assert_not_awaited()
+        self.assertEqual(await self.chat_store.get_session_channels("test-project"), [])
+
+    async def test_real_company_detail_still_rejects_missing_runtime_identity(self) -> None:
+        task = Task(id="real-company-work", session_id="real-company-session",
+                    project_id="test-project", metadata={"mode": "company", "company_profile": "custom"})
+        await self.store.save_task(task)
+        self.handler._resolve_company_runtime_target = AsyncMock(return_value=None)
+        with self.assertRaises(ServiceError) as error:
+            await self.handler._resolve_session_runtime_config_task(task.id, task, engine=self.engine)
+        self.assertEqual(error.exception.code, "company_runtime_identity_mismatch")
 
     async def test_session_detail_returns_full_transcript_and_context(self) -> None:
         ws = MagicMock()
@@ -5490,6 +5697,8 @@ class TestOfficeServiceExecutionIdentity(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(call.kwargs["message_metadata"], {
             "native_approval_level": "auto",
             "native_permission_scope_id": "service-send-runtime",
+            "company_team_strategy": "fixed",
+            "recruitment_agent": "native",
             "response_to_checkpoint_id": checkpoint.checkpoint_id,
             "response_to_checkpoint_type": checkpoint.checkpoint_type,
         })
@@ -5837,7 +6046,7 @@ class TestWSHandlerRunTask(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(call_kwargs["mode"], "org")
         self.assertEqual(call_kwargs["company_profile"], "custom")
         self.assertEqual(call_kwargs["org_id"], "quantum_harbor")
-        self.assertIsNone(call_kwargs["preferred_agent"])
+        self.assertEqual(call_kwargs["preferred_agent"], "native")
 
     async def test_run_task_uses_task_org_id_fallback_for_custom_identity(self) -> None:
         task_id = str(uuid.uuid4())
@@ -5912,7 +6121,7 @@ class TestWSHandlerRunTask(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(call_kwargs["mode"], "company")
         self.assertEqual(call_kwargs["company_profile"], "corporate")
         self.assertIsNone(call_kwargs["org_id"])
-        self.assertIsNone(call_kwargs["preferred_agent"])
+        self.assertEqual(call_kwargs["preferred_agent"], "native")
 
     async def test_session_send_passes_task_mode_preferred_agent(self) -> None:
         task = await self.store.get_task(self.task_id)

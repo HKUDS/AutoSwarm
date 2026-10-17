@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-import { IconCheck, IconCopy } from './SvgIcons'
+import { IconBrain, IconCheck, IconCopy } from './SvgIcons'
+import { splitAssistantContent } from '../lib/assistantContent'
 import { restoreCollapsedMarkdown } from '../lib/markdownRepair'
 
 const CODE_BLOCK_MAX_LINES = 30
@@ -90,6 +91,24 @@ export const MarkdownBody = React.memo(function MarkdownBody({
   className?: string
   collapseMode?: MarkdownCollapseMode
 }) {
+  const parts = splitAssistantContent(content)
+  return (
+    <div className={className === 'msg-content-agent' ? className : `msg-content-agent ${className}`}>
+      {parts.map((part, index) => part.kind === 'thinking' ? (
+        <details className="msg-thinking" key={index}>
+          <summary><IconBrain /> {part.complete ? 'Thinking' : 'Thinking…'}</summary>
+          <div className="msg-thinking-content">
+            <MarkdownSection content={part.content} collapseMode="never" />
+          </div>
+        </details>
+      ) : (
+        <MarkdownSection key={index} content={part.content} collapseMode={collapseMode} />
+      ))}
+    </div>
+  )
+})
+
+function MarkdownSection({ content, collapseMode }: { content: string; collapseMode: MarkdownCollapseMode }) {
   // Also repairs historical Jiuwen messages already persisted before the
   // adapter-side stream normalizer was added.
   const normalizedContent = restoreCollapsedMarkdown(content)
@@ -104,6 +123,9 @@ export const MarkdownBody = React.memo(function MarkdownBody({
   const lineCount = normalizedContent.split('\n').length
   const charCount = normalizedContent.length
   const mdComponents = {
+    table({ children, node: _node, ...props }: any) {
+      return <div className="msg-table-scroll"><table {...props}>{children}</table></div>
+    },
     code({ className: codeClassName, children, ...props }: any) {
       const isBlock = codeClassName?.startsWith('language-')
       if (isBlock) {
@@ -121,7 +143,7 @@ export const MarkdownBody = React.memo(function MarkdownBody({
   }
 
   return (
-    <div className={className}>
+    <>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
         {displayContent}
       </ReactMarkdown>
@@ -135,6 +157,6 @@ export const MarkdownBody = React.memo(function MarkdownBody({
           Show less
         </button>
       )}
-    </div>
+    </>
   )
-})
+}

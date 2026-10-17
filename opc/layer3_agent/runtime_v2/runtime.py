@@ -22,7 +22,7 @@ from opc.core.events import EventBus
 from opc.core.models import OPCEvent, PermissionResolution, Task, TaskResult, TaskStatus, VerificationEvidence
 from opc.layer0_interaction.coordinator import InteractionCoordinator
 from opc.layer2_organization.collaboration_policy import ownership_guard_violation
-from opc.layer2_organization.company_runtime_identity import is_company_runtime_task
+from opc.layer2_organization.company_runtime_identity import is_company_runtime_task, is_runtime_auxiliary_task
 from opc.layer2_organization.work_item_identity import (
     result_delivery_identity_payload_for_task,
     turn_type_for_task,
@@ -1661,13 +1661,10 @@ class NativeRuntimeV2:
                 "native_execution_sandbox_override"
             ] = sandbox_override
 
-        if (
-            predicted is not None
-            and getattr(predicted, "resolution", None) == PermissionResolution.ALLOW
-        ):
-            predicted_metadata = dict(getattr(predicted, "metadata", {}) or {})
-            _apply_sandbox_override(predicted_metadata.get("sandbox_override"))
-            level = str(predicted_metadata.get("native_approval_level", "") or "")
+        def _apply_policy_allow(permission: Any) -> None:
+            permission_metadata = dict(getattr(permission, "metadata", {}) or {})
+            _apply_sandbox_override(permission_metadata.get("sandbox_override"))
+            level = str(permission_metadata.get("native_approval_level", "") or "")
             # Company shell/Python effects retain the controller-owned exact
             # effect fence even when the native permission policy allows the
             # call without asking.  This marker is trusted runtime metadata,
@@ -1675,14 +1672,16 @@ class NativeRuntimeV2:
             # frozen launch envelope before recording the effect.
             context.call["_native_permission_auto_sign"] = {
                 "level": level,
-                "policy_source": str(getattr(predicted, "source", "") or ""),
+                "policy_source": str(getattr(permission, "source", "") or ""),
                 "scope_id": str(
-                    predicted_metadata.get(
+                    permission_metadata.get(
                         "native_permission_scope_id", "",
                     )
                     or ""
                 ),
             }
+        if predicted is not None and getattr(predicted, "resolution", None) == PermissionResolution.ALLOW:
+            _apply_policy_allow(predicted)
         if predicted is not None and getattr(predicted, "resolution", None) == PermissionResolution.DENY:
             return {
                 "result": permission_resolver.build_blocked_result(
@@ -1842,6 +1841,13 @@ class NativeRuntimeV2:
         approval_checkpoint_id = str(
             approval_payload.get("approval_checkpoint_id", "") or ""
         ).strip()
+        if allowed and not approval_checkpoint_id:
+            # This call may have queued behind another approval while its
+            # original prediction was ASK. Reuse the now-current policy and
+            # preserve the same exact Company effect fence as an initial ALLOW.
+            current_permission = permission_resolver.predicted_decision(context.tool, context.arguments, task=context.task)
+            if current_permission.resolution == PermissionResolution.ALLOW:
+                _apply_policy_allow(current_permission)
         durable_denial_permit: dict[str, Any] = {}
         if approval_checkpoint_id and context.task is not None:
             permit = self._approved_resume_tool_call(
@@ -4955,7 +4961,14 @@ class NativeRuntimeV2:
         return False
 
     @staticmethod
-    def _runtime_event_identity_payload(task: Task | None) -> dict[str, str]:
+    def _runtime_event_identity_payload(task: Task | None) -> dict[str, Any]:
+        if is_runtime_auxiliary_task(task):
+            metadata = dict(task.metadata or {})
+            return {
+                "runtime_auxiliary_task": True,
+                "runtime_auxiliary_kind": metadata["runtime_auxiliary_kind"],
+                "runtime_auxiliary_source_task_id": str(metadata.get("runtime_auxiliary_source_task_id", "") or ""),
+            }
         if NativeRuntimeV2._is_task_mode_runtime_task(task):
             return {}
         return work_item_identity_payload_for_task(task)

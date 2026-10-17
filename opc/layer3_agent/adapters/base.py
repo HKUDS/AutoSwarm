@@ -17,7 +17,7 @@ from typing import Any, Literal
 from opc.core.config import ExternalAgentConfig
 from opc.core.review_verdict import parse_review_verdict
 
-from opc.core.models import AgentStatus, Task, TaskResult
+from opc.core.models import AgentStatus, Task, TaskResult, TaskStatus
 
 
 _APPROVAL_MARKERS = (
@@ -613,6 +613,52 @@ class ExternalAgentAdapter(abc.ABC):
     async def execute(self, task: Task, workspace_path: str) -> TaskResult:
         """Execute task in the specified workspace."""
         ...
+
+    async def plan_json(self, prompt: str, workspace_path: str) -> TaskResult:
+        """Use this agent's own launch/model for an isolated planning request.
+
+        Keep the planning process local to this call so simultaneous project
+        workers do not share process or cancellation state. Unlike execute(),
+        planning has no wrapper-imposed deadline.
+        """
+        planner = type(self)(config=self.config.model_copy(deep=True))
+        planner.config.project_dir = workspace_path
+        planner.config.session_mode = "new"
+        planner.config.session_id = ""
+        task = Task(
+            title="Form the team and recruit staff",
+            description=prompt,
+            metadata={"external_prompt_contract": "description_is_full_prompt", "planning_only": True},
+        )
+        cmd, metadata = planner.build_invocation(task, workspace_path=workspace_path)
+        proc = await planner.start_process(cmd, workspace_path, task=task, launch_metadata=metadata)
+        try:
+            stdout, stderr = await proc.communicate()
+        except BaseException:
+            if proc.returncode is None:
+                if os.name == "posix":
+                    import signal
+
+                    with contextlib.suppress(ProcessLookupError):
+                        os.killpg(proc.pid, signal.SIGKILL)
+                else:
+                    proc.kill()
+                await proc.wait()
+            raise
+        output = stdout.decode("utf-8", errors="replace")
+        # A planner can return a JSON document directly. Do not mistake it
+        # for the provider's JSON event envelope and suppress its contents.
+        try:
+            document = json.loads(output)
+        except ValueError:
+            document = None
+        content = output.strip() if isinstance(document, dict) and not ({"type", "event"} & document.keys()) else planner.normalize_result_output(output)
+        return TaskResult(
+            status=TaskStatus.DONE if proc.returncode == 0 else TaskStatus.FAILED,
+            content=content if proc.returncode == 0
+            else stderr.decode("utf-8", errors="replace") or output or f"{self.agent_type} exited with code {proc.returncode}",
+            artifacts={"planning_agent": self.agent_type},
+        )
 
     @abc.abstractmethod
     def build_invocation(

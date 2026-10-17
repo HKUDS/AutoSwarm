@@ -1098,6 +1098,15 @@ export default function App() {
             const detailGeneration = payloadViewGeneration(payload)
             if (detailGeneration !== null && detailGeneration !== projectViewGenerationRef.current) return
             const detailTaskId = typeof payload.task_id === 'string' ? payload.task_id : ''
+            if (payload.session_visible === false && detailTaskId) {
+              const ss = sessionStoreRef.current
+              if (ss?.activeSessionId === detailTaskId) ss.setActiveSession(null)
+              ss?.deleteSession(detailTaskId)
+              boardStoreRef.current?.deleteTask(detailTaskId)
+              chatStoreRef.current?.removeSessionData(detailTaskId)
+              pendingDeltaFlushRef.current.delete(detailTaskId)
+              return
+            }
             const detailMessages = Array.isArray(payload.messages)
               ? payload.messages.map(mapBackendMessage)
               : []
@@ -1686,6 +1695,8 @@ export default function App() {
             mode: payload.parent_session_id ? 'child' : 'primary',
             execMode: normalizedSessionExecMode,
             companyProfile: payloadCompanyProfile,
+            companyTeamStrategy: payload.company_team_strategy ?? existing?.companyTeamStrategy,
+            recruitmentAgent: payload.recruitment_agent ?? existing?.recruitmentAgent,
             orgId: payloadOrgId,
             preferredAgent: normalizeTaskPreferredAgent(payload.preferred_agent ?? existing?.preferredAgent),
             nativeApprovalLevel: payload.native_approval_level ?? existing?.nativeApprovalLevel ?? globalNativeApprovalDefaultRef.current,
@@ -1746,10 +1757,9 @@ export default function App() {
             ...(payload.selected_execution_agent ? { selectedExecutionAgent: normalizeTaskPreferredAgent(payload.selected_execution_agent) } : {}),
             ...(payload.native_approval_level ? { nativeApprovalLevel: payload.native_approval_level } : {}),
             ...(payload.native_permission_scope_id ? { nativePermissionScopeId: payload.native_permission_scope_id } : {}),
+            ...(payload.company_team_strategy ? { companyTeamStrategy: payload.company_team_strategy } : {}),
+            ...(payload.recruitment_agent ? { recruitmentAgent: payload.recruitment_agent } : {}),
           })
-          if ((payload.exec_mode === 'org' || payload.exec_mode === 'custom') && (payload.org_id || payload.organization_id)) {
-            setActiveSavedOrg(String(payload.org_id ?? payload.organization_id))
-          }
         } catch (e) { console.error('[onSessionUpdated] Error:', e) }
       },
       onNativePermissionDefaultUpdated: (payload) => {
@@ -2229,7 +2239,7 @@ export default function App() {
     clientRef.current?.deleteAgent(agentId)
   }, [])
 
-  const handleSessionModeChange = useCallback((taskId: string, mode: string, profile?: string, orgId?: string) => {
+  const handleSessionModeChange = useCallback((taskId: string, mode: string, profile?: string, orgId?: string, companyTeamStrategy?: 'adaptive' | 'fixed', recruitmentAgent?: TaskPreferredAgent) => {
     const existingSession = sessionStore.sessions.find(session => session.taskId === taskId)
     const normalizedMode = normalizeExecMode(mode)
     const currentProfile = normalizeCompanyProfile(existingSession?.companyProfile ?? globalCompanyProfile)
@@ -2241,14 +2251,15 @@ export default function App() {
     const currentOrgId = String(existingSession?.orgId ?? activeSavedOrg ?? '').trim()
     const nextOrgId = orgIdForExecMode(normalizedMode, orgId ?? existingSession?.orgId ?? activeSavedOrg)
     const currentSessionMode = normalizeExecMode(existingSession?.execMode)
-    const currentGlobalProfile = normalizeCompanyProfile(globalCompanyProfile)
+    const nextStrategy = normalizedMode === 'company' ? (companyTeamStrategy ?? existingSession?.companyTeamStrategy ?? 'fixed') : 'fixed'
+    const nextRecruitmentAgent = existingSession?.preferredAgent ?? globalTaskPreferredAgent
 
     if (
       currentSessionMode === normalizedMode
       && currentProfile === nextProfile
       && currentOrgId === String(nextOrgId ?? '').trim()
-      && globalExecMode === normalizedMode
-      && currentGlobalProfile === nextProfile
+      && (existingSession?.companyTeamStrategy ?? 'fixed') === nextStrategy
+      && (existingSession?.recruitmentAgent ?? 'native') === nextRecruitmentAgent
     ) {
       return
     }
@@ -2256,18 +2267,15 @@ export default function App() {
     sessionStore.updateSession(taskId, {
       execMode: normalizedMode,
       companyProfile: nextProfile,
+      companyTeamStrategy: nextStrategy,
+      recruitmentAgent: nextRecruitmentAgent,
       orgId: nextOrgId,
       preferredAgent: existingSession?.preferredAgent ?? globalTaskPreferredAgent,
     })
-    setGlobalExecMode(normalizedMode)
-    setGlobalCompanyProfile(nextProfile)
-    if (normalizedMode === 'org' && nextOrgId) setActiveSavedOrg(nextOrgId)
-
     const nextPreferredAgent = existingSession?.preferredAgent ?? globalTaskPreferredAgent
     const runtimeProfile = normalizedMode === 'task' ? undefined : nextProfile
-    clientRef.current?.sessionUpdateConfig(getActiveProjectId(), taskId, normalizedMode, runtimeProfile, nextPreferredAgent, nextOrgId)
-    clientRef.current?.setExecutionMode(normalizedMode, runtimeProfile, nextPreferredAgent, nextOrgId)
-  }, [sessionStore, globalExecMode, globalCompanyProfile, globalTaskPreferredAgent, activeSavedOrg, getActiveProjectId])
+    clientRef.current?.sessionUpdateConfig(getActiveProjectId(), taskId, normalizedMode, runtimeProfile, nextPreferredAgent, nextOrgId, nextStrategy, nextRecruitmentAgent)
+  }, [sessionStore, globalCompanyProfile, globalTaskPreferredAgent, activeSavedOrg, getActiveProjectId])
 
   const handleSessionTaskAgentChange = useCallback((taskId: string, preferredAgent: TaskPreferredAgent) => {
     const existingSession = sessionStore.sessions.find(session => session.taskId === taskId)
@@ -2282,13 +2290,11 @@ export default function App() {
     sessionStore.updateSession(taskId, {
       preferredAgent: normalizedPreferredAgent,
       selectedExecutionAgent: normalizedPreferredAgent,
+      recruitmentAgent: normalizedPreferredAgent,
     })
-    setGlobalTaskPreferredAgent(normalizedPreferredAgent)
-
     const runtimeProfile = normalizedMode === 'task' ? undefined : nextProfile
     const orgId = orgIdForExecMode(normalizedMode, existingSession?.orgId ?? activeSavedOrg)
-    clientRef.current?.sessionUpdateConfig(getActiveProjectId(), taskId, normalizedMode, runtimeProfile, normalizedPreferredAgent, orgId)
-    clientRef.current?.setExecutionMode(normalizedMode, runtimeProfile, normalizedPreferredAgent, orgId)
+    clientRef.current?.sessionUpdateConfig(getActiveProjectId(), taskId, normalizedMode, runtimeProfile, normalizedPreferredAgent, orgId, existingSession?.companyTeamStrategy, normalizedPreferredAgent)
   }, [sessionStore, globalCompanyProfile, activeSavedOrg, getActiveProjectId])
 
   // Triggered from a locked-mode chip's "Continue in a new chat" popover.
@@ -2300,6 +2306,8 @@ export default function App() {
     mode: 'task' | 'company' | 'org' | 'custom',
     profile?: 'corporate' | 'custom',
     orgId?: string,
+    companyTeamStrategy?: 'adaptive' | 'fixed',
+    recruitmentAgent?: TaskPreferredAgent,
   ) => {
     if (pendingProjectSwitchRef.current || pendingSessionCreateRef.current) return
     const projectId = getActiveProjectId()
@@ -2320,9 +2328,11 @@ export default function App() {
       undefined,
       normalizedMode,
       resolvedProfile,
-      globalTaskPreferredAgent,
+      recruitmentAgent ?? globalTaskPreferredAgent,
       orgIdForExecMode(normalizedMode, orgId ?? activeSavedOrg),
       globalNativeApprovalDefault,
+      companyTeamStrategy,
+      recruitmentAgent,
     )
     setActivePage('workspace')
   }, [getActiveProjectId, beginPendingSessionCreate, globalTaskPreferredAgent, activeSavedOrg, globalNativeApprovalDefault])

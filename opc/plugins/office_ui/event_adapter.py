@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from opc.layer2_organization.company_runtime_identity import is_runtime_auxiliary_metadata
+
 
 # ── OPC tool name → UI tool name mapping ──────────────────────────────────
 
@@ -195,6 +197,8 @@ class EventAdapter:
         results: list[dict[str, Any]] = []
         etype: str = event.event_type
         p: dict[str, Any] = event.payload or {}
+        if is_runtime_auxiliary_metadata(p):
+            return []
 
         if etype == "runtime_event":
             runtime_type = str(p.get("type", "runtime_event") or "runtime_event")

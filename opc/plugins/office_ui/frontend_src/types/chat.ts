@@ -246,7 +246,7 @@ export interface CheckpointReplyMetadata {
   human_feedback_text?: string
   recruitment_role_agents?: Record<string, TaskPreferredAgent>
   recruitment_agent?: TaskPreferredAgent
-  staffing_action?: 'manual_approve' | 'auto_recruit' | 'deny'
+  staffing_action?: 'manual_approve' | 'auto_recruit' | 'auto_team' | 'deny'
   staffing_selections?: Record<string, StaffingSelectionValue>
   user_input_answers?: Record<string, TaskUserInputAnswer>
   interaction_option_id?: string
@@ -424,6 +424,7 @@ export interface ChatMessageMeta {
   checkpoint_responded_at?: number | string
   // Recruitment-specific fields
   company_profile?: string
+  company_team_strategy?: 'adaptive' | 'fixed'
   previous_checkpoint_id?: string
   recruitment_revision?: number
   recruiter_feedback?: string[]

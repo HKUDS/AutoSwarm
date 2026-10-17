@@ -47,6 +47,17 @@ def normalize_execution_agent(value: Any, default: str | None = None) -> str | N
     return None
 
 
+def explicit_execution_agent(task: Any) -> str | None:
+    """Return the executor the user/checkpoint pinned, before any fallback."""
+
+    metadata = dict(getattr(task, "metadata", {}) or {})
+    if metadata.get("execution_agent_locked"):
+        selected = normalize_execution_agent(metadata.get("selected_execution_agent"))
+        if selected:
+            return selected
+    return normalize_execution_agent(metadata.get("router_preferred_agent"))
+
+
 def execution_agent_label(value: Any) -> str:
     """Return the stable user-facing label without changing the wire identity."""
 

@@ -19,6 +19,7 @@ from opc.layer2_organization.company_runtime_identity import (
     ACTIVE_COMPANY_RUNTIME_CHECKPOINT_STATUSES,
     COMPANY_RUNTIME_CHECKPOINT_TYPES,
     is_company_runtime_task,
+    is_pure_company_ui_anchor,
     load_company_runtime_identity_index,
 )
 from opc.plugins.office_ui.execution_identity import (
@@ -26,9 +27,11 @@ from opc.plugins.office_ui.execution_identity import (
     canonicalize_execution_identity,
     execution_identity_from_task,
     normalize_company_profile,
+    normalize_company_team_strategy,
     normalize_exec_mode,
     normalize_org_id,
     normalize_preferred_agent,
+    selected_execution_agent_from_task,
 )
 from opc.plugins.office_ui.snapshot_builder import build_collab_sync
 
@@ -96,28 +99,7 @@ class SessionService:
         return self.resolve_task_identity(task).preferred_agent
 
     def resolve_task_selected_execution_agent(self, task: Any | None) -> str:
-        metadata = dict(getattr(task, "metadata", {}) or {}) if task is not None else {}
-        selected = metadata.get("selected_execution_agent")
-        if selected not in (None, "", [], {}):
-            return self.normalize_preferred_agent(selected, default="native")
-        mode = str(metadata.get("mode", "") or "").strip().lower()
-        exec_mode = str(metadata.get("exec_mode", "") or "").strip().lower()
-        execution_mode = str(metadata.get("execution_mode", "") or "").strip().lower()
-        task_mode_contract = str(metadata.get("task_mode_contract", "") or "").strip()
-        is_task_mode = (
-            mode == "task"
-            or exec_mode in {"task", "project", "single"}
-            or execution_mode in {"task", "task_mode", "project"}
-            or task_mode_contract == "single_full_capability_main_agent"
-        )
-        if is_task_mode:
-            preferred = metadata.get("preferred_agent")
-            if preferred not in (None, "", [], {}):
-                return self.normalize_preferred_agent(preferred, default="native")
-        assigned = getattr(task, "assigned_external_agent", None) if task is not None else None
-        if assigned not in (None, "", [], {}):
-            return self.normalize_preferred_agent(assigned, default="native")
-        return "native"
+        return selected_execution_agent_from_task(task)
 
     @staticmethod
     def resolve_task_native_permission_config(
@@ -275,6 +257,7 @@ class SessionService:
                 },
             )
         config_task = index.task(identity.config_source_task_id) or task
+        await self._restore_adaptive_session_org(engine, index, identity, config_task)
         ui_anchor_task_id = identity.ui_anchor_task_id
         return {
             "identity": identity,
@@ -287,6 +270,67 @@ class SessionService:
             "affected_task_ids": list(identity.runtime_task_ids),
             "checkpoint": identity.checkpoint,
         }
+
+    async def _restore_adaptive_session_org(self, engine: Any, index: Any, identity: Any, anchor: Any) -> None:
+        """Repair legacy adaptive anchors using only their own durable runtime.
+
+        Early adaptive runs persisted the org on WorkItems but omitted it on
+        the UI anchor. Never consult the active org or another session/project.
+        """
+        metadata = dict(getattr(anchor, "metadata", {}) or {})
+        if (
+            metadata.get("company_team_strategy") != "adaptive"
+            or self.resolve_task_org_id(anchor)
+            or not is_pure_company_ui_anchor(anchor, identity.runtime_session_id)
+            or str(getattr(anchor, "project_id", "") or "") != identity.project_id
+        ):
+            return
+        org_ids: set[str] = set()
+        for task_id in identity.runtime_task_ids:
+            candidate = index.task(task_id)
+            if candidate is None or candidate.id == anchor.id:
+                continue
+            if str(getattr(candidate, "project_id", "") or "") != identity.project_id:
+                continue
+            if str(getattr(candidate, "parent_session_id", "") or "") != identity.runtime_session_id:
+                continue
+            values = dict(getattr(candidate, "metadata", {}) or {})
+            for value in (getattr(candidate, "org_id", None), values.get("org_id"), values.get("organization_id")):
+                if value:
+                    org_id = normalize_org_id(value)
+                    if not org_id:
+                        raise ServiceError("adaptive_org_identity_conflict", "The adaptive runtime has an invalid organization identity")
+                    org_ids.add(org_id)
+        if not org_ids:
+            return
+        if len(org_ids) != 1:
+            raise ServiceError("adaptive_org_identity_conflict", "The adaptive session has conflicting runtime organization identities")
+        org_id = next(iter(org_ids))
+        from opc.core.org_config import load_org_config_payload
+
+        payload, _ = load_org_config_payload(engine.opc_home / "config", org_id)
+        source = dict(payload.get("metadata", {}) or {})
+        if source.get("adaptive_source_project_id") != identity.project_id or not source.get("adaptive_team_plan"):
+            raise ServiceError("adaptive_org_identity_conflict", "The saved adaptive organization does not belong to this project")
+        self._validate_session_org(org_id, engine)
+        await self.persist_session_config(
+            anchor, exec_mode="org", company_profile="custom", org_id=org_id,
+            preferred_agent=self.resolve_task_preferred_agent(anchor), engine=engine,
+            company_team_strategy="adaptive",
+        )
+        session = await engine.store.get_session(identity.runtime_session_id)
+        if session is not None:
+            session.metadata = {
+                **session.metadata,
+                "exec_mode": "org", "company_profile": "custom", "org_id": org_id, "organization_id": org_id,
+                "recruitment_confirmation_completed": True,
+                "execution_defaults": {
+                    **dict(session.metadata.get("execution_defaults", {}) or {}),
+                    "company_profile": "custom", "org_id": org_id,
+                },
+            }
+            await engine.store.save_session(session)
+        logger.info("Restored adaptive organization {} for project {} session {}", org_id, identity.project_id, identity.runtime_session_id)
 
     def _normalize_requested_config(
         self,
@@ -310,15 +354,19 @@ class SessionService:
         )
         return identity.exec_mode, identity.company_profile, identity.preferred_agent, identity.org_id
 
-    async def _ensure_org_loaded(self, org_id: str) -> None:
+    def _validate_session_org(self, org_id: str, engine: Any) -> None:
         if not org_id:
             return
-        loader = self.context.load_active_org_config
-        if callable(loader) and not loader(org_id):
-            raise ServiceError("org_not_found", "org_not_found", {"org_id": org_id})
-        setter = self.context.set_active_saved_org_name
-        if callable(setter):
-            await setter(org_id)
+        from opc.layer2_organization.custom_runtime import CustomRuntimeRunner
+
+        try:
+            # Validation builds a separate config. Session selection must not
+            # replace another run's OrgEngine or the global active-org index.
+            CustomRuntimeRunner(engine)._build_org_config(org_id)
+        except FileNotFoundError as exc:
+            raise ServiceError("org_not_found", "org_not_found", {"org_id": org_id}) from exc
+        except (ValueError, TypeError) as exc:
+            raise ServiceError("invalid_org_config", str(exc), {"org_id": org_id}) from exc
 
     async def create(
         self,
@@ -336,6 +384,8 @@ class SessionService:
         assignee_ids: list[str] | None = None,
         board_id: str | None = None,
         native_approval_level: Any = None,
+        company_team_strategy: Any = None,
+        recruitment_agent: Any = None,
     ) -> ServiceResult:
         pid = self.context.normalize_project_id(project_id)
         engine = await self.context.engine_for_project(pid)
@@ -355,7 +405,7 @@ class SessionService:
                 normalized_org = await self.context.get_active_saved_org_name()
             if not normalized_org:
                 raise ServiceError("org_id_required", "org_id_required", {"project_id": pid})
-            await self._ensure_org_loaded(normalized_org)
+            self._validate_session_org(normalized_org, engine)
         else:
             normalized_org = ""
 
@@ -395,6 +445,10 @@ class SessionService:
             native_approval_level=normalized_approval_level,
             native_permission_scope_id=session_id,
         )
+        metadata["company_team_strategy"] = normalize_company_team_strategy(company_team_strategy) if normalized_exec == "company" else "fixed"
+        # Compatibility field: there is one user-selected agent for planning,
+        # recruitment and execution, not an independent recruiter preference.
+        metadata["recruitment_agent"] = normalized_agent
 
         if getattr(engine, "memory", None):
             await engine.memory.ensure_session(
@@ -439,6 +493,8 @@ class SessionService:
             "origin_task_id": tid,
             "exec_mode": normalized_exec,
             "company_profile": normalized_profile,
+            "company_team_strategy": metadata["company_team_strategy"],
+            "recruitment_agent": metadata["recruitment_agent"],
             "org_id": normalized_org,
             "preferred_agent": normalized_agent,
             "selected_execution_agent": normalized_agent,
@@ -487,6 +543,7 @@ class SessionService:
             "exec_mode": identity.exec_mode,
             "company_profile": identity.company_profile,
             "preferred_agent": identity.preferred_agent,
+            "selected_execution_agent": identity.preferred_agent,
             "interface": interface,
             "native_approval_level": normalize_native_approval_level(native_approval_level),
             "native_permission_scope_id": str(native_permission_scope_id or "").strip(),
@@ -508,7 +565,6 @@ class SessionService:
                 "execution_mode": "company_mode",
                 "origin_task_id": "",
                 "task_mode_contract": "",
-                "selected_execution_agent": "",
                 "force_native_execution": False,
                 "preferred_external_agent": "",
                 "agent_selection": {},
@@ -563,6 +619,8 @@ class SessionService:
         preferred_agent: Any = None,
         org_id: Any = None,
         native_approval_level: Any = None,
+        company_team_strategy: Any = None,
+        recruitment_agent: Any = None,
     ) -> ServiceResult:
         engine = await self.context.engine_for_project(project_id)
         store = getattr(engine, "store", None)
@@ -581,6 +639,8 @@ class SessionService:
             and company_profile is None
             and preferred_agent is None
             and org_id is None
+            and company_team_strategy is None
+            and recruitment_agent is None
         )
         if lock_reason and not permission_only:
             raise ServiceError("session_config_locked", "session_config_locked", {
@@ -603,13 +663,13 @@ class SessionService:
             current_preferred_agent=current_agent,
         )
         if normalized_exec == "org" and normalized_org:
-            await self._ensure_org_loaded(normalized_org)
+            self._validate_session_org(normalized_org, engine)
         elif normalized_exec == "org":
             if self.context.get_active_saved_org_name is not None:
                 normalized_org = await self.context.get_active_saved_org_name()
             if not normalized_org:
                 raise ServiceError("org_id_required", "org_id_required", {"project_id": project_id, "task_id": task_id})
-            await self._ensure_org_loaded(normalized_org)
+            self._validate_session_org(normalized_org, engine)
         if not permission_only:
             await self.persist_session_config(
                 task,
@@ -618,6 +678,8 @@ class SessionService:
                 preferred_agent=normalized_agent,
                 org_id=normalized_org,
                 engine=engine,
+                company_team_strategy=company_team_strategy if normalized_exec == "company" else "fixed",
+                recruitment_agent=recruitment_agent,
             )
         try:
             normalized_approval_level = (
@@ -647,6 +709,8 @@ class SessionService:
             "org_id": normalized_org,
             "preferred_agent": normalized_agent,
             "selected_execution_agent": self.resolve_task_selected_execution_agent(task),
+            "company_team_strategy": task.metadata.get("company_team_strategy", "fixed"),
+            "recruitment_agent": task.metadata.get("recruitment_agent", "native"),
             "native_approval_level": normalized_approval_level,
             "native_permission_scope_id": str(task.metadata.get("native_permission_scope_id", "") or ""),
         }
@@ -710,6 +774,8 @@ class SessionService:
         preferred_agent: str,
         org_id: str = "",
         engine: Any | None = None,
+        company_team_strategy: Any = None,
+        recruitment_agent: Any = None,
     ) -> None:
         runtime_engine = engine or self.context.engine
         metadata = dict(getattr(task, "metadata", {}) or {})
@@ -732,6 +798,10 @@ class SessionService:
         metadata.update(permission_config)
         metadata["exec_mode"] = identity.exec_mode
         metadata["company_profile"] = identity.company_profile
+        metadata["company_team_strategy"] = normalize_company_team_strategy(
+            company_team_strategy if company_team_strategy is not None else metadata.get("company_team_strategy")
+        ) if not identity.is_task else "fixed"
+        metadata["recruitment_agent"] = identity.preferred_agent
         metadata["preferred_agent"] = identity.preferred_agent
         normalized_org_id = identity.org_id
         if identity.is_custom_org and normalized_org_id:
@@ -759,6 +829,8 @@ class SessionService:
         else:
             for key in ("mode", "execution_mode", "task_mode_contract", "force_native_execution", "preferred_external_agent", "agent_selection"):
                 metadata.pop(key, None)
+            if is_pure_company_ui_anchor(task, str(getattr(task, "session_id", "") or "")):
+                metadata["selected_execution_agent"] = identity.preferred_agent
         task.metadata = metadata
         task.org_id = normalized_org_id or None
         if getattr(runtime_engine, "store", None):
@@ -774,6 +846,7 @@ class SessionService:
                 native_approval_level=permission_config["native_approval_level"],
                 native_permission_scope_id=permission_config["native_permission_scope_id"],
             )
+            session_metadata.update({key: metadata[key] for key in ("company_team_strategy", "recruitment_agent")})
             if not identity.is_custom_org:
                 session_metadata["org_id"] = ""
                 session_metadata["organization_id"] = ""
@@ -806,12 +879,17 @@ class SessionService:
         metadata["native_approval_level"] = normalized
         metadata["native_permission_scope_id"] = scope_id
         task.metadata = metadata
-        if getattr(engine, "approval_engine", None):
-            engine.approval_engine.native_policy.set_session_level(scope_id, normalized)
         scoped_tasks = [task]
         store = getattr(engine, "store", None)
+        update_scope = getattr(store, "set_native_permission_scope", None)
         get_tasks = getattr(store, "get_tasks", None)
-        if callable(get_tasks):
+        if callable(update_scope):
+            scoped_tasks = await update_scope(
+                project_id=getattr(task, "project_id", None) or engine.project_id or "default",
+                root_session_id=str(getattr(task, "session_id", "") or scope_id),
+                scope_id=scope_id, level=normalized,
+            ) or [task]
+        elif callable(get_tasks):
             all_tasks = await get_tasks(
                 project_id=getattr(task, "project_id", None)
                 or getattr(engine, "project_id", None)
@@ -823,7 +901,7 @@ class SessionService:
                 scope_id=scope_id,
             ) or [task]
         save_task = getattr(store, "save_task", None)
-        if callable(save_task):
+        if callable(save_task) and not callable(update_scope):
             for candidate in scoped_tasks:
                 candidate.metadata = {
                     **dict(getattr(candidate, "metadata", {}) or {}),
@@ -831,6 +909,9 @@ class SessionService:
                     "native_permission_scope_id": scope_id,
                 }
                 await save_task(candidate)
+        approval_engine = getattr(engine, "approval_engine", None)
+        if approval_engine is not None:
+            approval_engine.native_policy.set_session_level(scope_id, normalized)
         if getattr(engine, "memory", None):
             for candidate in scoped_tasks:
                 session_id = str(getattr(candidate, "session_id", "") or "").strip()
@@ -847,6 +928,12 @@ class SessionService:
                         "native_permission_scope_id": scope_id,
                     },
                 )
+        reconcile = getattr(approval_engine, "reconcile_pending_tool_permissions", None)
+        if callable(reconcile):
+            await reconcile(
+                project_id=getattr(task, "project_id", None) or engine.project_id or "default",
+                scope_id=scope_id,
+            )
         return normalized
 
     async def send(
@@ -962,6 +1049,10 @@ class SessionService:
         message_metadata: dict[str, Any] | None = (
             self.resolve_task_native_permission_config(config_task, engine)
         )
+        message_metadata.update({
+            "company_team_strategy": dict(getattr(config_task, "metadata", {}) or {}).get("company_team_strategy", "fixed"),
+            "recruitment_agent": identity.preferred_agent,
+        })
         if company_target is not None:
             execution_session_id = str(
                 company_target.get("runtime_session_id", "") or ""
@@ -1012,11 +1103,7 @@ class SessionService:
             # particular, ``jiuwenswarm`` means an opaque Team boundary for
             # each selected/top-level subtree; dropping it here silently
             # changed the staffing checkpoint back to native agents.
-            preferred_agent=(
-                identity.preferred_agent
-                if identity.is_task or identity.preferred_agent != "native"
-                else None
-            ),
+            preferred_agent=identity.preferred_agent,
             domains=list(domains or []),
             origin_task_id=origin_task_id,
             message_metadata=message_metadata,
@@ -1379,11 +1466,7 @@ class SessionService:
             mode=engine_mode,
             org_id=org_id or None,
             company_profile=config_company_profile if engine_mode == "company" else None,
-            preferred_agent=(
-                resolved_preferred_agent
-                if engine_mode == "task" or resolved_preferred_agent != "native"
-                else None
-            ),
+            preferred_agent=resolved_preferred_agent,
             origin_task_id=(str(target_info.get("ui_anchor_task_id", "") or "").strip() or None),
             message_metadata=message_metadata,
         )

@@ -209,6 +209,31 @@ class NativeRuntimeV2Tests(unittest.IsolatedAsyncioTestCase):
             config=_verification_enabled_config(),
         )
 
+    async def test_auxiliary_runtime_events_keep_durable_trace_without_work_item_ui_identity(self) -> None:
+        from opc.plugins.office_ui.event_adapter import EventAdapter
+
+        runtime = self._runtime_for_unit_checks()
+        save_event = AsyncMock()
+        runtime.memory_manager = SimpleNamespace(store=SimpleNamespace(save_runtime_event=save_event))
+        for kind in ("role_prompt", "meeting_turn", "native_subagent"):
+            task = Task(id=f"source::aux::{kind}", session_id=f"session:aux:{kind}",
+                        assigned_to="ceo", metadata={
+                            "runtime_auxiliary_task": True, "runtime_auxiliary_kind": kind,
+                            "runtime_auxiliary_source_task_id": "source",
+                            # An inherited legacy projection must also be ignored.
+                            "work_item_projection_id": "source-projection",
+                        })
+            await runtime._emit_runtime_event("rt-aux", task, "turn_completed", {"text": "done"})
+            event = runtime.event_bus.events[-1]
+            self.assertEqual(event.payload["runtime_auxiliary_kind"], kind)
+            self.assertIs(event.payload["runtime_auxiliary_task"], True)
+            self.assertEqual(event.payload["runtime_auxiliary_source_task_id"], "source")
+            self.assertNotIn("work_item_projection_id", event.payload)
+            self.assertNotIn("work_item_turn_type", event.payload)
+            self.assertEqual(save_event.await_args.args[2], event.payload)
+            self.assertEqual(EventAdapter().translate(event), [])
+        self.assertEqual(save_event.await_count, 3)
+
     async def test_task_mode_does_not_require_automatic_verification(self) -> None:
         runtime = self._runtime_for_unit_checks()
         task = Task(

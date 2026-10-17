@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import uuid
+from pathlib import Path
 from typing import Any
 
 from loguru import logger
@@ -18,6 +19,7 @@ from opc.layer3_agent.adapters.base import (
     ExternalAgentStdinPolicy,
     ExternalApprovalRequest,
 )
+from opc.layer3_agent.company_workspace_fence import company_external_fence_enabled
 
 
 class CodexAdapter(ExternalAgentAdapter):
@@ -56,6 +58,54 @@ class CodexAdapter(ExternalAgentAdapter):
 
     def supports_session_resume(self) -> bool:
         return True
+
+    def supports_company_execution(self) -> bool:
+        # The broker attests the workspace before/after each invocation and
+        # binds collaboration RPC to this project's exact Task/WorkItem.
+        return True
+
+    async def plan_json(self, prompt: str, workspace_path: str) -> TaskResult:
+        """Run a fresh read-only planner, separate from company worker launches.
+
+        Deliberately exclude ordinary extra_args and approval overrides: a
+        planning choice must not inherit a worker's full-access configuration.
+        """
+        cmd = [self.configured_command(), "exec", "--skip-git-repo-check", "--json",
+               "--sandbox", "read-only", "-c", 'approval_policy="never"',
+               "-c", 'features.shell_tool=false', "-c", 'mcp_servers={}']
+        if self.config.model:
+            cmd.extend(["--model", self.config.model])
+        cmd.append("-")
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, cwd=workspace_path, env=self.build_process_env(),
+            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE, **self._subprocess_group_kwargs(),
+        )
+        try:
+            stdout, stderr = await proc.communicate(prompt.encode("utf-8"))
+        except BaseException:
+            # User cancellation must stop the actual planning process.
+            if proc.returncode is None:
+                if os.name == "posix":
+                    import signal
+
+                    try:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                else:
+                    proc.kill()
+                await proc.wait()
+            raise
+        output = stdout.decode("utf-8", errors="replace")
+        usage = [event["usage"] for line in output.splitlines()
+                 if (event := self._parse_runtime_event(line)) and event.get("type") == "turn.completed"
+                 and isinstance(event.get("usage"), dict)]
+        return TaskResult(
+            status=TaskStatus.DONE if proc.returncode == 0 else TaskStatus.FAILED,
+            content=self.normalize_result_output(output) if proc.returncode == 0 else stderr.decode("utf-8", errors="replace"),
+            artifacts={"planning_usage": usage, "planning_sandbox": "read-only"},
+        )
 
     def agent_isolation_home_slug(self) -> str:
         # Point spawned codex at ``<opc_home>/agent_homes/codex/``. The
@@ -216,6 +266,13 @@ class CodexAdapter(ExternalAgentAdapter):
         workspace = str((task.metadata or {}).get("target_output_dir") or "").strip()
         _add_except_workspace = lambda path: _add(path) if path and path != workspace else None  # noqa: E731
 
+        if company_external_fence_enabled(task):
+            # Company collaboration uses the broker's task-bound RPC. Do not
+            # grant the entire OPC home (including other projects' databases).
+            for key in ("output_root", "target_output_dir", "comms_workspace_root", "comms_root"):
+                _add_except_workspace(str((task.metadata or {}).get(key) or "").strip())
+            return roots
+
         comms_root = str((task.metadata or {}).get("comms_workspace_root") or "").strip()
         _add_except_workspace(comms_root)
 
@@ -346,13 +403,52 @@ class CodexAdapter(ExternalAgentAdapter):
                 delivered = False
         return delivered
 
+    def _build_company_command(
+        self, task: Task, workspace_path: str | None, *, prompt_arg: str, interactive: bool,
+    ) -> list[str]:
+        """Use the selected Codex model and a bounded workspace on every turn."""
+
+        workspace = str(Path(workspace_path or os.getcwd()).expanduser().resolve())
+        session_id = str(self.config.session_id or "").strip()
+        resume = self.config.session_mode == "resume" and bool(session_id)
+        # Refuse configuration that would override this runtime's filesystem
+        # boundary. Never silently substitute Native for a bad Codex launch.
+        for arg in self.config.extra_args:
+            option = str(arg).split("=", 1)[0]
+            if option in {"--dangerously-bypass-approvals-and-sandbox", "--yolo", "--full-auto",
+                          "--sandbox", "-s", "--add-dir", "--cd", "-C", "--config", "-c"}:
+                raise RuntimeError(f"Codex company execution cannot override its workspace fence with {option}.")
+        cmd = [self.configured_command(), "exec"]
+        if resume:
+            cmd.append("resume")
+        else:
+            cmd.extend(self.build_workspace_args(workspace))
+        cmd.extend(["--skip-git-repo-check"])
+        if interactive:
+            cmd.append("--json")
+        if self.config.model:
+            cmd.extend([self.config.model_flag or "--model", self.config.model])
+        cmd.extend(self.config.extra_args)
+        cmd.extend([
+            "-c", 'sandbox_mode="workspace-write"',
+            "-c", 'approval_policy="never"',
+            "-c", "sandbox_workspace_write.network_access=true",
+            "-c", f"sandbox_workspace_write.writable_roots={json.dumps(self._extra_writable_roots(task), ensure_ascii=False)}",
+        ])
+        if resume:
+            cmd.append(session_id)
+        cmd.append(prompt_arg)
+        return cmd
+
     def build_invocation(
         self,
         task: Task,
         workspace_path: str | None = None,
     ) -> tuple[list[str], dict[str, object]]:
         session_id = str(self.config.session_id or "").strip()
-        if str(self.config.session_mode or "").strip().lower() == "resume" and session_id:
+        if company_external_fence_enabled(task):
+            cmd = self._build_company_command(task, workspace_path, prompt_arg=self._PROMPT_SENTINEL, interactive=False)
+        elif str(self.config.session_mode or "").strip().lower() == "resume" and session_id:
             cmd = [
                 self.configured_command(),
                 "exec",
@@ -398,7 +494,9 @@ class CodexAdapter(ExternalAgentAdapter):
         prompt = self._prompt_text_from_task(task)
         prompt_transport = self._interactive_prompt_transport(prompt)
         prompt_arg = prompt if prompt_transport == "argv" else self._PROMPT_SENTINEL
-        if str(self.config.session_mode or "").strip().lower() == "resume" and session_id:
+        if company_external_fence_enabled(task):
+            cmd = self._build_company_command(task, workspace_path, prompt_arg=prompt_arg, interactive=True)
+        elif str(self.config.session_mode or "").strip().lower() == "resume" and session_id:
             cmd = [
                 self.configured_command(),
                 "exec",

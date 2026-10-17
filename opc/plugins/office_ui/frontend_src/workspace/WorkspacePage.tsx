@@ -304,7 +304,7 @@ interface WorkspacePageProps {
   onSecretarySend?: (content: string) => void
   onDeleteSession: (taskId: string) => void
   onTitleChange: (taskId: string, title: string) => void
-  onSessionConfigChange?: (taskId: string, execMode: string, companyProfile?: string, orgId?: string) => void
+  onSessionConfigChange?: (taskId: string, execMode: string, companyProfile?: string, orgId?: string, companyTeamStrategy?: 'adaptive' | 'fixed', recruitmentAgent?: TaskPreferredAgent) => void
   onSessionTaskAgentChange?: (taskId: string, preferredAgent: TaskPreferredAgent) => void
   onSessionNativeApprovalLevelChange?: (taskId: string, level: NativeApprovalLevel) => void
   onSetNativeApprovalDefault?: (level: NativeApprovalLevel) => void
@@ -314,7 +314,7 @@ interface WorkspacePageProps {
    * users can "continue this conversation in a different mode" without
    * mutating the locked chat.
    */
-  onContinueInNewChat?: (mode: 'task' | 'company' | 'org' | 'custom', companyProfile?: 'corporate' | 'custom', orgId?: string) => void
+  onContinueInNewChat?: (mode: 'task' | 'company' | 'org' | 'custom', companyProfile?: 'corporate' | 'custom', orgId?: string, companyTeamStrategy?: 'adaptive' | 'fixed', recruitmentAgent?: TaskPreferredAgent) => void
   onSessionStop?: (taskId: string) => void
   onSessionResume?: (taskId: string, runtimeSessionId?: string, checkpointId?: string) => void
   onSessionComplete?: (taskId: string) => void
@@ -1012,8 +1012,8 @@ export function WorkspacePage({
     }
   }, [boardStore, onRunTask, sessions, execMode, companyProfile, orgInfoData, onNavigateToOrg, t])
 
-  const handleSessionConfigChange = useCallback((taskId: string, sessionMode: string, sessionCompanyProfile?: string, orgId?: string) => {
-    onSessionConfigChange?.(taskId, sessionMode, sessionCompanyProfile, orgId)
+  const handleSessionConfigChange = useCallback((taskId: string, sessionMode: string, sessionCompanyProfile?: string, orgId?: string, companyTeamStrategy?: 'adaptive' | 'fixed', recruitmentAgent?: TaskPreferredAgent) => {
+    onSessionConfigChange?.(taskId, sessionMode, sessionCompanyProfile, orgId, companyTeamStrategy, recruitmentAgent)
   }, [onSessionConfigChange])
 
   // ── Locate on Board ──

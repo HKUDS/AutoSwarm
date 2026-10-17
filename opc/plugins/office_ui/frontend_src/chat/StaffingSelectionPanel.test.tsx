@@ -51,6 +51,7 @@ assert.match(markup, /Existing Engineer/)
 assert.match(markup, /Frontend Developer/)
 assert.match(markup, /Approve/)
 assert.match(markup, /Auto Recruit/)
+assert.doesNotMatch(markup, /Adapt roles and recruit together/)
 
 const teamCoverage = buildDynamicTeamCoverage(
   [

@@ -21,12 +21,16 @@ _CATEGORY_DESCRIPTIONS: dict[str, str] = {
     "examples": "Reference or demo-style prompts that illustrate processes rather than specialized staffing.",
     "finance": "Finance, investment research, financial modeling, valuation, accounting, tax, and portfolio analysis.",
     "general": "General-purpose execution support for broad, lightweight, or fallback work across roles.",
+    "gis": "Geospatial data, mapping, spatial analysis, remote sensing and GIS engineering.",
+    "healthcare": "Healthcare operations, clinical workflows and domain-specific health analysis.",
     "game-development": "Game systems, content, technical art, narrative, and interactive development.",
     "marketing": "Audience growth, messaging, campaigns, content strategy, and go-to-market execution.",
     "paid-media": "Performance marketing, media buying, attribution, and campaign optimization.",
     "product": "Product strategy, prioritization, discovery, user insight, and roadmap decisions.",
     "project-management": "Planning, delivery coordination, process management, and operational tracking.",
     "sales": "Pipeline development, customer discovery, solution positioning, and deal support.",
+    "security": "Threat modeling, application security, incident response and security verification.",
+    "research": "Research design, investigation, synthesis and evidence-based analysis.",
     "spatial-computing": "XR, visionOS, 3D interfaces, immersive experiences, and spatial product work.",
     "specialized": "Specialized domain experts for niche industries, compliance, process design, and custom operations.",
     "strategy": "High-level planning, operating models, and cross-functional execution playbooks.",
@@ -205,6 +209,31 @@ class TalentMarket:
     def list_employees(self) -> list[EmployeeConfig]:
         return sorted(self.config.org.employees, key=lambda item: (item.role_id, item.name.lower()))
 
+    def list_adaptive_staffing_employees(self, *, project_id: str) -> list[EmployeeConfig]:
+        """Recall staff from this org and its approved adaptive runs in this project."""
+        from opc.core.employee_registry import is_placeholder_employee, load_employee_registry
+        from opc.core.org_config import RUNTIME_ORG_CONFIGS_DIRNAME
+
+        employees = {e.employee_id: e for e in self.list_employees() if not is_placeholder_employee(e)}
+        source_org_id = self.config.org.organization_id
+        paths = [path for directory in ("company_orgs", RUNTIME_ORG_CONFIGS_DIRNAME)
+                 for path in (self.opc_home / "config" / directory).glob("org_adaptive_*_config.yaml")]
+        for path in sorted(paths):
+            try:
+                data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+                metadata = data.get("metadata", {})
+                if (metadata.get("adaptive_source_organization_id") != source_org_id
+                        or metadata.get("adaptive_source_project_id") != project_id):
+                    continue
+                org_id = str(data["organization_id"])
+                for employee in load_employee_registry(self.opc_home, org_id):
+                    if not is_placeholder_employee(employee) and employee.employee_id not in employees:
+                        employee.metadata["staffing_source_organization_id"] = org_id
+                        employees[employee.employee_id] = employee
+            except (OSError, ValueError, KeyError, TypeError, AttributeError, YAMLError):
+                continue
+        return sorted(employees.values(), key=lambda item: (item.role_id, item.name.lower()))
+
     def get_template(self, template_id: str) -> TalentTemplateConfig | None:
         normalized = str(template_id or "").strip()
         if not normalized:
@@ -273,6 +302,8 @@ class TalentMarket:
             "description": template.description,
             "category": template.category,
             "category_description": self.describe_category(template.category),
+            "domains": list(template.domains),
+            "tags": list(template.tags),
         }
 
     def describe_category(self, category: str) -> str:
@@ -368,7 +399,7 @@ class TalentMarket:
         repo_root = repo_path.expanduser().resolve()
         imported: list[TalentTemplateConfig] = []
         for category_dir in sorted(repo_root.iterdir()):
-            if not category_dir.is_dir():
+            if not category_dir.is_dir() or category_dir.name.startswith("."):
                 continue
             for markdown_path in self._iter_repo_template_paths(category_dir):
                 template = self._parse_template(markdown_path, repo_root)
@@ -387,6 +418,8 @@ class TalentMarket:
             if _should_ignore_template_path(markdown_path):
                 continue
             if markdown_path.parent == category_dir:
+                if top_level in {"examples", "strategy", *_NON_TALENT_RECURSIVE_DIRS} and not _has_named_frontmatter_template(markdown_path):
+                    continue
                 paths.append(markdown_path)
                 continue
             if top_level in _NON_TALENT_RECURSIVE_DIRS:
@@ -580,6 +613,12 @@ class TalentMarket:
             return None
         text = path.read_text(encoding="utf-8")
         frontmatter, body = _extract_frontmatter(text)
+        if (repo_root.name.lower() == "talent"
+                and _infer_category_from_stem(path.stem) in {"examples", "strategy"}
+                and not frontmatter.get("name")):
+            # Older imports flattened operational playbooks into this directory.
+            # Keep their files, but do not present them as people to recruit.
+            return None
         # If no frontmatter, derive name from first H1 heading or filename
         if not frontmatter or not frontmatter.get("name"):
             h1_match = re.match(r"^#\s+(.+)", body or text, re.MULTILINE)

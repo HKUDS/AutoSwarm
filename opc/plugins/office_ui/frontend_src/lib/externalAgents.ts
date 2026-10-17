@@ -21,16 +21,6 @@ export const TASK_AGENT_OPTIONS: TaskPreferredAgent[] = [
   'opencode',
 ]
 
-export const RECRUITMENT_AGENT_OPTIONS: TaskPreferredAgent[] = [
-  'native',
-  'codex',
-  'jiuwen',
-  'jiuwenswarm',
-  'claude_code',
-  'cursor',
-  'opencode',
-]
-
 export function executionAgentLabel(value?: string): string {
   const normalized = String(value ?? '').trim().toLowerCase().replaceAll('-', '_') as TaskPreferredAgent
   return TASK_AGENT_LABELS[normalized] ?? String(value ?? '').trim()

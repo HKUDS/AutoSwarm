@@ -1,4 +1,4 @@
-"""Dedicated storage helpers for user-defined org architectures."""
+"""Storage for reusable org architectures and session runtime snapshots."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from opc.core.config import (
 
 ORG_INDEX_FILENAME = "org_index.yaml"
 ORG_CONFIGS_DIRNAME = "company_orgs"
+RUNTIME_ORG_CONFIGS_DIRNAME = "runtime_orgs"
 ORG_CONFIG_KIND = COMPANY_ORG_KIND
 ORG_CONFIG_SCHEMA_VERSION = COMPANY_ORG_SCHEMA_VERSION
 RESERVED_ORG_CONFIG_IDS = frozenset({DEFAULT_ORGANIZATION_ID})
@@ -79,6 +80,21 @@ def org_config_relative_path(organization_id: Any) -> str:
     return f"{ORG_CONFIGS_DIRNAME}/{org_config_filename(organization_id)}"
 
 
+def runtime_org_config_path(config_dir: Path, organization_id: Any) -> Path:
+    return Path(config_dir) / RUNTIME_ORG_CONFIGS_DIRNAME / org_config_filename(organization_id)
+
+
+def is_session_scoped_org_payload(payload: dict[str, Any]) -> bool:
+    """Distinguish runtime snapshots from user-saved, reusable architectures."""
+    metadata = dict(payload.get("metadata", {}) or {})
+    persistence = metadata.get("organization_persistence")
+    if persistence in {"saved", "session"}:
+        return persistence == "session"
+    # Historical adaptive runs predate the explicit persistence marker.
+    # Names/ID prefixes alone do not identify temporary organizations.
+    return bool(metadata.get("adaptive_team_plan") and metadata.get("adaptive_source_project_id"))
+
+
 def read_org_index(config_dir: Path) -> str | None:
     path = org_index_path(config_dir)
     if not path.exists():
@@ -128,6 +144,12 @@ def allocate_org_config_id(config_dir: Path, organization_name: Any, *, preferre
         for org_id in [organization_id_from_org_config_filename(path)]
         if org_id
     }
+    existing.update(
+        org_id
+        for path in (Path(config_dir) / RUNTIME_ORG_CONFIGS_DIRNAME).glob("org_*_config.yaml")
+        for org_id in [organization_id_from_org_config_filename(path)]
+        if org_id
+    )
     existing.update(RESERVED_ORG_CONFIG_IDS)
     if candidate not in existing:
         return candidate
@@ -186,7 +208,12 @@ def apply_org_config_payload_to_config(
     org_mapping["organization_id"] = validate_saved_org_id(org_mapping.get("organization_id"))
     org_mapping["company_profile"] = "custom"
     if org_mapping.get("organization_id"):
-        org_mapping["organization_config_file"] = org_config_relative_path(org_mapping["organization_id"])
+        directory = (
+            RUNTIME_ORG_CONFIGS_DIRNAME
+            if source_path is not None and Path(source_path).parent.name == RUNTIME_ORG_CONFIGS_DIRNAME
+            else ORG_CONFIGS_DIRNAME
+        )
+        org_mapping["organization_config_file"] = f"{directory}/{org_config_filename(org_mapping['organization_id'])}"
     merged["org"] = org_mapping
     config = OPCConfig.model_validate(merged)
     config.org.talent_templates = []
@@ -234,6 +261,24 @@ def validate_runnable_org_config(config: OPCConfig, *, organization_id: Any = ""
 def write_org_config_payload(config_dir: Path, organization_id: Any, payload: dict[str, Any]) -> Path:
     org_id = validate_saved_org_id(organization_id)
     path = org_config_path(config_dir, org_id)
+    return _write_org_config_payload(config_dir, org_id, payload, path, persistence="saved")
+
+
+def write_runtime_org_config_payload(config_dir: Path, organization_id: Any, payload: dict[str, Any]) -> Path:
+    """Persist a recoverable session snapshot without registering a saved org."""
+    org_id = validate_saved_org_id(organization_id)
+    path = runtime_org_config_path(config_dir, org_id)
+    payload = dict(payload)
+    previous_metadata = (
+        dict(_read_yaml_file(path).get("metadata", {}) or {}) if path.exists() else {}
+    )
+    payload["metadata"] = {**previous_metadata, **dict(payload.get("metadata", {}) or {})}
+    return _write_org_config_payload(config_dir, org_id, payload, path, persistence="session")
+
+
+def _write_org_config_payload(
+    config_dir: Path, org_id: str, payload: dict[str, Any], path: Path, *, persistence: str,
+) -> Path:
     payload = dict(payload)
     raw_employees = list(payload.get("employees", []) or [])
     if raw_employees:
@@ -249,7 +294,8 @@ def write_org_config_payload(config_dir: Path, organization_id: Any, payload: di
     payload.setdefault("kind", ORG_CONFIG_KIND)
     payload["metadata"] = {
         **dict(payload.get("metadata", {}) or {}),
-        "organization_config_file": org_config_relative_path(org_id),
+        "organization_config_file": f"{path.parent.name}/{path.name}",
+        "organization_persistence": persistence,
     }
     _atomic_write_text(
         path,
@@ -264,6 +310,8 @@ def load_org_config_payload(config_dir: Path, organization_id: Any | None = None
     if not org_id:
         raise FileNotFoundError("No active org architecture is selected.")
     path = org_config_path(config_dir, org_id)
+    if not path.exists():
+        path = runtime_org_config_path(config_dir, org_id)
     if not path.exists():
         raise FileNotFoundError(f"Org architecture config does not exist: {path}")
     return validate_org_config_payload(path, _read_yaml_file(path)), path

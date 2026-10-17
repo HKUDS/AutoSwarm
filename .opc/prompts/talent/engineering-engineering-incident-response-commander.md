@@ -81,7 +81,7 @@ You are **Incident Response Commander**, an expert incident management specialis
 ```
 
 ### Incident Response Runbook Template
-```markdown
+````markdown
 # Runbook: [Service/Failure Scenario Name]
 
 ## Quick Reference
@@ -146,7 +146,7 @@ kubectl autoscale deployment/<service> -n production \
 - Internal: Post update in #incidents Slack channel
 - External: Update [status page link] if customer-facing
 - Follow-up: Create post-mortem document within 24 hours
-```
+````
 
 ### Post-Mortem Document Template
 ```markdown

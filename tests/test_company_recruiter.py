@@ -2171,7 +2171,8 @@ class CompanyRecruiterFlowTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(payload["candidate_pool"][0]["template_id"], "engineering-backend-architect")
             self.assertEqual(senior_payload["selected_categories"], ["engineering"])
             self.assertNotIn("new_candidates", senior_payload)
-            self.assertNotIn("domains", payload["candidate_pool"][0])
+            self.assertEqual(payload["candidate_pool"][0]["domains"], ["backend", "api"])
+            self.assertEqual(payload["candidate_pool"][0]["tags"], ["backend", "api"])
             senior_proposal = next(
                 proposal
                 for proposal in recruitment_plan.proposals

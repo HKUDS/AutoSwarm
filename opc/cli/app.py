@@ -7509,7 +7509,8 @@ def _company_staffing_default_draft(payload: dict[str, Any]) -> dict[str, Any]:
             str(role.get("selected_agent") or role.get("default_agent") or "codex").strip().lower().replace("-", "_")
             or "codex"
         )
-    return {"staffing_selections": selections, "recruitment_role_agents": role_agents}
+    return {"staffing_selections": selections, "recruitment_role_agents": role_agents,
+            "recruitment_agent": str(payload.get("recruitment_agent") or "native")}
 
 
 def _company_staffing_resume_metadata(draft: dict[str, Any], checkpoint: Any | None = None) -> dict[str, Any]:
@@ -7989,16 +7990,18 @@ async def _resume_company_staffing_checkpoint(
 ) -> None:
     metadata: dict[str, Any]
     content: str
-    if action == "auto":
-        content = "auto"
-        metadata = {"staffing_action": "auto_recruit"}
+    if action in {"auto", "auto_team"}:
+        content = "auto team" if action == "auto_team" else "auto"
+        metadata = {"staffing_action": "auto_team" if action == "auto_team" else "auto_recruit"}
+        if (draft or {}).get("recruitment_agent"):
+            metadata["recruitment_agent"] = draft["recruitment_agent"]
     elif action == "deny":
         content = "deny"
         metadata = {"staffing_action": "deny"}
     else:
         content = "approve"
         metadata = _company_staffing_resume_metadata(draft or _company_staffing_default_draft(_company_staffing_payload(checkpoint)), checkpoint)
-    if action in {"auto", "deny"}:
+    if action in {"auto", "auto_team", "deny"}:
         checkpoint_id = str(getattr(checkpoint, "checkpoint_id", "") or "").strip()
         if checkpoint_id:
             metadata["response_to_checkpoint_id"] = checkpoint_id
@@ -8043,7 +8046,7 @@ async def _maybe_run_company_staffing_preflight(state: _InteractiveChatState, co
     while True:
         _render_company_staffing_summary(state, checkpoint, draft)
         try:
-            choice = console.input("[bold]Company preflight [a/e/c/r/d]: [/bold]").strip().lower()
+            choice = console.input("[bold]Company preflight [a/e/c/r/t/d; t=auto team]: [/bold]").strip().lower()
         except (EOFError, KeyboardInterrupt):
             console.print("[warning]Staffing selection left pending. Reopen with /staffing.[/warning]")
             return True
@@ -8065,11 +8068,15 @@ async def _maybe_run_company_staffing_preflight(state: _InteractiveChatState, co
             await _resume_company_staffing_checkpoint(state, checkpoint, action="auto", draft=draft, controller=controller)
             state.company_staffing_drafts.pop(key, None)
             return True
+        if choice in {"t", "auto team", "auto_team"}:
+            await _resume_company_staffing_checkpoint(state, checkpoint, action="auto_team", draft=draft, controller=controller)
+            state.company_staffing_drafts.pop(key, None)
+            return True
         if choice in {"d", "deny", "cancel", "stop", "n", "no"}:
             await _resume_company_staffing_checkpoint(state, checkpoint, action="deny", draft=draft, controller=controller)
             state.company_staffing_drafts.pop(key, None)
             return True
-        console.print("[warning]Choose a, e, c, r, or d.[/warning]")
+        console.print("[warning]Choose a, e, c, r, t, or d.[/warning]")
 
 
 async def _handle_company_staffing_shortcut(
@@ -8090,6 +8097,9 @@ async def _handle_company_staffing_shortcut(
         "ctx",
         "preview",
         "r",
+        "t",
+        "auto team",
+        "auto_team",
         "auto",
         "auto recruit",
         "autorecruit",
@@ -8126,6 +8136,10 @@ async def _handle_company_staffing_shortcut(
         return True
     if choice in {"r", "auto", "auto recruit", "autorecruit"}:
         await _resume_company_staffing_checkpoint(state, checkpoint, action="auto", draft=draft, controller=controller)
+        state.company_staffing_drafts.pop(key, None)
+        return True
+    if choice in {"t", "auto team", "auto_team"}:
+        await _resume_company_staffing_checkpoint(state, checkpoint, action="auto_team", draft=draft, controller=controller)
         state.company_staffing_drafts.pop(key, None)
         return True
     if choice in {"d", "deny", "cancel", "stop", "n", "no"}:

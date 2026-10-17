@@ -3,6 +3,7 @@ import type { ExternalTeamActivitySummary } from './externalTeamActivity'
 // ── Priority ────────────────────────────────────────────────────────────────
 
 export type TaskPriority = 'urgent' | 'high' | 'medium' | 'low'
+export type CompanyTeamStrategy = 'adaptive' | 'fixed'
 export type NativeApprovalLevel = 'read-only' | 'auto' | 'full-access'
 
 export const PRIORITY_META: Record<TaskPriority, { label: string; color: string; symbol: string }> = {
@@ -169,6 +170,8 @@ export interface KanbanTask {
   workItemProjectionId?: string
   workItemTurnType?: string
   companyProfile?: string
+  companyTeamStrategy?: CompanyTeamStrategy
+  recruitmentAgent?: TaskPreferredAgent
   orgId?: string
   workItemRoleId?: string
   workItemRoleName?: string
@@ -284,6 +287,8 @@ export interface Session {
   mode?: SessionMode
   execMode?: string
   companyProfile?: string
+  companyTeamStrategy?: CompanyTeamStrategy
+  recruitmentAgent?: TaskPreferredAgent
   orgId?: string
   preferredAgent?: TaskPreferredAgent
   nativeApprovalLevel?: NativeApprovalLevel

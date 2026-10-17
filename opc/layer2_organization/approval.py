@@ -146,6 +146,8 @@ class ApprovalEngine:
         config: AutonomyConfig,
         secretary_policies: SecretaryPolicyManager | None = None,
         interaction_coordinator: InteractionCoordinator | None = None,
+        native_tool_lookup: Callable[[str], Any] | None = None,
+        on_permission_ready: Callable[[str, str], None] | None = None,
     ) -> None:
         self.llm = llm
         self.store = store
@@ -155,6 +157,9 @@ class ApprovalEngine:
         self.native_policy = NativePermissionPolicyResolver(config)
         self.secretary_policies = secretary_policies
         self.interaction_coordinator = interaction_coordinator
+        self.native_tool_lookup = native_tool_lookup
+        self.on_permission_ready = on_permission_ready
+        self._tool_approval_locks: dict[tuple[str, str, str], asyncio.Lock] = {}
         opc_home = getattr(preferences, "opc_home", None)
         self.allowlist = ApprovalAllowlistManager(opc_home) if opc_home else None
         self._session_allowlist: dict[str, dict[str, dict[str, list[str]]]] = {}
@@ -933,6 +938,7 @@ class ApprovalEngine:
                 if decision.action == ApprovalAction.ESCALATE and self.interaction_coordinator and task:
                     approved, decision = await self._ask_user(
                         task, action_kind, action_name, decision, metadata,
+                        native_tool=native_tool,
                     )
                     await self._record(task, action_kind, action_name, target_agent, decision)
                     return approved, decision
@@ -1490,7 +1496,11 @@ class ApprovalEngine:
     def _approval_session_scope_id(task: Task | None) -> str:
         if task is None:
             return ""
+        metadata = dict(getattr(task, "metadata", {}) or {})
         for candidate in (
+            metadata.get("native_permission_scope_id"),
+            metadata.get("root_session_id"),
+            metadata.get("company_runtime_root_session_id"),
             getattr(task, "parent_session_id", None),
             getattr(task, "session_id", None),
             getattr(task, "id", None),
@@ -2596,6 +2606,93 @@ class ApprovalEngine:
         action_name: str,
         decision: ApprovalDecision,
         metadata: dict[str, Any],
+        native_tool: Any = None,
+    ) -> tuple[bool, ApprovalDecision]:
+        if native_tool is None:
+            return await self._ask_user_once(task, action_kind, action_name, decision, metadata)
+        key = (str(task.project_id or "default"), self._approval_session_scope_id(task), action_name)
+        lock = self._tool_approval_locks.setdefault(key, asyncio.Lock())
+        async with lock:
+            # Parallel calls may all predict ASK before the first project or
+            # session grant lands. Only publish the next card if it still asks.
+            predicted = self.predict(native_tool, dict(metadata.get("arguments", {}) or {}), task=task)
+            if predicted.resolution != PermissionResolution.ASK:
+                allowed = predicted.resolution == PermissionResolution.ALLOW
+                return allowed, ApprovalDecision(
+                    action=ApprovalAction.AUTO_APPROVE if allowed else ApprovalAction.REJECT,
+                    risk_level=predicted.risk_level, rationale=predicted.rationale,
+                    confidence=1.0, policy_source=predicted.source,
+                    metadata={**metadata, **dict(predicted.metadata or {})},
+                )
+            return await self._ask_user_once(task, action_kind, action_name, decision, metadata)
+
+    async def reconcile_pending_tool_permissions(
+        self, *, project_id: str, scope_id: str | None = None, schedule_consumers: bool = True,
+    ) -> list[str]:
+        """Re-evaluate queued exact calls after a reusable grant/profile change.
+
+        Each call keeps its own durable decision/claim/ToolResult pipeline.
+        Existing denials, answered calls, other projects and unmatched rules
+        are untouched; a project grant never becomes a grant for another tool.
+        """
+        coordinator = self.interaction_coordinator
+        lookup = getattr(self, "native_tool_lookup", None)
+        get_checkpoints = getattr(self.store, "get_execution_checkpoints", None)
+        if coordinator is None or not callable(lookup) or not callable(get_checkpoints):
+            return []
+        checkpoints = await get_checkpoints(
+            project_id=project_id, checkpoint_types=["tool_permission"], statuses=["pending"],
+        )
+        accepted: list[str] = []
+        for checkpoint in checkpoints:
+            payload = dict(checkpoint.payload or {})
+            call = dict(payload.get("tool_call", {}) or {})
+            task = await self.store.get_task(str(checkpoint.task_id or ""))
+            if task is None or str(task.project_id or "default") != project_id:
+                continue
+            if scope_id and self.native_policy.context_for_task(task).scope_id != scope_id:
+                continue
+            tool = lookup(str(call.get("name", "") or ""))
+            if tool is None or not call.get("id") or not call.get("runtime_session_id"):
+                continue
+            expected_fingerprint = exact_tool_call_fingerprint(
+                tool_call_id=str(call["id"]), tool_name=str(call["name"]),
+                arguments=dict(call.get("arguments", {}) or {}),
+                runtime_session_id=str(call["runtime_session_id"]),
+                execution_envelope=dict(call.get("execution_envelope", {}) or {}),
+                execution_identity=dict(call.get("execution_identity", {}) or {}),
+            )
+            if call.get("fingerprint") != expected_fingerprint:
+                continue
+            if (
+                dict(payload.get("approval", {}) or {}).get("allowlist_enabled") is False
+                and self.native_policy.context_for_task(task).level != "full-access"
+            ):
+                continue
+            predicted = self.predict(tool, dict(call.get("arguments", {}) or {}), task=task)
+            if predicted.resolution != PermissionResolution.ALLOW:
+                continue
+            receipt = await coordinator.submit(
+                checkpoint_id=checkpoint.checkpoint_id, checkpoint_type="tool_permission",
+                checkpoint=checkpoint,
+                client_request_id=f"policy-grant:{checkpoint.checkpoint_id}",
+                decision={"option_id": "approve_once", "text": predicted.rationale,
+                          "permission_policy_source": predicted.source},
+            )
+            if receipt.acknowledged:
+                accepted.append(checkpoint.checkpoint_id)
+                schedule = getattr(self, "on_permission_ready", None)
+                if schedule_consumers and not receipt.live_waiter_notified and callable(schedule):
+                    schedule(checkpoint.checkpoint_id, "tool_permission")
+        return accepted
+
+    async def _ask_user_once(
+        self,
+        task: Task,
+        action_kind: str,
+        action_name: str,
+        decision: ApprovalDecision,
+        metadata: dict[str, Any],
     ) -> tuple[bool, ApprovalDecision]:
         if not self.interaction_coordinator:
             return False, decision
@@ -2825,13 +2922,29 @@ class ApprovalEngine:
                         "approval decision consumption failed: "
                         f"{finish_receipt.outcome}"
                     )
+        if approved and reply in {"approve_session", "always_project", "always_global"}:
+            await self.reconcile_pending_tool_permissions(
+                project_id=str(task.project_id or "default"),
+                scope_id=self._approval_session_scope_id(task) if reply == "approve_session" else None,
+            )
+        policy_source = "human_escalation"
+        rationale = f"{decision.rationale} | User decision: {reply}"
+        if approved and decision_lease is not None:
+            automatic_source = decision_lease.decision.get("permission_policy_source")
+            lookup = getattr(self, "native_tool_lookup", None)
+            tool = lookup(action_name) if automatic_source and callable(lookup) else None
+            if tool is not None:
+                predicted = self.predict(tool, dict(metadata.get("arguments", {}) or {}), task=task)
+                if predicted.resolution == PermissionResolution.ALLOW and predicted.source == automatic_source:
+                    policy_source, rationale = predicted.source, predicted.rationale
+                    result_metadata.update(predicted.metadata)
         return approved, ApprovalDecision(
             action=ApprovalAction.AUTO_APPROVE if approved else ApprovalAction.REJECT,
             risk_level=decision.risk_level,
-            rationale=f"{decision.rationale} | User decision: {reply}",
+            rationale=rationale,
             confidence=1.0,
             requires_user_input=False,
-            policy_source="human_escalation",
+            policy_source=policy_source,
             metadata=result_metadata,
         )
 

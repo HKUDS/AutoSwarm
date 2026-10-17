@@ -525,6 +525,17 @@ class OpenCodeAdapter(ExternalAgentAdapter):
         }
         return json.dumps(payload, ensure_ascii=False) + "\n"
 
+    async def plan_json(self, prompt: str, workspace_path: str) -> TaskResult:
+        # The complete talent catalog can exceed OS argv limits. Give the
+        # agent a file to read without truncating candidates or its request.
+        request = Path(workspace_path) / "formation_recruitment_request.md"
+        request.write_text(prompt, encoding="utf-8")
+        return await super().plan_json(
+            f"Read and follow the complete planning request in {request}. "
+            "Return the complete JSON plan only. Do not execute the underlying task.",
+            workspace_path,
+        )
+
     async def execute(self, task: Task, workspace_path: str) -> TaskResult:
         if not await self.is_available():
             return TaskResult(status=TaskStatus.FAILED, content="OpenCode CLI not found")

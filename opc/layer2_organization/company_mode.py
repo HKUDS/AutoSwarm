@@ -71,6 +71,7 @@ from opc.layer2_organization.company_runtime import CompanyRuntime, canonical_ro
 from opc.layer2_organization.company_runtime_identity import (
     is_runtime_auxiliary_task,
     requires_native_company_execution,
+    validate_company_execution_agent,
 )
 from opc.layer2_organization.phase import (
     DONE_PHASES,
@@ -1552,6 +1553,8 @@ class CompanyRuntimeSpecBuilder(CompanyRuntimeWorkItemHelper):
             "organization_config_file": str(getattr(org_config, "organization_config_file", "") or "").strip(),
             "original_request": original_message,
             "request_label": "company_runtime",
+            "company_team_strategy": dict(getattr(decision, "metadata", {}) or {}).get("company_team_strategy", "fixed"),
+            "recruitment_agent": dict(getattr(decision, "metadata", {}) or {}).get("recruitment_agent", "native"),
             "domains": list(getattr(decision, "domains", []) or []),
             "preferred_agent": getattr(decision, "preferred_agent", None),
             "requested_sub_tasks": list(getattr(decision, "sub_tasks", []) or []),
@@ -5272,6 +5275,12 @@ class CompanyWorkItemExecutor:
             if company_external_execution_allowed:
                 resolved_force_native_execution = False
             else:
+                if assigned_external_agent and topology_seat.get("execution_agent_locked"):
+                    raise RuntimeError(
+                        f"Selected execution agent '{selected_execution_agent}' for role "
+                        f"'{work_item.role_id}' lacks the company workspace fence. "
+                        "No alternate agent was started."
+                    )
                 # Fail closed for every provider that has not explicitly
                 # attested to the company artifact fence.
                 resolved_force_native_execution = True
@@ -7453,6 +7462,7 @@ class CompanyWorkItemExecutor:
                 task_id=task.id,
             )
             return TaskResult(status=TaskStatus.FAILED, content="\n".join(lint_issues))
+        validate_company_execution_agent(task)
         # Phase A: mark the work_item RUNNING via the phase channel. The
         # forward hook syncs task.status=RUNNING both on the DB row and
         # locally. Idempotent if the dispatcher already moved the phase.

@@ -243,6 +243,7 @@ function semanticTokenArraysEqual(
 interface ProjectUpdatePayload {
   kind: 'report' | 'review' | 'update'
   title?: string
+  narrative?: string
   summary: string
   verdict?: string
   deliverables: Array<{ name: string; path: string; status?: string }>
@@ -408,7 +409,7 @@ function parseJsonObjectText(content: string): Record<string, unknown> | null {
   }
 }
 
-function extractProjectUpdateJson(content: string): { obj: Record<string, unknown>; title?: string } | null {
+function extractProjectUpdateJson(content: string): { obj: Record<string, unknown>; title?: string; narrative?: string } | null {
   const trimmed = String(content || '').trim()
   if (!trimmed) return null
 
@@ -417,17 +418,29 @@ function extractProjectUpdateJson(content: string): { obj: Record<string, unknow
     return obj ? { obj } : null
   }
 
-  const firstBrace = trimmed.indexOf('{')
-  const lastBrace = trimmed.lastIndexOf('}')
-  if (firstBrace <= 0 || lastBrace <= firstBrace) return null
+  // Only the explicit first-line label is a title. Native may put reasoning,
+  // Markdown and code before the final JSON; that text is the narrative.
+  const label = /^\*\*((?:Report|Review)\b[^\n]*?)\*\*[ \t]*:[ \t]*/i.exec(trimmed)
+    ?? /^((?:Report|Review)(?:\s+#\d+)?[^\n{]*?):[ \t]*(?=[\n{<`])/i.exec(trimmed)
+  const title = label?.[1]
+  const body = (label ? trimmed.slice(label[0].length) : trimmed).trim()
+  const direct = parseJsonObjectText(body)
+  if (direct) return { obj: direct, title }
 
-  const rawPrefix = trimmed.slice(0, firstBrace).trim()
-  const prefix = rawPrefix.replace(/\*/g, '').replace(/:\s*$/, '').trim()
-  if (!/\b(report|review)\b/i.test(prefix)) return null
+  const fenced = /^ {0,3}(`{3,}|~{3,})[^\n]*\n([\s\S]*?)^ {0,3}\1[ \t]*(?:\n|$)/gm
+  for (const match of body.matchAll(fenced)) {
+    if (body.slice(match.index! + match[0].length).trim()) continue
+    const obj = parseJsonObjectText(match[2])
+    if (obj) return { obj, title, narrative: body.slice(0, match.index).trim() || undefined }
+  }
 
-  const obj = parseJsonObjectText(trimmed.slice(firstBrace, lastBrace + 1))
-  if (!obj) return null
-  return { obj, title: prefix || undefined }
+  // Also accept a final unfenced JSON object on its own line, without
+  // mistaking braces in preceding reasoning/code for the payload boundary.
+  for (const match of body.matchAll(/^\{(?=[\s\S]*\}\s*$)/gm)) {
+    const obj = parseJsonObjectText(body.slice(match.index))
+    if (obj) return { obj, title, narrative: body.slice(0, match.index).trim() || undefined }
+  }
+  return null
 }
 
 function stringFromUnknown(value: unknown): string {
@@ -481,7 +494,7 @@ function acceptanceSummaryFromUnknown(value: unknown): string | undefined {
 export function parseProjectUpdatePayload(content: string): ProjectUpdatePayload | null {
   const extracted = extractProjectUpdateJson(content)
   if (!extracted) return null
-  const { obj, title } = extracted
+  const { obj, title, narrative } = extracted
 
   const summary = stringFromUnknown(obj.summary)
   const verdict = stringFromUnknown(obj.review_verdict)
@@ -499,6 +512,7 @@ export function parseProjectUpdatePayload(content: string): ProjectUpdatePayload
   return {
     kind,
     title,
+    narrative,
     summary,
     verdict: verdict || undefined,
     deliverables,
@@ -956,7 +970,7 @@ const ProjectUpdateRow = React.memo(function ProjectUpdateRow({ msg, payload, sh
               )}
             </div>
             {payload.title && <div className="msg-project-update-title">{payload.title}</div>}
-            <MarkdownBody content={summary} className="msg-project-update-summary" />
+            <MarkdownBody content={[payload.narrative, summary].filter(Boolean).join('\n\n')} className="msg-project-update-summary" />
             {payload.deliverables.length > 0 && (
               <div className="msg-project-update-section">
                 <div className="msg-project-update-section-label">Outputs</div>
@@ -1036,6 +1050,11 @@ const AgentRow = React.memo(function AgentRow({ msg, showDate, dateStr, isGroupe
       : `interaction-ui-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
   }
   const checkpointResponded = isCheckpointResponded || interactionAccepted
+  const checkpointRespondedRef = useRef(checkpointResponded)
+  checkpointRespondedRef.current = checkpointResponded
+  useEffect(() => {
+    if (checkpointResponded) setInteractionError('')
+  }, [checkpointResponded])
   const submitInteraction = useCallback(async (
     text: string,
     metadata?: CheckpointReplyMetadata,
@@ -1053,11 +1072,11 @@ const AgentRow = React.memo(function AgentRow({ msg, showDate, dateStr, isGroupe
         setInteractionAccepted(true)
         return true
       } else {
-        setInteractionError(receipt.reason || receipt.error || 'Decision was not accepted.')
+        if (!checkpointRespondedRef.current) setInteractionError(receipt.reason || receipt.error || 'Decision was not accepted.')
         return false
       }
     } catch (error) {
-      setInteractionError(error instanceof Error ? error.message : 'Decision was not accepted.')
+      if (!checkpointRespondedRef.current) setInteractionError(error instanceof Error ? error.message : 'Decision was not accepted.')
       return false
     } finally {
       setInteractionSubmitting(false)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -38,7 +39,11 @@ def make_engine(root, *, custom=False, project_id="staffing-choice"):
     engine.talent_market = TalentMarket(root, config)
     engine.adapter_registry = SimpleNamespace(
         list_available=lambda: ["jiuwenswarm", "jiuwen", "codex"],
-        get=lambda name: SimpleNamespace(capabilities=lambda: {"company_mode": True}),
+        get=lambda name: SimpleNamespace(
+            capabilities=lambda: {"company_mode": True},
+            supports_company_execution=lambda: True,
+            execution_unit_kind=lambda: "external_agent",
+        ),
     )
     engine._load_project_company_staffing_defaults = lambda *args, **kwargs: {}
     engine.company_recruiter = CompanyRecruiter(None, engine.org_engine, engine.talent_market)
@@ -271,6 +276,20 @@ def test_new_sessions_and_engine_reload_keep_saved_teams_editable(tmp_path, cust
 def test_auto_recruit_and_confirmation_preserve_run_choices(tmp_path, keep_team):
     async def run():
         engine = make_engine(tmp_path)
+        async def recruit(prompt, **kwargs):
+            data = json.loads(prompt)
+            if "category_catalog" in data:
+                return json.dumps({"roles": [
+                    {"role_id": r["role_id"], "action": "direct_role_execution", "categories": []}
+                    for r in data["roles"]
+                ]})
+            return json.dumps({"proposals": [
+                {"role_id": r["role_id"], "status": "direct_role_execution"}
+                for r in data["roles"]
+            ]})
+        planner = SimpleNamespace(simple_chat=recruit)
+        engine.company_recruiter.llm = planner
+        engine._resolve_recruitment_llm = lambda agent: (planner, agent)
         payload = make_payload(engine, "native")
         agents = dict(payload["recruitment_role_agents"])
         if keep_team:

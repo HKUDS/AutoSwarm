@@ -108,6 +108,9 @@ Other agents can now review this proposal before it executes.
 ### Matching Techniques
 
 ```python
+import math
+import re
+
 class IdentityMatcher:
     """
     Core matching logic for identity resolution.
@@ -115,7 +118,16 @@ class IdentityMatcher:
     """
 
     def score_pair(self, record_a: dict, record_b: dict, rules: list) -> float:
-        total_weight = 0.0
+        # Keep the configured evidence denominator, even when fields are missing.
+        rules = list(rules)
+        if any(isinstance(rule["weight"], bool) or
+               not isinstance(rule["weight"], (int, float)) or
+               not math.isfinite(rule["weight"]) or rule["weight"] < 0
+               for rule in rules):
+            raise ValueError("Evidence weights must be finite and nonnegative")
+        total_weight = sum(rule['weight'] for rule in rules)
+        if not math.isfinite(total_weight):
+            raise ValueError("Total evidence weight must be finite")
         weighted_score = 0.0
 
         for rule in rules:
@@ -130,10 +142,16 @@ class IdentityMatcher:
             val_a = self.normalize(val_a, rule.get("normalizer", "generic"))
             val_b = self.normalize(val_b, rule.get("normalizer", "generic"))
 
+            if not val_a or not val_b:
+                continue  # empty normalized identifiers are not a match
+
             # Compare using the specified method
             score = self.compare(val_a, val_b, rule.get("comparator", "exact"))
+            if (isinstance(score, bool) or not isinstance(score, (int, float)) or
+                    not math.isfinite(score) or not 0 <= score <= 1):
+                raise ValueError("Comparison scores must be finite and in [0, 1]")
             weighted_score += score * rule["weight"]
-            total_weight += rule["weight"]
+            # Missing evidence must never increase confidence.
 
         return weighted_score / total_weight if total_weight > 0 else 0.0
 

@@ -1463,6 +1463,34 @@
   margin-bottom: 10px;
 }
 
+.msg-thinking {
+  margin: 0 0 10px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.msg-thinking > summary {
+  cursor: pointer;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.msg-thinking > summary svg {
+  width: 14px;
+  height: 14px;
+  vertical-align: text-bottom;
+  margin-right: 4px;
+}
+
+.msg-thinking-content {
+  padding: 0 12px 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .msg-row.agent:hover .msg-content-agent-card {
   border-color: var(--border-hover);
   border-left-color: var(--accent);
@@ -1727,9 +1755,15 @@
   border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
 }
 
+.msg-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
 .msg-content-agent table {
   border-collapse: collapse;
-  margin: 8px 0;
+  margin: 0;
   font-size: 13px;
   width: 100%;
 }
@@ -1738,6 +1772,8 @@
   border: 1px solid var(--border);
   padding: 6px 12px;
   text-align: left;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .msg-content-agent th {
@@ -1746,6 +1782,7 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 
 .msg-content-agent strong { color: var(--text); }
@@ -2339,7 +2376,8 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  overflow: hidden;
+  /* Mode and agent popovers expand above the input. */
+  overflow: visible;
   transition: border-color 200ms, box-shadow 200ms;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
@@ -2377,8 +2415,9 @@
 
 .composer-config-group {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 6px 8px;
   padding: 4px 6px;
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent-soft) 22%);
@@ -2388,15 +2427,12 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 10px 20px rgba(15, 23, 42, 0.08);
   min-width: 0;
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  max-width: 100%;
 }
 
 .composer-config-divider {
-  width: 1px;
-  height: 24px;
-  background: color-mix(in srgb, var(--border) 72%, transparent 28%);
-  border-radius: 999px;
-  flex-shrink: 0;
+  display: none;
 }
 
 .composer-mode-inline {
@@ -2404,7 +2440,8 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  max-width: 100%;
   padding: 0 4px;
 }
 
@@ -2437,6 +2474,7 @@
   position: relative;
   display: inline-flex;
   align-items: center;
+  min-width: 0;
 }
 
 .composer-mode-select-wrap::after {
@@ -2454,6 +2492,8 @@
 
 .composer-mode-select {
   appearance: none;
+  min-width: 0;
+  width: 100%;
   min-height: 30px;
   max-width: 210px;
   padding: 5px 28px 5px 12px;
@@ -2520,7 +2560,7 @@
   font-size: 10px;
   color: var(--text-secondary);
   opacity: 0.5;
-  flex: 1;
+  flex: 0 1 120px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2808,10 +2848,8 @@
   transform: translateX(0);
 }
 
-/* Anchor the popover to the right side of the chip when the chat panel is
-   narrow, so the menu never overflows past the panel's right edge. Uses a
-   container query against the ctx-panel (or multi-card container) so it
-   correctly reacts to the panel's actual width, not the viewport's. */
+/* Narrow panels anchor the mode menu to the left chip and agent hints to
+   the right chip, keeping each popover inside the panel. */
 @container ctxpanel (max-width: 540px) {
   .composer-mode-chip-popover {
     left: auto;
@@ -2822,6 +2860,14 @@
     left: auto;
     right: 16px;
     transform: none;
+  }
+  .composer-mode-chip[data-kind='mode'] .composer-mode-chip-popover {
+    left: 0;
+    right: auto;
+  }
+  .composer-mode-chip[data-kind='mode'] .composer-mode-chip-popover::after {
+    left: 16px;
+    right: auto;
   }
   .composer-mode-chip:hover .composer-mode-chip-popover,
   .composer-mode-chip:focus-visible .composer-mode-chip-popover,
@@ -2865,8 +2911,8 @@
   .composer-config-group {
     grid-area: config;
     width: 100%;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     justify-content: stretch;
@@ -2880,6 +2926,7 @@
     align-items: center;
     min-width: 0;
     padding: 0;
+    flex: 1 1 180px;
   }
 
   .composer-mode-select-wrap {
@@ -2928,8 +2975,8 @@
   .composer-config-group {
     grid-area: config;
     width: 100%;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     justify-content: stretch;
@@ -2939,6 +2986,7 @@
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     min-width: 0;
+    flex: 1 1 180px;
   }
 
   .composer-mode-select-wrap,

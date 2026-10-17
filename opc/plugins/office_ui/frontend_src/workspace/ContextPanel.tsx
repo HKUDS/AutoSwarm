@@ -18,6 +18,7 @@ import { isSessionWorking } from '../lib/sessionRuntime'
 import { getWorkItemRoleLabel } from '../lib/workItemIdentity'
 import { getLinkedRuntimeTaskId } from '../lib/workItemRuntimeIds'
 import { executionAgentLabel } from '../lib/externalAgents'
+import { composerAgentForSession } from '../lib/sessionIdentity'
 import { TaskDetailView } from './TaskDetailView'
 import {
   getConversationPeerSessions,
@@ -84,7 +85,7 @@ interface ContextPanelProps {
   onTeamStopRun?: () => void
 
   onTitleChange: (taskId: string, title: string) => void
-  onSessionConfigChange?: (taskId: string, execMode: string, companyProfile?: string, orgId?: string) => void
+  onSessionConfigChange?: (taskId: string, execMode: string, companyProfile?: string, orgId?: string, companyTeamStrategy?: 'adaptive' | 'fixed', recruitmentAgent?: TaskPreferredAgent) => void
   onSessionTaskAgentChange?: (taskId: string, preferredAgent: TaskPreferredAgent) => void
   onSessionNativeApprovalLevelChange?: (taskId: string, level: NativeApprovalLevel) => void
   onSetNativeApprovalDefault?: (level: NativeApprovalLevel) => void
@@ -93,7 +94,7 @@ interface ContextPanelProps {
    * locked-mode chip popover. We expect the host to spin up a fresh chat in
    * the requested mode (inside the same project).
    */
-  onContinueInNewChat?: (mode: 'task' | 'company' | 'org' | 'custom', companyProfile?: 'corporate' | 'custom', orgId?: string) => void
+  onContinueInNewChat?: (mode: 'task' | 'company' | 'org' | 'custom', companyProfile?: 'corporate' | 'custom', orgId?: string, companyTeamStrategy?: 'adaptive' | 'fixed', recruitmentAgent?: TaskPreferredAgent) => void
   onStop?: () => void
   onComplete?: () => void
   onResume?: () => void
@@ -290,20 +291,6 @@ export function composerExecModeForSession(session: Session, fallbackExecMode?: 
     return 'company'
   }
   return session.execMode ?? fallbackExecMode ?? 'task'
-}
-
-function composerTaskAgentForSession(
-  session: Session,
-  locked: boolean,
-  fallbackAgent: TaskPreferredAgent,
-): TaskPreferredAgent {
-  if (locked) {
-    if (session.selectedExecutionAgent && session.selectedExecutionAgent !== 'native') {
-      return session.selectedExecutionAgent
-    }
-    return session.preferredAgent ?? session.selectedExecutionAgent ?? fallbackAgent
-  }
-  return session.preferredAgent ?? session.selectedExecutionAgent ?? fallbackAgent
 }
 
 function sessionDetailLevel(
@@ -1135,12 +1122,10 @@ export function ContextPanel({
                     channelId={activeConversationSession?.channelId ?? channelId}
                     execMode={composerExecModeForSession(activeSession, execMode)}
                     companyProfile={activeSession.companyProfile}
-                    taskPreferredAgent={composerTaskAgentForSession(
+                    companyTeamStrategy={activeSession.companyTeamStrategy}
+                    recruitmentAgent={activeSession.recruitmentAgent}
+                    taskPreferredAgent={composerAgentForSession(
                       activeSession,
-                      isSessionConfigLocked(
-                        activeConversationSession ?? activeDisplaySession ?? activeSession,
-                        Math.max(activeConversationMessageCount, messages.length),
-                      ),
                       taskPreferredAgent,
                     )}
                     nativeApprovalLevel={activeSession.nativeApprovalLevel ?? nativeApprovalDefault}
@@ -1162,7 +1147,7 @@ export function ContextPanel({
                     contextWindow={activeConversationSession?.contextWindow ?? activeDisplaySession?.contextWindow}
                     contextRemainingPct={activeConversationSession?.contextRemainingPct ?? activeDisplaySession?.contextRemainingPct ?? 100}
                     onSend={onComposerSend}
-                    onModeChange={(mode, profile, orgId) => onSessionConfigChange?.(activeSession.taskId, mode, profile, orgId)}
+                    onModeChange={(mode, profile, orgId, strategy, planner) => onSessionConfigChange?.(activeSession.taskId, mode, profile, orgId, strategy, planner)}
                     onTaskAgentChange={(preferredAgent) => onSessionTaskAgentChange?.(activeSession.taskId, preferredAgent)}
                     onNativeApprovalLevelChange={(level) => onSessionNativeApprovalLevelChange?.(activeSession.taskId, level)}
                     onSetNativeApprovalDefault={onSetNativeApprovalDefault}

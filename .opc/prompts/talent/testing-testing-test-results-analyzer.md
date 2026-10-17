@@ -60,6 +60,8 @@ You are **Test Results Analyzer**, an expert test analysis specialist who focuse
 ### Advanced Test Analysis Framework Example
 ```python
 # Comprehensive test result analysis with statistical modeling
+import json
+import math
 import pandas as pd
 import numpy as np
 from scipy import stats
@@ -70,34 +72,45 @@ from sklearn.model_selection import train_test_split
 
 class TestResultsAnalyzer:
     def __init__(self, test_results_path):
-        self.test_results = pd.read_json(test_results_path)
+        # Coverage is a nested report object, not a rectangular DataFrame.
+        with open(test_results_path, encoding='utf-8') as report:
+            self.test_results = json.load(report)
+        if not isinstance(self.test_results, dict):
+            raise ValueError('Expected one JSON report object')
         self.quality_metrics = {}
         self.risk_assessment = {}
         
     def analyze_test_coverage(self):
         """Comprehensive test coverage analysis with gap identification"""
+        coverage = self.test_results.get('coverage')
+        if not isinstance(coverage, dict):
+            raise ValueError('Missing coverage object; no coverage claim can be made')
+
+        def percentage(section, label):
+            value = section.get('pct') if isinstance(section, dict) else None
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value) or not 0 <= value <= 100):
+                raise ValueError(f'{label}.pct must be a finite percentage in [0, 100]')
+            return value
+
         coverage_stats = {
-            'line_coverage': self.test_results['coverage']['lines']['pct'],
-            'branch_coverage': self.test_results['coverage']['branches']['pct'],
-            'function_coverage': self.test_results['coverage']['functions']['pct'],
-            'statement_coverage': self.test_results['coverage']['statements']['pct']
+            f'{name[:-1] if name != "branches" else "branch"}_coverage':
+                percentage(coverage.get(name), name)
+            for name in ('lines', 'branches', 'functions', 'statements')
         }
-        
-        # Identify coverage gaps
-        uncovered_files = self.test_results['coverage']['files']
+        files = coverage.get('files')
+        if not isinstance(files, dict):
+            raise ValueError('coverage.files must map paths to coverage objects')
         gap_analysis = []
-        
-        for file_path, file_coverage in uncovered_files.items():
-            if file_coverage['lines']['pct'] < 80:
-                gap_analysis.append({
-                    'file': file_path,
-                    'coverage': file_coverage['lines']['pct'],
-                    'risk_level': self._assess_file_risk(file_path, file_coverage),
-                    'priority': self._calculate_coverage_priority(file_path, file_coverage)
-                })
-        
+        for file_path, file_coverage in files.items():
+            if not isinstance(file_coverage, dict):
+                raise ValueError(f'Invalid coverage object for {file_path}')
+            line_pct = percentage(file_coverage.get('lines'), file_path)
+            if line_pct < 80:
+                gap_analysis.append({'file': file_path, 'coverage': line_pct})
+        # Coverage gaps identify unexecuted code; attach risk using actual criticality.
         return coverage_stats, gap_analysis
-    
+
     def analyze_failure_patterns(self):
         """Statistical analysis of test failures and pattern identification"""
         failures = self.test_results['failures']
@@ -185,6 +198,18 @@ class TestResultsAnalyzer:
         }
         
         return report
+```
+
+The coverage entry point accepts a JSON object with `coverage.lines`,
+`branches`, `functions`, and `statements` each containing a `pct` number, plus
+`coverage.files` mapping file paths to objects with `lines.pct`. Missing or
+invalid measurements raise an error rather than becoming zero coverage. The
+remaining `_...` methods are project-specific adapters to implement before
+using prediction, readiness, or reporting paths; coverage percentages alone
+cannot supply risk levels or release confidence.
+
+```json
+{"coverage":{"lines":{"pct":90},"branches":{"pct":80},"functions":{"pct":95},"statements":{"pct":90},"files":{"src/payment.py":{"lines":{"pct":60}}}}}
 ```
 
 ## 🔄 Your Workflow Process

@@ -78,7 +78,7 @@ type SessionAction =
   | { type: 'APPEND_WORK_ITEM_PROGRESS'; taskId: string; entry: WorkItemProgressEntry }
   | { type: 'SET_COMPANY_RUNTIME'; taskId: string; isCompanyRuntime: boolean }
 
-function sessionReducer(state: Session[], action: SessionAction): Session[] {
+export function sessionReducer(state: Session[], action: SessionAction): Session[] {
   const normalizeSession = (session: Session): Session => canonicalizeSessionExecutionIdentity({
     ...session,
     progressLog: normalizeProgressLog(session.progressLog ?? [], MAX_PROGRESS_ENTRIES),
@@ -130,14 +130,13 @@ function sessionReducer(state: Session[], action: SessionAction): Session[] {
   }
 
   const mergeTaskAgent = (
-    incoming: Session,
+    incoming: Partial<Session>,
     existing: Session,
     field: 'preferredAgent' | 'selectedExecutionAgent',
   ): Session[typeof field] => {
     const next = incoming[field]
     const previous = existing[field]
     if (!next) return previous
-    if (next === 'native' && previous && previous !== 'native') return previous
     return next
   }
 
@@ -244,6 +243,8 @@ function sessionReducer(state: Session[], action: SessionAction): Session[] {
           workItemProjectionId: incoming.workItemProjectionId ?? existing.workItemProjectionId,
           workItemTurnType: incoming.workItemTurnType ?? existing.workItemTurnType,
           companyProfile: mergeOptionalField(incoming, existing, 'companyProfile'),
+          companyTeamStrategy: incoming.companyTeamStrategy ?? existing.companyTeamStrategy,
+          recruitmentAgent: incoming.recruitmentAgent ?? existing.recruitmentAgent,
           orgId: mergeOptionalField(incoming, existing, 'orgId'),
           workItemRoleId: incoming.workItemRoleId ?? existing.workItemRoleId,
           workItemRoleName: incoming.workItemRoleName ?? existing.workItemRoleName,
@@ -310,6 +311,8 @@ function sessionReducer(state: Session[], action: SessionAction): Session[] {
             workItemProjectionId: nextSession.workItemProjectionId ?? s.workItemProjectionId,
             workItemTurnType: nextSession.workItemTurnType ?? s.workItemTurnType,
             companyProfile: mergeOptionalField(nextSession, s, 'companyProfile'),
+            companyTeamStrategy: nextSession.companyTeamStrategy ?? s.companyTeamStrategy,
+            recruitmentAgent: nextSession.recruitmentAgent ?? s.recruitmentAgent,
             orgId: mergeOptionalField(nextSession, s, 'orgId'),
             workItemRoleId: nextSession.workItemRoleId ?? s.workItemRoleId,
             workItemRoleName: nextSession.workItemRoleName ?? s.workItemRoleName,
@@ -354,7 +357,10 @@ function sessionReducer(state: Session[], action: SessionAction): Session[] {
               roleWorkItems: guarded.roleWorkItems ?? s.roleWorkItems,
               executorRoleWorkItems: guarded.executorRoleWorkItems ?? s.executorRoleWorkItems,
               execMode: mergeOptionalField(guarded, s, 'execMode'),
+              preferredAgent: mergeTaskAgent(guarded, s, 'preferredAgent'),
               companyProfile: mergeOptionalField(guarded, s, 'companyProfile'),
+              companyTeamStrategy: guarded.companyTeamStrategy ?? s.companyTeamStrategy,
+              recruitmentAgent: guarded.recruitmentAgent ?? s.recruitmentAgent,
               orgId: mergeOptionalField(guarded, s, 'orgId'),
               isCompanyRuntime: guarded.isCompanyRuntime ?? s.isCompanyRuntime,
               workItemProjectionId: guarded.workItemProjectionId ?? s.workItemProjectionId,
@@ -363,7 +369,7 @@ function sessionReducer(state: Session[], action: SessionAction): Session[] {
               workItemRoleName: guarded.workItemRoleName ?? s.workItemRoleName,
               workItemGate: guarded.workItemGate ?? s.workItemGate,
               employeeAssignment: guarded.employeeAssignment ?? s.employeeAssignment,
-              selectedExecutionAgent: guarded.selectedExecutionAgent ?? s.selectedExecutionAgent,
+              selectedExecutionAgent: mergeTaskAgent(guarded, s, 'selectedExecutionAgent'),
               ...preserveSessionNativePermission(s, guarded),
               activeSubagents: guarded.activeSubagents ?? s.activeSubagents,
               permissionRequests: guarded.permissionRequests ?? s.permissionRequests,

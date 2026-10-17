@@ -40,7 +40,10 @@ Rules:
 - If none of the provided options are credible, return status `fallback_role_only`.
 - Respect user recruiter feedback if present.
 - Pick a single durable hire per role.
-- Judge new candidates mainly from their category context, name, and description.
+- Judge demonstrated capability fit, descriptions, domains and tags, not titles alone.
+- A hire must add useful capability or relevant experience; do not hire merely to fill a seat.
+- Weigh context loading, handoffs, review, rework, total model/tool cost and elapsed time.
+- If retry_feedback is present, correct the issues in previous_response yourself and return the complete revised decision.
 - Return JSON only.
 """
 
@@ -79,6 +82,9 @@ Rules:
 - Use `direct_role_execution` when ordinary role execution is enough and no staffing decision is useful.
 - Use `fallback_role_only` when the visible candidates and staff are not credible for the role.
 - Respect recruiter feedback if present.
+- Compare complementary contributions and reuse against context loading, handoffs, review, rework, elapsed time and total cost. A title or extra copy of the same model is not proof of added capability.
+- Prefer relevant existing experience when useful; category labels and tenure alone are not proof of fit. Do not force hires for roles that can execute directly.
+- If retry_feedback is present, correct the issues in previous_response yourself and return the complete revised plan.
 - Return JSON only.
 """
 
@@ -106,10 +112,11 @@ Rules:
 - Choose `direct_role_execution` only when no staffing comparison is useful for that role.
 - Choose `category_screening` when the role could benefit from a specialized employee/template for this request.
 - If action is `direct_role_execution`, return an empty categories list.
-- If action is `category_screening`, select 1 to 3 categories only.
+- If action is `category_screening`, select the relevant categories; avoid unrelated categories but do not exclude a useful specialty to meet a quota.
 - Only choose categories from the provided category catalog.
 - Use org_graph as the reporting/delegation structure.
 - Respect recruiter feedback if present.
+- If retry_feedback is present, correct the issues in previous_response yourself and return the complete revised triage.
 - Return JSON only.
 """
 
@@ -241,7 +248,9 @@ def build_fallback_role_ids(plan: RecruitmentPlan) -> set[str]:
 
 
 def recruitment_plan_requires_confirmation(plan: RecruitmentPlan) -> bool:
-    return any(proposal.status in {"existing_staff", "proposed_hire"} for proposal in plan.proposals)
+    return bool(plan.metadata.get("adaptive_team_plan")) or any(
+        proposal.status in {"existing_staff", "proposed_hire"} for proposal in plan.proposals
+    )
 
 
 def serialize_recruitment_plan(plan: RecruitmentPlan) -> dict[str, Any]:
@@ -358,6 +367,19 @@ class CompanyRecruiter:
         self.org_engine = org_engine
         self.talent_market = talent_market
 
+    async def build_team_recruitment_plan(
+        self, runtime_spec: Any, *, project_id: str,
+        recruiter_feedback: list[str] | None = None,
+        recruitment_llm: Any = None, recruitment_agent: str = "native",
+    ) -> RecruitmentPlan:
+        from opc.layer2_organization.adaptive_team import build_team_recruitment_plan
+
+        return await build_team_recruitment_plan(
+            self, runtime_spec, project_id=project_id, recruiter_feedback=recruiter_feedback,
+            llm=recruitment_llm if recruitment_llm is not None else self.llm,
+            recruitment_agent=recruitment_agent,
+        )
+
     def _opaque_external_team_covered_roles(self) -> set[str]:
         if self.org_engine is None:
             return set()
@@ -433,6 +455,8 @@ class CompanyRecruiter:
         domains = list(domains or [])
         feedback = list(recruiter_feedback or [])
         active_llm = recruitment_llm if recruitment_llm is not None else self.llm
+        if active_llm is None:
+            raise ValueError("Automatic recruitment requires an available planning agent.")
         selected_recruitment_agent = normalize_recruitment_agent_choice(
             recruitment_agent,
             default="native",
@@ -476,20 +500,14 @@ class CompanyRecruiter:
         for item in prepared_needs:
             item["candidates"] = candidate_pool
             item["employee_pool"] = employee_pool
-        if active_llm:
-            proposals = await self._recruit_globally(
-                prepared_needs,
-                recruiter_feedback=feedback,
-                project_id=project_id,
-                llm=active_llm,
-                candidate_pool=candidate_pool,
-                employee_pool=employee_pool,
-            )
-        else:
-            proposals = [
-                self._heuristic_proposal_for_prepared_need(item, project_id=project_id)
-                for item in prepared_needs
-            ]
+        proposals = await self._recruit_globally(
+            prepared_needs,
+            recruiter_feedback=feedback,
+            project_id=project_id,
+            llm=active_llm,
+            candidate_pool=candidate_pool,
+            employee_pool=employee_pool,
+        )
         if externally_staffed_role_ids is not None:
             # Keep covered roles editable in the confirmation card without
             # asking the recruiter to hire anyone for an opaque Team.
@@ -539,6 +557,25 @@ class CompanyRecruiter:
             "",
             f"Company profile: `{plan.company_profile}`",
         ]
+        if plan.metadata.get("adaptive_team_plan"):
+            from opc.layer2_organization.adaptive_team import AdaptiveTeamPlan
+
+            team = AdaptiveTeamPlan.model_validate(plan.metadata["adaptive_team_plan"])
+            lines.extend(["", f"Task-adaptive organization: {team.decision}, {len(team.roles)} members.",
+                          f"Compared with solo: {team.comparison_with_solo}",
+                          f"Coordination costs: {team.coordination_costs}",
+                          f"Integration: {team.integration_strategy}"])
+            for role in team.roles:
+                lines.append(f"- `{role.id}` reports to `{role.parent_id or 'owner'}`: {role.responsibility}")
+                lines.append(f"  Owns: {', '.join(role.ownership)}; deliverables: {', '.join(role.deliverables)}")
+                lines.append(f"  Acceptance: {'; '.join(role.acceptance_criteria)}")
+                if role.incremental_value or role.merge_alternative:
+                    lines.append(f"  Added value: {role.incremental_value}; merge alternative: {role.merge_alternative}")
+            review = team.team_size_review
+            lines.extend([f"Smaller alternative: {review.smaller_alternative}",
+                          f"Removal/merge check: {review.removal_merge_check}",
+                          f"Retained benefit: {review.retained_team_benefit}",
+                          f"Hierarchy tradeoff: {review.hierarchy_tradeoff}"])
         if plan.recruiter_feedback:
             lines.extend(
                 [
@@ -876,21 +913,21 @@ class CompanyRecruiter:
             "roles": role_payloads,
         }
         retry_feedback: list[str] = []
-        for attempt in range(1, 4):
+        previous = ""
+        attempt = 0
+        while True:
+            attempt += 1
             payload = dict(prompt_payload)
             if retry_feedback:
                 payload["retry_feedback"] = list(retry_feedback)
+                payload["previous_response"] = previous
+            previous = await llm.simple_chat(
+                prompt=json.dumps(payload, ensure_ascii=False),
+                system=GLOBAL_RECRUITER_PROMPT,
+                task_type="quick_tasks",
+            )
             try:
-                raw = await llm.simple_chat(
-                    prompt=json.dumps(payload, ensure_ascii=False),
-                    system=GLOBAL_RECRUITER_PROMPT,
-                    task_type="quick_tasks",
-                )
-            except Exception as exc:
-                retry_feedback.append(f"Recruiter LLM call failed: {type(exc).__name__}: {exc}")
-                continue
-            try:
-                data = self._parse_llm_json(raw)
+                data = self._parse_llm_json(previous)
             except json.JSONDecodeError as exc:
                 retry_feedback.append(f"Response was not valid JSON: {exc.msg} at char {exc.pos}.")
                 continue
@@ -910,11 +947,6 @@ class CompanyRecruiter:
                 )
             except ValueError as exc:
                 retry_feedback.append(str(exc))
-        logger.warning("Global recruiter exhausted retries; falling back to heuristic staffing decisions")
-        return [
-            self._heuristic_proposal_for_prepared_need(item, project_id=project_id)
-            for item in prepared_needs
-        ]
 
     @staticmethod
     def _parse_llm_json(raw: str) -> dict[str, Any]:
@@ -960,7 +992,7 @@ class CompanyRecruiter:
                 raise ValueError(f"Invalid role_id `{role_id}`. Choose one of: {', '.join(sorted(expected_roles))}.")
             if role_id in proposal_by_role:
                 raise ValueError(f"Duplicate proposal for role_id `{role_id}`.")
-            status = str(raw_item.get("status", "fallback_role_only") or "").strip().lower()
+            status = str(raw_item.get("status", "") or "").strip().lower()
             if status not in VALID_RECRUITMENT_STATUSES:
                 raise ValueError(
                     f"Invalid status `{status}` for role `{role_id}`. "
@@ -1136,18 +1168,22 @@ class CompanyRecruiter:
             "new_candidates": candidate_payload,
         }
         retry_feedback: list[str] = []
-        max_attempts = 3
         valid_template_ids = {candidate.id for candidate in candidates}
         valid_employee_ids = {employee.employee_id for employee in existing_employees}
-        for attempt in range(1, max_attempts + 1):
+        previous = ""
+        attempt = 0
+        while True:
+            attempt += 1
             payload = dict(prompt_payload)
             if retry_feedback:
                 payload["retry_feedback"] = list(retry_feedback)
+                payload["previous_response"] = previous
             raw = await self.llm.simple_chat(
                 prompt=json.dumps(payload, ensure_ascii=False),
                 system=RECRUITER_PROMPT,
                 task_type="quick_tasks",
             )
+            previous = raw
             text = raw.strip()
             if text.startswith("```"):
                 text = text.split("\n", 1)[1] if "\n" in text else text[3:]
@@ -1230,18 +1266,6 @@ class CompanyRecruiter:
                     "category_rationale": category_rationale,
                 },
             )
-        logger.warning(f"Recruiter exhausted retries for role `{need.role_id}`; falling back to role-only execution")
-        return RecruitmentProposal(
-            role_id=need.role_id,
-            status="fallback_role_only",
-            rationale="Recruiter could not produce a valid staffing decision after retries.",
-            role_labels=[need.role_name] if need.role_name else [],
-            metadata={
-                "selection_source": "llm_fallback",
-                "selected_categories": list(selected_categories),
-                "category_rationale": category_rationale,
-            },
-        )
 
     async def _triage_staffing_for_needs(
         self,
@@ -1255,16 +1279,8 @@ class CompanyRecruiter:
         category_catalog = self.talent_market.list_category_catalog()
         valid_categories = {item["category"] for item in category_catalog}
         active_llm = llm if llm is not None else self.llm
-        if not category_catalog:
-            return {
-                need.role_id: self._heuristic_staffing_triage(need, category_catalog)
-                for need in needs
-            }
-        if not active_llm:
-            return {
-                need.role_id: self._heuristic_staffing_triage(need, category_catalog)
-                for need in needs
-            }
+        if active_llm is None:
+            raise ValueError("Automatic recruitment requires an available planning agent.")
 
         payload = {
             "user_request": next((need.request_text for need in needs if need.request_text), ""),
@@ -1282,19 +1298,18 @@ class CompanyRecruiter:
         }
         retry_feedback: list[str] = []
         expected_roles = {need.role_id for need in needs}
-        for _ in range(3):
+        previous = ""
+        while True:
             attempt_payload = dict(payload)
             if retry_feedback:
                 attempt_payload["retry_feedback"] = list(retry_feedback)
-            try:
-                raw = await active_llm.simple_chat(
-                    prompt=json.dumps(attempt_payload, ensure_ascii=False),
-                    system=STAFFING_TRIAGE_PROMPT,
-                    task_type="quick_tasks",
-                )
-            except Exception as exc:
-                retry_feedback.append(f"Staffing triage LLM call failed: {type(exc).__name__}: {exc}")
-                continue
+                attempt_payload["previous_response"] = previous
+            raw = await active_llm.simple_chat(
+                prompt=json.dumps(attempt_payload, ensure_ascii=False),
+                system=STAFFING_TRIAGE_PROMPT,
+                task_type="quick_tasks",
+            )
+            previous = raw
             text = raw.strip()
             if text.startswith("```"):
                 text = text.split("\n", 1)[1] if "\n" in text else text[3:]
@@ -1318,10 +1333,6 @@ class CompanyRecruiter:
                 )
             except ValueError as exc:
                 retry_feedback.append(str(exc))
-        return {
-            need.role_id: self._heuristic_staffing_triage(need, category_catalog)
-            for need in needs
-        }
 
     @staticmethod
     def _build_triage_plan_from_response(
@@ -1339,7 +1350,7 @@ class CompanyRecruiter:
                 raise ValueError(f"Invalid role_id `{role_id}`. Choose one of: {', '.join(sorted(expected_roles))}.")
             if role_id in triage_by_role:
                 raise ValueError(f"Duplicate triage entry for role_id `{role_id}`.")
-            action = str(raw_item.get("action", "category_screening") or "").strip().lower()
+            action = str(raw_item.get("action", "") or "").strip().lower()
             rationale = str(raw_item.get("rationale", "") or "").strip()
             if action == "direct_role_execution":
                 triage_by_role[role_id] = (action, [], rationale)
@@ -1355,11 +1366,11 @@ class CompanyRecruiter:
                 if str(category).strip()
             ]
             chosen = [category for category in chosen if category in valid_categories]
-            chosen = list(dict.fromkeys(chosen))[:3]
+            chosen = list(dict.fromkeys(chosen))
             if not chosen:
                 raise ValueError(
                     f"Role `{role_id}` chose category_screening without valid categories. "
-                    f"Choose 1 to 3 valid categories from: {', '.join(sorted(valid_categories))}."
+                    f"Choose relevant valid categories from: {', '.join(sorted(valid_categories))}."
                 )
             triage_by_role[role_id] = ("category_screening", chosen, rationale)
         missing = [role_id for role_id in sorted(expected_roles) if role_id not in triage_by_role]
@@ -1424,7 +1435,10 @@ class CompanyRecruiter:
         experience_score = 0.0
         learned_skill_refs: list[str] = []
         if self.org_engine.employee_evolution:
-            organization_id = str(getattr(self.org_engine.config.org, "organization_id", "") or "").strip()
+            organization_id = str(
+                dict(getattr(employee, "metadata", {}) or {}).get("staffing_source_organization_id")
+                or getattr(self.org_engine.config.org, "organization_id", "") or ""
+            ).strip()
             experience_score = self.org_engine.employee_evolution.get_experience_score(
                 employee.employee_id,
                 role_id=role_id,
@@ -1450,6 +1464,8 @@ class CompanyRecruiter:
             "experience_score": experience_score,
             "learned_skill_refs": list(learned_skill_refs),
             "description": employee.description,
+            "domains": list(employee.domains),
+            "tags": list(employee.tags),
         }
 
     def _make_existing_employee_recommendation(

@@ -106,7 +106,12 @@ const request = (options) => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.data);
         } else {
-          reject({ code: res.statusCode, message: res.data.message || 'Request failed' });
+          // Error bodies may be empty, plain text, or a gateway HTML page.
+          // Do not throw inside the success callback and leave the Promise pending.
+          const message = res.data && typeof res.data === 'object' &&
+            typeof res.data.message === 'string' && res.data.message
+            ? res.data.message : 'Request failed';
+          reject({ code: res.statusCode, message });
         }
       },
       fail: (err) => {
@@ -119,7 +124,8 @@ const request = (options) => {
 // WeChat login flow with server-side session
 const login = async () => {
   const { code } = await wx.login();
-  const { data } = await request({
+  // request() already resolves res.data; do not unwrap a second data envelope.
+  const data = await request({
     url: '/auth/wechat-login',
     method: 'POST',
     data: { code },

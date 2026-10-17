@@ -56,16 +56,30 @@ develop ───●───●───●───●───●────
 ### Starting Work
 ```bash
 git fetch origin
-git checkout -b feat/my-feature origin/main
-# Or with worktrees for parallel work:
-git worktree add ../my-feature feat/my-feature
+git switch --no-track -c feat/my-feature origin/main
+# Publish your feature branch and set its upstream explicitly:
+git push -u origin feat/my-feature
 ```
+
+For parallel work, use this **instead of** creating the branch in the current
+checkout. Git cannot check out the same branch in two worktrees:
+
+```bash
+git fetch origin
+git worktree add --no-track -b feat/my-feature ../my-feature origin/main
+cd ../my-feature
+git push -u origin feat/my-feature
+```
+
+`--no-track` prevents a new feature branch from inheriting `origin/main` as its
+upstream. After the first push, its upstream is `origin/feat/my-feature`.
 
 ### Clean Up Before PR
 ```bash
 git fetch origin
 git rebase -i origin/main    # squash fixups, reword messages
-git push --force-with-lease   # safe force push to your branch
+# Only rewrite your own feature branch, with collaborators' agreement:
+git push --force-with-lease origin HEAD:feat/my-feature
 ```
 
 ### Finishing a Branch

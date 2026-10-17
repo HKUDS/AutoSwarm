@@ -25,7 +25,7 @@ type AttachmentTransferState = 'reading' | 'ready' | 'error'
 type ComposerExecMode = 'task' | 'company' | 'org' | 'custom'
 type ComposerCompanyProfile = 'corporate' | 'custom'
 type ComposerModeOption = 'task' | 'company'
-type CompanyArchitectureOption = '' | 'corporate' | `org:${string}`
+type CompanyArchitectureOption = '' | 'adaptive' | 'corporate' | `org:${string}`
 
 interface PendingAttachment {
   id: string
@@ -181,6 +181,8 @@ interface MessageComposerProps {
   channelId?: string
   execMode?: string
   companyProfile?: string
+  companyTeamStrategy?: 'adaptive' | 'fixed'
+  recruitmentAgent?: TaskPreferredAgent
   taskPreferredAgent?: TaskPreferredAgent
   nativeApprovalLevel?: NativeApprovalLevel
   nativeApprovalDefault?: NativeApprovalLevel
@@ -205,7 +207,7 @@ interface MessageComposerProps {
    */
   lockedMode?: boolean
   onSend: (content: string, attachments?: OutgoingAttachmentPayload[]) => void
-  onModeChange?: (mode: ComposerExecMode, profile?: ComposerCompanyProfile, orgId?: string) => void
+  onModeChange?: (mode: ComposerExecMode, profile?: ComposerCompanyProfile, orgId?: string, strategy?: 'adaptive' | 'fixed', recruitmentAgent?: TaskPreferredAgent) => void
   onTaskAgentChange?: (preferredAgent: TaskPreferredAgent) => void
   onNativeApprovalLevelChange?: (level: NativeApprovalLevel) => void
   onSetNativeApprovalDefault?: (level: NativeApprovalLevel) => void
@@ -218,7 +220,7 @@ interface MessageComposerProps {
    * "continue in a different mode" without having to find the global new-chat
    * button. When omitted, the popover degrades gracefully to text-only.
    */
-  onContinueInNewChat?: (mode: ComposerExecMode, profile?: ComposerCompanyProfile, orgId?: string) => void
+  onContinueInNewChat?: (mode: ComposerExecMode, profile?: ComposerCompanyProfile, orgId?: string, strategy?: 'adaptive' | 'fixed', recruitmentAgent?: TaskPreferredAgent) => void
 }
 
 interface ModeAlternative {
@@ -226,6 +228,7 @@ interface ModeAlternative {
   mode: ComposerExecMode
   profile?: ComposerCompanyProfile
   orgId?: string
+  strategy?: 'adaptive' | 'fixed'
   label: string
   description: string
   icon: ReactElement
@@ -243,6 +246,7 @@ export function MessageComposer({
   channelId,
   execMode,
   companyProfile,
+  companyTeamStrategy = 'fixed',
   taskPreferredAgent = 'native',
   nativeApprovalLevel,
   nativeApprovalDefault,
@@ -441,28 +445,33 @@ export function MessageComposer({
     : selectedOrgId || activeSavedOrgLabel
   const selectedOrgValue = selectedOrgOption?.name || selectedOrgId || activeSavedOrgOption?.name || ''
   const selectedModeOption: ComposerModeOption = normalizedExecMode === 'task' ? 'task' : 'company'
-  const selectedCompanyArchitecture: CompanyArchitectureOption = normalizedExecMode === 'org'
+  const isAdaptiveTeam = selectedModeOption === 'company' && companyTeamStrategy === 'adaptive'
+  const selectedCompanyArchitecture: CompanyArchitectureOption = isAdaptiveTeam
+    ? 'adaptive'
+    : normalizedExecMode === 'org'
     ? (selectedOrgValue ? `org:${selectedOrgValue}` : '')
     : 'corporate'
-  const companyArchitectureLabel = normalizedExecMode === 'org'
+  const companyArchitectureLabel = isAdaptiveTeam
+    ? 'Company / Adaptive team'
+    : normalizedExecMode === 'org'
     ? selectedOrgLabel
       ? `Company / ${selectedOrgLabel}`
       : 'Company / Saved org'
     : 'Company / Corporate'
   const modeLabel = selectedModeOption === 'task' ? 'Task' : companyArchitectureLabel
   const showModePicker = !!execMode && !!onModeChange
-  const showTaskAgentPicker = normalizedExecMode === 'task' && !!onTaskAgentChange
+  const showTaskAgentPicker = !!onTaskAgentChange
 
   // Build the list of "Continue in a new chat" alternatives, excluding the
   // mode the current chat is already locked to.  We surface up to three options
   // so the popover stays compact; the order is stable so users build muscle
   // memory for it.
   const continueAlternatives: ModeAlternative[] = useMemo(() => {
-    const currentKey = normalizedExecMode === 'task'
+    const currentKey = isAdaptiveTeam ? 'company:adaptive' : normalizedExecMode === 'task'
       ? 'task'
       : normalizedExecMode === 'org'
         ? `org:${selectedOrgValue || 'selected'}`
-        : 'company:corporate'
+        : isAdaptiveTeam ? 'company:adaptive' : 'company:corporate'
     const continueOrgName = selectedOrgValue || activeSavedOrgOption?.name || ''
     const continueOrgLabel = selectedOrgLabel || activeSavedOrgLabel || continueOrgName
     const all: ModeAlternative[] = [
@@ -474,11 +483,21 @@ export function MessageComposer({
         icon: <IconUserRound />,
       },
       {
+        key: 'company:adaptive',
+        mode: 'company',
+        profile: 'corporate',
+        strategy: 'adaptive',
+        label: 'Company / Adaptive team',
+        description: 'Design roles and recruit together for the task',
+        icon: <IconSparkles />,
+      },
+      {
         key: 'company:corporate',
         mode: 'company',
         profile: 'corporate',
+        strategy: 'fixed',
         label: 'Company / Corporate',
-        description: 'A team of roles collaborates',
+        description: 'Use the fixed Corporate organization',
         icon: <IconBuilding />,
       },
     ]
@@ -494,7 +513,7 @@ export function MessageComposer({
       })
     }
     return all.filter(option => option.key !== currentKey)
-  }, [activeSavedOrgLabel, activeSavedOrgOption?.name, normalizedExecMode, selectedOrgLabel, selectedOrgValue])
+  }, [activeSavedOrgLabel, activeSavedOrgOption?.name, isAdaptiveTeam, normalizedExecMode, selectedOrgLabel, selectedOrgValue])
   const preparingAttachmentCount = pending.filter(attachment => !attachment.error && attachment.transfer_state === 'reading').length
   const readyAttachmentCount = pending.filter(attachment => !attachment.error && attachment.transfer_state === 'ready').length
   const visibleTool = displayTool || currentTool
@@ -667,7 +686,7 @@ export function MessageComposer({
                                 key={alt.key}
                                 type="button"
                                 className="composer-mode-chip-popover-action"
-                                onClick={() => onContinueInNewChat(alt.mode, alt.profile, alt.orgId)}
+                                onClick={() => onContinueInNewChat(alt.mode, alt.profile, alt.orgId, alt.strategy, taskPreferredAgent)}
                                 aria-label={`Start a new chat in ${alt.label}`}
                               >
                                 <span className="composer-mode-chip-popover-action-icon" aria-hidden="true">
@@ -709,13 +728,17 @@ export function MessageComposer({
                           value={selectedCompanyArchitecture}
                           onChange={(event) => {
                             const value = event.target.value as CompanyArchitectureOption
+                            if (value === 'adaptive') {
+                              onModeChange?.('company', 'corporate', undefined, 'adaptive')
+                              return
+                            }
                             if (value === 'corporate') {
-                              onModeChange?.('company', 'corporate')
+                              onModeChange?.('company', 'corporate', undefined, 'fixed')
                               return
                             }
                             if (value.startsWith('org:')) {
                               const orgName = value.slice(4)
-                              if (orgName) onModeChange?.('org', 'custom', orgName)
+                              if (orgName) onModeChange?.('org', 'custom', orgName, 'fixed')
                             }
                           }}
                           onFocus={() => onSavedOrgsRefresh?.()}
@@ -723,35 +746,39 @@ export function MessageComposer({
                           disabled={disabled}
                           aria-label="Company architecture"
                         >
-                          <option value="corporate">Corporate</option>
-                          {!selectedCompanyArchitecture && (
-                            <option value="" disabled>Select saved org</option>
-                          )}
-                          {selectedCompanyArchitecture
-                            && selectedCompanyArchitecture !== 'corporate'
-                            && !savedOrgOptions.some(org => `org:${org.name}` === selectedCompanyArchitecture) && (
-                              <option value={selectedCompanyArchitecture}>{selectedOrgLabel || selectedOrgValue}</option>
+                          <option value="adaptive">Adaptive team</option>
+                          <optgroup label="Fixed organization">
+                            <option value="corporate">Corporate</option>
+                            {!selectedCompanyArchitecture && (
+                              <option value="" disabled>Select saved org</option>
                             )}
-                          {savedOrgOptions.length === 0 ? (
-                            <option value="" disabled>No saved orgs</option>
-                          ) : savedOrgOptions.map(org => (
-                            <option key={org.name} value={`org:${org.name}`}>
-                              {savedOrgLabel(org)}
-                            </option>
-                          ))}
+                            {selectedCompanyArchitecture
+                              && selectedCompanyArchitecture !== 'corporate'
+                              && selectedCompanyArchitecture !== 'adaptive'
+                              && !savedOrgOptions.some(org => `org:${org.name}` === selectedCompanyArchitecture) && (
+                                <option value={selectedCompanyArchitecture}>{selectedOrgLabel || selectedOrgValue}</option>
+                              )}
+                            {savedOrgOptions.length === 0 ? (
+                              <option value="" disabled>No saved orgs</option>
+                            ) : savedOrgOptions.map(org => (
+                              <option key={org.name} value={`org:${org.name}`}>
+                                {savedOrgLabel(org)}
+                              </option>
+                            ))}
+                          </optgroup>
                         </select>
                       </span>
                     </label>
                   </>
                 )}
-                {normalizedExecMode === 'task' && (
+                {(
                   <>
                     <span className="composer-config-divider" aria-hidden="true" />
                     {showTaskAgentPicker && !lockedMode ? (
                       <label
                         className="composer-mode-inline"
                         data-kind="agent"
-                        title="Execution agent for this task-mode chat"
+                        title="Agent for this chat, including team formation and recruitment"
                       >
                         <span className="composer-mode-inline-label">Agent</span>
                         <span className="composer-mode-select-wrap">
@@ -760,7 +787,7 @@ export function MessageComposer({
                             value={taskPreferredAgent}
                             onChange={(event) => onTaskAgentChange?.(event.target.value as TaskPreferredAgent)}
                             disabled={disabled}
-                            aria-label="Task mode agent"
+                            aria-label="Execution agent"
                           >
                             {Object.entries(TASK_AGENT_LABELS).map(([value, label]) => (
                               <option key={value} value={value}>{label}</option>

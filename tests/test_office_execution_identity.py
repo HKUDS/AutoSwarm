@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from opc.core.execution_agents import EXECUTION_AGENTS, EXTERNAL_EXECUTION_AGENTS
 from opc.layer3_agent.adapters.registry import ADAPTER_CLASSES
 from opc.plugins.office_ui.execution_identity import (
@@ -9,6 +11,38 @@ from opc.plugins.office_ui.execution_identity import (
     canonicalize_execution_identity,
     execution_identity_from_task,
 )
+
+
+@pytest.mark.parametrize("mode", ["company", "org"])
+@pytest.mark.parametrize("selected", ["", "native", "claude_code"])
+def test_company_chat_agent_selection_survives_legacy_empty_or_conflicting_runtime_fields(mode, selected):
+    from opc.plugins.office_ui.services.session import SessionService
+    from opc.plugins.office_ui.snapshot_builder import _resolve_task_selected_execution_agent
+
+    task = SimpleNamespace(
+        id="ui-root", session_id="chat", parent_session_id=None, assigned_to=None,
+        assigned_external_agent=None, org_id="team" if mode == "org" else None,
+        metadata={"exec_mode": mode, "company_profile": "custom" if mode == "org" else "corporate",
+                  "preferred_agent": "codex", "selected_execution_agent": selected},
+    )
+    assert _resolve_task_selected_execution_agent(task) == "codex"
+    assert SessionService(SimpleNamespace()).resolve_task_selected_execution_agent(task) == "codex"
+
+
+@pytest.mark.parametrize("agent", ["native", "codex", "claude_code"])
+def test_company_role_agent_is_independent_of_primary_chat_preference(agent):
+    from opc.plugins.office_ui.services.session import SessionService
+    from opc.plugins.office_ui.snapshot_builder import _resolve_task_selected_execution_agent
+
+    task = SimpleNamespace(
+        id="role-task", session_id="role-chat", parent_session_id="root-chat",
+        assigned_external_agent=None,
+        metadata={"company_profile": "custom", "preferred_agent": "codex",
+                  "work_item_runtime": True, "work_item_role_id": "reviewer",
+                  "selected_execution_agent": agent},
+    )
+    assert _resolve_task_selected_execution_agent(task) == agent
+    assert SessionService(SimpleNamespace()).resolve_task_selected_execution_agent(task) == agent
 
 
 def test_company_identity_clears_stale_custom_org_fields() -> None:

@@ -68,9 +68,18 @@ class LockedAgentAvailabilityFallbackTests(unittest.IsolatedAsyncioTestCase):
         engine.adapter_registry = _AdapterRegistryStub(available)
         return engine
 
-    async def test_locked_unavailable_external_falls_back_to_native(self) -> None:
+    async def test_locked_unavailable_external_fails_without_substitution(self) -> None:
+        engine = self._engine(available=[])
+        task = Task(id="explicit", title="t", project_id="p", session_id="s")
+        task.metadata.update(execution_agent_locked=True, selected_execution_agent="codex")
+        with self.assertRaisesRegex(RuntimeError, "codex.*unavailable"):
+            await engine._assign_task_execution_agent(task)
+        self.assertEqual(task.metadata["selected_execution_agent"], "codex")
+
+    async def test_locked_unavailable_external_falls_back_only_when_permitted(self) -> None:
         engine = self._engine(available=[])
         task = Task(id="t1", title="t", project_id="p", session_id="s")
+        task.metadata["external_failure_policy"] = "fallback_native"
         task.metadata["execution_agent_locked"] = True
         task.metadata["selected_execution_agent"] = "codex"
 
@@ -231,6 +240,18 @@ class ResumeGateHealTests(unittest.IsolatedAsyncioTestCase):
         item = await self.store.get_delegation_work_item("wi-1")
         self.assertEqual(item.phase, Phase.FAILED)
         self.assertIn("pinned to external agent", str(item.blocked_reason or ""))
+
+    async def test_explicit_codex_pin_without_session_never_heals_to_native(self) -> None:
+        task = await self._seed()
+        payload = self._payload(task, external_sessions={})
+        payload["task_snapshots"][0]["execution_identity"].update(
+            execution_agent_locked=True, selected_execution_agent_source="recruitment_user_override",
+        )
+        await self.engine._prepare_company_runtime_tasks_for_resume([task], payload)
+        item = await self.store.get_delegation_work_item("wi-1")
+        self.assertEqual(item.phase, Phase.FAILED)
+        self.assertIn("codex", item.blocked_reason)
+        self.assertNotIn("resume_execution_agent_healed_from", task.metadata)
 
 
 if __name__ == "__main__":

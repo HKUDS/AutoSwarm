@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Iterable
 
+from opc.core.execution_agents import explicit_execution_agent
 from opc.layer2_organization.work_item_links import linked_work_item_id_for_task
 from opc.layer2_organization.work_item_runtime import is_work_item_runtime_metadata
 
@@ -132,6 +133,17 @@ def requires_native_company_execution(task: Any) -> bool:
     )
 
 
+def validate_company_execution_agent(task: Any) -> None:
+    """Reject an explicit external choice rather than replacing it with Native."""
+
+    selected = explicit_execution_agent(task)
+    if selected and selected != "native" and requires_native_company_execution(task):
+        raise RuntimeError(
+            f"Selected execution agent '{selected}' cannot run this company task "
+            "without its validated workspace fence. No alternate agent was started."
+        )
+
+
 def is_runtime_auxiliary_task(task: Any) -> bool:
     """Return whether *task* is an internal, non-user-visible runtime turn.
 
@@ -141,7 +153,13 @@ def is_runtime_auxiliary_task(task: Any) -> bool:
     the company marker additionally selects Store's controller/source fence.
     """
 
-    metadata = _metadata(task)
+    return is_runtime_auxiliary_metadata(_metadata(task))
+
+
+def is_runtime_auxiliary_metadata(metadata: Any) -> bool:
+    """Recognise the same internal-task contract on runtime event payloads."""
+    if not isinstance(metadata, dict):
+        return False
     kind = _text(metadata.get("runtime_auxiliary_kind"))
     return bool(
         kind in RUNTIME_AUXILIARY_KINDS

@@ -22,7 +22,15 @@ roles:
   - cto
   - cmo
   - coo
-  tools: []
+  tools:
+  - file_read
+  - file_write
+  - file_edit
+  - file_search
+  - list_dir
+  - todo_write
+  - todo_read
+  - shell_exec
   preferred_external_agent: null
   prompt_refs:
   - Route tasks to the appropriate C-suite executive. Aggregate final results.
@@ -58,7 +66,17 @@ roles:
   can_spawn:
   - senior_engineer
   - devops_engineer
-  tools: []
+  tools:
+  - file_read
+  - file_write
+  - file_edit
+  - file_search
+  - list_dir
+  - todo_write
+  - todo_read
+  - web_search
+  - web_fetch
+  - shell_exec
   preferred_external_agent: null
   prompt_refs:
   - Focus on technical feasibility, architecture quality, and engineering best practices.
@@ -94,7 +112,22 @@ roles:
   can_spawn:
   - content_specialist
   - designer
-  tools: []
+  tools:
+  - file_read
+  - file_write
+  - file_edit
+  - file_search
+  - list_dir
+  - todo_write
+  - todo_read
+  - web_search
+  - web_fetch
+  - browser_navigate
+  - browser_navigate_back
+  - browser_snapshot
+  - browser_wait_for
+  - browser_scroll
+  - browser_take_screenshot
   preferred_external_agent: null
   prompt_refs:
   - Optimize for audience fit, brand consistency, and content quality.
@@ -132,7 +165,22 @@ roles:
   can_spawn:
   - acquisition_specialist
   - qa_analyst
-  tools: []
+  tools:
+  - file_read
+  - file_write
+  - file_edit
+  - file_search
+  - list_dir
+  - todo_write
+  - todo_read
+  - web_search
+  - web_fetch
+  - browser_navigate
+  - browser_navigate_back
+  - browser_snapshot
+  - browser_wait_for
+  - browser_scroll
+  - browser_take_screenshot
   preferred_external_agent: null
   prompt_refs:
   - Ensure operational efficiency, process compliance, and delivery quality.
@@ -167,7 +215,27 @@ roles:
   reports_to: coo
   icon: target
   can_spawn: []
-  tools: []
+  tools:
+  - shell_exec
+  - file_read
+  - file_write
+  - file_edit
+  - file_search
+  - list_dir
+  - web_search
+  - web_fetch
+  - todo_write
+  - todo_read
+  - browser_navigate
+  - browser_navigate_back
+  - browser_click
+  - browser_snapshot
+  - browser_type
+  - browser_wait_for
+  - browser_scroll
+  - browser_select_option
+  - browser_take_screenshot
+  - browser_close
   preferred_external_agent: claude_code
   prompt_refs:
   - 'Run data acquisition in four phases: Discover, Verify, Prepare, Report.'
@@ -202,7 +270,27 @@ roles:
   reports_to: cto
   icon: terminal
   can_spawn: []
-  tools: []
+  tools:
+  - shell_exec
+  - file_read
+  - file_write
+  - file_edit
+  - file_search
+  - list_dir
+  - web_search
+  - web_fetch
+  - todo_write
+  - todo_read
+  - browser_navigate
+  - browser_navigate_back
+  - browser_click
+  - browser_snapshot
+  - browser_type
+  - browser_wait_for
+  - browser_scroll
+  - browser_select_option
+  - browser_take_screenshot
+  - browser_close
   preferred_external_agent: codex
   prompt_refs:
   - Write clean, tested code. Leave clear documentation for reviewers.
@@ -234,7 +322,27 @@ roles:
   reports_to: cto
   icon: settings
   can_spawn: []
-  tools: []
+  tools:
+  - shell_exec
+  - file_read
+  - file_write
+  - file_edit
+  - file_search
+  - list_dir
+  - web_search
+  - web_fetch
+  - todo_write
+  - todo_read
+  - browser_navigate
+  - browser_navigate_back
+  - browser_click
+  - browser_snapshot
+  - browser_type
+  - browser_wait_for
+  - browser_scroll
+  - browser_select_option
+  - browser_take_screenshot
+  - browser_close
   preferred_external_agent: cursor
   prompt_refs:
   - Prioritize operational safety, observability, and deployment readiness.
@@ -267,7 +375,27 @@ roles:
   reports_to: cmo
   icon: writing
   can_spawn: []
-  tools: []
+  tools:
+  - shell_exec
+  - file_read
+  - file_write
+  - file_edit
+  - file_search
+  - list_dir
+  - web_search
+  - web_fetch
+  - todo_write
+  - todo_read
+  - browser_navigate
+  - browser_navigate_back
+  - browser_click
+  - browser_snapshot
+  - browser_type
+  - browser_wait_for
+  - browser_scroll
+  - browser_select_option
+  - browser_take_screenshot
+  - browser_close
   preferred_external_agent: null
   prompt_refs:
   - Write clearly for the target audience. Polish deliverables.
@@ -299,7 +427,27 @@ roles:
   reports_to: cmo
   icon: design
   can_spawn: []
-  tools: []
+  tools:
+  - shell_exec
+  - file_read
+  - file_write
+  - file_edit
+  - file_search
+  - list_dir
+  - web_search
+  - web_fetch
+  - todo_write
+  - todo_read
+  - browser_navigate
+  - browser_navigate_back
+  - browser_click
+  - browser_snapshot
+  - browser_type
+  - browser_wait_for
+  - browser_scroll
+  - browser_select_option
+  - browser_take_screenshot
+  - browser_close
   preferred_external_agent: null
   prompt_refs:
   - Focus on usability, visual consistency, and design quality.
@@ -331,7 +479,20 @@ roles:
   reports_to: coo
   icon: bug
   can_spawn: []
-  tools: []
+  tools:
+  - file_read
+  - file_write
+  - file_edit
+  - file_search
+  - list_dir
+  - shell_exec
+  - browser_navigate
+  - browser_navigate_back
+  - browser_snapshot
+  - browser_wait_for
+  - browser_scroll
+  - browser_select_option
+  - browser_take_screenshot
   preferred_external_agent: null
   prompt_refs:
   - Test rigorously. Reject unclear or unsafe outputs.
@@ -370,7 +531,17 @@ roles:
   reports_to: cto
   icon: database
   can_spawn: []
-  tools: []
+  tools:
+  - shell_exec
+  - file_read
+  - file_write
+  - file_edit
+  - file_search
+  - list_dir
+  - web_search
+  - web_fetch
+  - todo_write
+  - todo_read
   preferred_external_agent: null
   prompt_refs:
   - Always probe what is already installed before attempting installation.

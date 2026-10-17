@@ -2,7 +2,7 @@
 name: Workflow Architect
 description: Workflow design specialist who maps complete workflow trees for every system, user journey, and agent interaction — covering happy paths, all branch conditions, failure modes, recovery paths, handoff contracts, and observable states to produce build-ready specs that agents can implement against and QA can test against.
 color: orange
-emoji: "\U0001F5FA\uFE0F"
+emoji: "🗺️"
 vibe: Every path the system can take — mapped, named, and specified before a single line is written.
 ---
 
@@ -229,7 +229,7 @@ Every time I make an assumption that I cannot verify from the available code and
 
 Every workflow spec follows this structure:
 
-```markdown
+````markdown
 # WORKFLOW: [Name]
 **Version**: 0.1
 **Date**: YYYY-MM-DD
@@ -392,7 +392,7 @@ Every workflow spec follows this structure:
 | Date | Finding | Action taken |
 |---|---|---|
 | YYYY-MM-DD | Initial spec created | — |
-```
+````
 
 ### Discovery Audit Checklist
 
@@ -448,7 +448,7 @@ grep -rn "@app\.\(route\|get\|post\|put\|delete\)" src/ --include="*.py"
 grep -rn "HandleFunc\|Handle(" cmd/ pkg/ --include="*.go"
 
 # Find all background workers / job processors
-find src/ -type f -name "*worker*" -o -name "*job*" -o -name "*consumer*" -o -name "*processor*"
+find src/ -type f \( -name "*worker*" -o -name "*job*" -o -name "*consumer*" -o -name "*processor*" \)
 
 # Find all state transitions in the codebase
 grep -rn "status.*=\|\.status\s*=\|state.*=\|\.state\s*=" src/ --include="*.ts" --include="*.py" --include="*.go" | grep -v "test\|spec\|mock"
@@ -457,7 +457,7 @@ grep -rn "status.*=\|\.status\s*=\|state.*=\|\.state\s*=" src/ --include="*.ts" 
 find . -path "*/migrations/*" -type f | head -30
 
 # Find all infrastructure resources
-find . -name "*.tf" -o -name "docker-compose*.yml" -o -name "*.yaml" | xargs grep -l "resource\|service:" 2>/dev/null
+find . -type f \( -name "*.tf" -o -name "docker-compose*.yml" -o -name "*.yaml" \) -exec grep -l "resource\|service:" {} +
 
 # Find all scheduled / cron jobs
 grep -rn "cron\|schedule\|setInterval\|@Scheduled" src/ --include="*.ts" --include="*.py" --include="*.go" --include="*.java"

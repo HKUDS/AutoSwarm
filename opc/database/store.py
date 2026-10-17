@@ -4575,15 +4575,22 @@ class OPCStore:
         delete that permit (or resurrect one which the atomic ToolResult commit
         already consumed).
 
-        Only the continuation identity and one-shot ledger are protected here;
-        ordinary runtime audit/resume fields may still be refreshed by the
-        execution owner.  New Task rows are unaffected because this helper is
+        The continuation ledger and versioned operator permission fields are
+        protected here; ordinary runtime audit/resume fields may still be
+        refreshed by the execution owner. New Task rows are unaffected because this helper is
         called only when an existing row was read under the same SQLite write
         transaction as the ensuing save.
         """
 
         incoming_context = dict(getattr(task, "context_snapshot", {}) or {})
         incoming_metadata = dict(getattr(task, "metadata", {}) or {})
+        # Live permission settings belong to the operator control plane. A
+        # resident controller's older Task copy cannot undo a committed edit.
+        if persisted_metadata.get("native_permission_policy_revision"):
+            for key in ("native_approval_level", "native_permission_scope_id", "native_permission_policy_revision"):
+                if key in persisted_metadata:
+                    incoming_metadata[key] = persisted_metadata[key]
+            task.metadata = incoming_metadata
         incoming_resume_raw = incoming_context.get("runtime_resume")
         incoming_runtime_raw = incoming_metadata.get("runtime_v2")
         incoming_resume = (
@@ -4831,6 +4838,45 @@ class OPCStore:
         )
         if commit:
             await target_db.commit()
+
+    async def set_native_permission_scope(
+        self, *, project_id: str, root_session_id: str, scope_id: str, level: str,
+    ) -> list[Task]:
+        """Commit only owner-controlled permission fields, never execution state.
+
+        Company controller/attempt fences continue to protect all runtime
+        fields. This narrow operator edit works while those controllers run.
+        """
+        from opc.core.native_permissions import parse_native_approval_level, tasks_in_native_permission_scope
+
+        normalized = parse_native_approval_level(level)
+        if not project_id or not root_session_id or not scope_id:
+            raise ValueError("project and native permission scope identities are required")
+        self._assert_project_write_scope(project_id, operation="set_native_permission_scope", entity=scope_id)
+        self._require_db()
+        db = _SQLiteConnectionAdapter(self.db_path)
+        try:
+            await db.execute("BEGIN IMMEDIATE")
+            async with db.execute("SELECT * FROM tasks WHERE project_id = ?", (project_id,)) as cursor:
+                rows = await cursor.fetchall()
+                tasks = [self._row_to_task(row, cursor.description) for row in rows]
+            selected = tasks_in_native_permission_scope(tasks, root_session_id=root_session_id, scope_id=scope_id)
+            for task in selected:
+                metadata = dict(task.metadata or {})
+                metadata.update(
+                    native_approval_level=normalized, native_permission_scope_id=scope_id,
+                    native_permission_policy_revision=int(metadata.get("native_permission_policy_revision", 0) or 0) + 1,
+                )
+                await db.execute("UPDATE tasks SET metadata = ? WHERE id = ? AND project_id = ?",
+                                 (json.dumps(metadata, ensure_ascii=False), task.id, project_id))
+                task.metadata = metadata
+            await db.commit()
+            return selected
+        except BaseException:
+            await db.rollback()
+            raise
+        finally:
+            await db.close()
 
     async def save_task(self, task: Task) -> None:
         metadata = dict(getattr(task, "metadata", {}) or {})

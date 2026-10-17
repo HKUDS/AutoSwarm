@@ -73,15 +73,22 @@ SELECT * FROM comments WHERE post_id = ?;
 EXPLAIN ANALYZE
 SELECT 
     p.id, p.title, p.content,
-    json_agg(json_build_object(
-        'id', c.id,
-        'content', c.content,
-        'author', c.author
-    )) as comments
+    COALESCE(
+        json_agg(json_build_object(
+            'id', c.id,
+            'content', c.content,
+            'author', c.author
+        ) ORDER BY c.id) FILTER (WHERE c.id IS NOT NULL),
+        '[]'::json
+    ) AS comments
 FROM posts p
 LEFT JOIN comments c ON c.post_id = p.id
 WHERE p.user_id = 123
 GROUP BY p.id;
+
+-- Regression cases: no comments => []; two comments => two ordered objects.
+-- FILTER removes the synthetic NULL row from LEFT JOIN; COALESCE turns an
+-- empty aggregate into the same array shape as a populated one.
 
 -- Check the query plan:
 -- Look for: Seq Scan (bad), Index Scan (good), Bitmap Heap Scan (okay)
@@ -153,11 +160,16 @@ const supabase = createClient(
   }
 );
 
-// Use transaction pooler for serverless
-const pooledUrl = process.env.DATABASE_URL?.replace(
-  '5432',
-  '6543' // Transaction mode port
-);
+// Use the provider's transaction-pooler connection string for serverless.
+// Only when the provider uses the SAME host/credentials and port 6543:
+// change the URL port, never a matching substring in credentials or DB names.
+function transactionPoolUrl(connectionString?: string): string | undefined {
+  if (!connectionString) return undefined;
+  const url = new URL(connectionString);
+  url.port = '6543';
+  return url.toString();
+}
+const pooledUrl = transactionPoolUrl(process.env.DATABASE_URL);
 ```
 
 ## Critical Rules

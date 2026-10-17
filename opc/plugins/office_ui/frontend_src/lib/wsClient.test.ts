@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
+import { mock } from 'node:test'
 
 import { VisualSocketClient } from './wsClient'
+import { mapBackendSession } from './collabSync'
 
 type TestSocketClient = {
   handleMessage: (raw: unknown) => void
@@ -30,6 +32,21 @@ const flushPromises = async () => {
 }
 
 const client = new VisualSocketClient('ws://unit.test', {})
+
+client.sessionUpdateConfig('project-a', 'chat-a', 'company', 'corporate', 'native', undefined, 'adaptive', 'codex')
+const adaptiveConfig = JSON.parse((client as unknown as TestSocketClient).pendingQueue.pop() ?? '{}')
+assert.equal(adaptiveConfig.company_team_strategy, 'adaptive')
+assert.equal(adaptiveConfig.recruitment_agent, 'codex')
+client.createSession('project-a', 'Adaptive chat', 'company', 'corporate', 'native', undefined, 'auto', 'adaptive', 'codex')
+const adaptiveCreate = JSON.parse((client as unknown as TestSocketClient).pendingQueue.pop() ?? '{}')
+assert.equal(adaptiveCreate.company_team_strategy, 'adaptive')
+assert.equal(adaptiveCreate.recruitment_agent, 'codex')
+const restoredAdaptiveSession = mapBackendSession({
+  project_id: 'project-a', task_id: 'chat-a', exec_mode: 'company',
+  company_team_strategy: 'adaptive', recruitment_agent: 'codex',
+})
+assert.equal(restoredAdaptiveSession.companyTeamStrategy, 'adaptive')
+assert.equal(restoredAdaptiveSession.recruitmentAgent, 'codex')
 
 client.externalTeamActivityGet('project-a', 'runtime-task-a', {
   externalInvocationId: 'invocation-a',
@@ -167,6 +184,28 @@ deliverAck(client, {
 assert.equal((await reconnectPromise).deduplicated, true)
 assert.equal(reconnectInternals.pendingQueue.includes(reconnectWire), false)
 
+// The server's durable ACK can arrive after tool/runtime work delays the
+// event loop. Advancing past the old deadline must not reject or forget it.
+mock.timers.enable({ apis: ['setTimeout'] })
+const delayedReply = client.interactionReply('project-a', {
+  checkpointId: 'delayed-permission', checkpointType: 'tool_permission',
+  clientRequestId: 'delayed-receipt', requesterSessionId: 'ui-session',
+  decision: { option_id: 'always_project', text: 'Always allow for this project' },
+})
+let delayedSettled = false
+void delayedReply.then(() => { delayedSettled = true })
+mock.timers.tick(5 * 60_000)
+await flushPromises()
+assert.equal(delayedSettled, false, 'a missing ACK is pending, not request_timeout')
+reconnectInternals.requeuePendingInteractionReplies()
+assert.ok(reconnectInternals.pendingQueue.some(wire => JSON.parse(wire).client_request_id === 'delayed-receipt'))
+deliverAck(client, {
+  ok: true, accepted: true, action: 'interaction_reply', status: 'answered',
+  checkpoint_id: 'delayed-permission', checkpoint_type: 'tool_permission', client_request_id: 'delayed-receipt',
+})
+assert.equal((await delayedReply).accepted, true)
+mock.timers.reset()
+
 // A summary and a full request for the same task are distinct correlations.
 // Neither Promise may settle merely because the request was queued locally.
 const summaryPromise = client.sessionDetail('project-a', 'task-1', { detailLevel: 'summary' })
@@ -203,6 +242,24 @@ deliverAck(client, {
 await flushPromises()
 assert.equal(summarySettlements[0]?.marker, 'summary-ack', 'the matching summary ACK must settle the summary request')
 assert.equal(summarySettlements[0]?.client_history_page, false, 'a request without a cursor is not a history page')
+
+// Old clients can request both assessment Tasks under the same parent chat.
+// Hidden-session responses settle normally and retain exact correlation.
+for (const taskId of ['delivery-1::assessment', 'delivery-2::assessment']) {
+  for (const detailLevel of ['summary', 'full'] as const) {
+    const hidden = client.sessionDetail('project-a', taskId, { detailLevel, viewGeneration: 7 })
+    deliverAck(client, {
+      ok: true, action: 'session_detail', project_id: 'project-a', task_id: taskId,
+      detail_level: detailLevel, view_generation: 7, session_visible: false,
+      messages: [], message_count: 0, has_more: false,
+    })
+    const result = await hidden
+    assert.equal(result.ok, true)
+    assert.equal(result.session_visible, false)
+    assert.equal(result.task_id, taskId)
+    assert.equal(result.detail_level, detailLevel)
+  }
+}
 
 const historyPagePromise = client.sessionDetail('project-a', 'task-history', {
   detailLevel: 'summary',

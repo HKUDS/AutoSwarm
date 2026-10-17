@@ -132,7 +132,9 @@ from opc.layer2_organization.company_runtime_identity import (
     requires_native_company_execution,
     load_company_runtime_identity_index,
     resolve_company_interaction_ownership,
+    validate_company_execution_agent,
 )
+from opc.core.execution_agents import explicit_execution_agent
 from opc.layer2_organization.metadata_ownership import (
     FINAL_DELIVERY_CURRENT_OUTPUT_KEYS,
     build_company_resume_identity_restore,
@@ -343,75 +345,33 @@ Rules:
 
 
 class ExternalRecruiterLLMAdapter:
-    """Expose an external task agent through the recruiter's simple_chat contract."""
+    """Expose the selected execution agent's isolated planner through simple_chat."""
 
     def __init__(self, engine: "OPCEngine", agent_name: str) -> None:
         self.engine = engine
         self.agent_name = agent_name
+        self.usage_records: list[dict[str, Any]] = []
 
     async def simple_chat(self, prompt: str, system: str | None = None, task_type: str | None = None) -> str:
-        engine = self.engine
-        if not engine.adapter_registry or not engine.external_broker:
-            raise RuntimeError("External recruitment agent infrastructure is not initialized.")
-        adapter = engine.adapter_registry.get(self.agent_name)
-        if adapter is None:
-            raise RuntimeError(f"External recruitment agent `{self.agent_name}` is not available.")
+        import tempfile
 
-        description = "\n\n".join(
-            part
-            for part in (
-                "You are acting as OPC's recruitment planner.",
-                "Return JSON only.",
-                "Do not edit files.",
-                "Do not run tools unless necessary.",
-                "Follow the system contract exactly.",
-                f"SYSTEM:\n{system or ''}",
-                f"PAYLOAD:\n{prompt}",
+        registry = self.engine.adapter_registry
+        adapter = registry.get(self.agent_name) if registry else None
+        planner = getattr(adapter, "plan_json", None)
+        if not callable(planner):
+            raise ValueError(f"Selected execution agent `{self.agent_name}` does not support planning.")
+        directory = self.engine.opc_home / "planning"
+        directory.mkdir(parents=True, exist_ok=True)
+        # Only the supplied request/catalog are passed to this planner. It does
+        # not run in, prepare, or resume the project's shared workplace.
+        with tempfile.TemporaryDirectory(prefix="staffing-", dir=directory) as workspace:
+            result = await planner(
+                f"{system or ''}\n\nReturn JSON only. Do not execute the task.\nPAYLOAD:\n{prompt}",
+                workspace_path=workspace,
             )
-            if str(part).strip()
-        )
-        task = Task(
-            title=f"Recruitment planning via {self.agent_name}",
-            description=description,
-            assigned_to="recruiter",
-            status=TaskStatus.PENDING,
-            assigned_external_agent=self.agent_name,
-            project_id=engine.project_id or "default",
-            metadata={
-                "mode": "recruitment",
-                "task_type": task_type or "quick_tasks",
-                "recruitment_planning": True,
-                "selected_execution_agent": self.agent_name,
-                "selected_execution_agent_source": "recruitment_user_override",
-                "execution_agent_locked": True,
-                "preferred_external_agent": self.agent_name,
-            },
-        )
-        run_adapter, _ = await engine._configure_external_adapter_for_task(task, adapter)
-        adapter_config = getattr(run_adapter, "config", None)
-        if adapter_config is not None:
-            cloned_config = (
-                adapter_config.model_copy(deep=True)
-                if hasattr(adapter_config, "model_copy")
-                else adapter_config
-            )
-            if hasattr(cloned_config, "session_mode"):
-                cloned_config.session_mode = "new"
-            if hasattr(cloned_config, "session_id"):
-                cloned_config.session_id = ""
-            run_adapter = run_adapter.__class__(config=cloned_config)
-
-        workspace = engine._resolve_external_workspace(task)
-        prepared_task = copy.deepcopy(task)
-        result = await engine.external_broker.run(
-            adapter=run_adapter,
-            task=task,
-            workspace_path=workspace,
-            prepared_task=prepared_task,
-        )
+        self.usage_records.extend(list(result.artifacts.get("planning_usage", [])))
         if result.status != TaskStatus.DONE:
-            detail = str(result.content or "").strip()
-            raise RuntimeError(detail or f"External recruitment agent `{self.agent_name}` did not complete.")
+            raise RuntimeError(str(result.content or "The selected planning agent failed."))
         return str(result.content or "").strip()
 
 
@@ -877,6 +837,8 @@ class OPCEngine:
             config=self.config.autonomy,
             secretary_policies=self.secretary_policies,
             interaction_coordinator=self.interaction_coordinator,
+            native_tool_lookup=self.tool_registry.get,
+            on_permission_ready=self._schedule_interaction_consumption,
         )
         self.external_broker = ExternalAgentBroker(
             self.store,
@@ -1003,6 +965,9 @@ class OPCEngine:
         self._initialized = True
         await self._reconcile_active_owner_interaction_ownership()
         if self._run_startup_reconcile:
+            await self.approval_engine.reconcile_pending_tool_permissions(
+                project_id=self.project_id or "default", schedule_consumers=False,
+            )
             await self._recover_interaction_consumers()
             await self._recover_company_work_item_gate_continuations()
         logger.info("OPC Engine initialized successfully")
@@ -1691,7 +1656,7 @@ class OPCEngine:
             "staffing_strategy": staffing_strategy,
             "recommended_action": recommended_action,
             "force_manual_preflight": bool(force_manual_preflight),
-            "recruitment_agent": "native",
+            "recruitment_agent": self._company_recruitment_agent(decision, role_agent_overrides),
             "staffing_defaults": {
                 "source": "project" if saved_defaults else "system",
                 "scope_key": self._company_staffing_scope_key(
@@ -1843,7 +1808,7 @@ class OPCEngine:
             [
                 "",
                 "Reply `approve` to use these defaults, or include overrides like `approve senior_engineer=tpl:engineering-frontend-developer`.",
-                "Reply `auto` or `auto recruit` to run automatic recruitment.",
+                "Reply `auto team` to design task-specific roles and recruit in one plan; `auto recruit` staffs the current roles.",
                 "Reply `deny` / `stop` to cancel company-mode execution.",
             ]
         )
@@ -1865,6 +1830,17 @@ class OPCEngine:
         conversation_turn_id: str | None = None,
         conversation_turn_sequence: int | None = None,
     ) -> str:
+        if (
+            dict(getattr(decision, "metadata", {}) or {}).get("company_team_strategy") == "adaptive"
+            and not decision.org_id
+        ):
+            return await self._begin_company_recruitment_loop(
+                decision, original_message, runtime_spec, adaptive_team=True, force_confirmation=True,
+                session_id=session_id, origin_channel=origin_channel, origin_chat_id=origin_chat_id,
+                origin_thread_id=origin_thread_id, origin_task_id=origin_task_id,
+                attachment_refs=attachment_refs, conversation_turn_id=conversation_turn_id,
+                conversation_turn_sequence=conversation_turn_sequence,
+            )
         session_confirmed = await self._session_has_completed_recruitment_confirmation(session_id)
         if not session_confirmed:
             payload = self._build_manual_staffing_checkpoint_payload(
@@ -2607,6 +2583,8 @@ class OPCEngine:
             company_profile=company_profile,
             metadata={
                 "company_preflight": str(message.metadata.get("company_preflight", "") or "").strip(),
+                "company_team_strategy": str(message.metadata.get("company_team_strategy", "fixed") or "fixed").strip(),
+                "recruitment_agent": normalize_recruitment_agent_choice(preferred_agent, default="native"),
                 "native_approval_level": str(
                     message.metadata.get("native_approval_level", "")
                     or session_defaults.get("native_approval_level", "")
@@ -2713,13 +2691,29 @@ class OPCEngine:
             )
         return normalized
 
+    def _company_recruitment_agent(
+        self, decision: RouterDecision, role_agent_overrides: dict[str, str] | None = None,
+        *, root_role_id: str | None = None,
+    ) -> str:
+        """Formation/recruitment use the user's execution agent, never a second selector."""
+        # Explicit per-role choices also determine actual execution. When
+        # present, the accountable lead owns formation and hiring.
+        root_id = root_role_id or (self.org_engine.get_final_decider_role_id() if self.org_engine else "")
+        return (
+            normalize_recruitment_agent_choice((role_agent_overrides or {}).get(root_id))
+            or normalize_recruitment_agent_choice(decision.preferred_agent)
+            or "native"
+        )
+
     def _resolve_recruitment_llm(self, recruitment_agent: str | None) -> tuple[Any | None, str]:
-        # Recruitment is itself company execution.  Until external providers
-        # have a durable isolated-workspace capability, normalize even an
-        # explicit external override before any broker preparation can write
-        # into the shared project workplace.
-        _ = recruitment_agent
-        return self.llm, "native"
+        selected = normalize_recruitment_agent_choice(recruitment_agent, default="native") or "native"
+        if selected == "native":
+            return self.llm, "native"
+        registry = self.adapter_registry
+        adapter = registry.get(selected) if registry else None
+        if adapter is None or not callable(getattr(adapter, "plan_json", None)):
+            raise ValueError(f"Selected execution agent `{selected}` is unavailable or does not support planning. Formation and recruitment cannot switch to another agent.")
+        return ExternalRecruiterLLMAdapter(self, selected), selected
 
     async def _begin_company_recruitment_loop(
         self,
@@ -2736,13 +2730,14 @@ class OPCEngine:
         force_confirmation: bool = False,
         role_agent_overrides: dict[str, str] | None = None,
         recruitment_agent: str | None = None,
+        adaptive_team: bool = False,
         conversation_turn_id: str | None = None,
         conversation_turn_sequence: int | None = None,
         origin_interaction_lease: OriginOwnerInteractionLease | None = None,
     ) -> str:
         assert self.company_recruiter
         recruitment_scope: dict[str, Any] = {}
-        if decision.mode == ExecutionMode.COMPANY_MODE:
+        if decision.mode == ExecutionMode.COMPANY_MODE and not adaptive_team:
             role_agent_overrides = self._company_execution_agent_defaults(decision, role_agent_overrides)
             compiled_teams, role_agent_overrides = self._apply_staffing_external_team_bindings(
                 {}, {"recruitment_role_agents": role_agent_overrides},
@@ -2752,24 +2747,38 @@ class OPCEngine:
             recruitment_scope["externally_staffed_role_ids"] = {
                 role_id for team in compiled_teams for role_id in team.covered_role_ids
             }
-        recruitment_llm, selected_recruitment_agent = self._resolve_recruitment_llm(recruitment_agent)
-        recruitment_plan = await self.company_recruiter.build_recruitment_plan(
-            runtime_spec,
-            domains=decision.domains,
-            project_id=self.project_id or "default",
-            recruitment_llm=recruitment_llm,
-            recruitment_agent=selected_recruitment_agent,
-            **recruitment_scope,
+        recruitment_llm, selected_recruitment_agent = self._resolve_recruitment_llm(
+            self._company_recruitment_agent(decision, role_agent_overrides)
         )
+        if adaptive_team:
+            runtime_spec.metadata["team_planning_context"] = self._build_attachment_context(
+                self._normalize_attachment_refs(attachment_refs)
+            )
+            recruitment_plan = await self.company_recruiter.build_team_recruitment_plan(
+                runtime_spec, project_id=self.project_id or "default",
+                recruitment_llm=recruitment_llm, recruitment_agent=selected_recruitment_agent,
+            )
+            recruitment_plan.metadata["adaptive_organization_id"] = "adaptive_" + uuid.uuid4().hex[:24]
+        else:
+            recruitment_plan = await self.company_recruiter.build_recruitment_plan(
+                runtime_spec,
+                domains=decision.domains,
+                project_id=self.project_id or "default",
+                recruitment_llm=recruitment_llm,
+                recruitment_agent=selected_recruitment_agent,
+                **recruitment_scope,
+            )
         recruitment_plan.metadata = dict(getattr(recruitment_plan, "metadata", {}) or {})
         recruitment_plan.metadata.setdefault("recruitment_revision", 1)
         recruitment_plan.metadata["recruitment_agent"] = selected_recruitment_agent
+        for proposal in recruitment_plan.proposals:
+            proposal.metadata["selected_execution_agent"] = selected_recruitment_agent
         apply_recruitment_role_agent_overrides(recruitment_plan, role_agent_overrides)
         requires_confirmation = bool(force_confirmation) or recruitment_plan_requires_confirmation(recruitment_plan)
         session_confirmed = await self._session_has_completed_recruitment_confirmation(session_id)
         role_agent_overrides = extract_recruitment_role_agent_overrides(recruitment_plan)
         fallback_role_ids = build_fallback_role_ids(recruitment_plan)
-        if not requires_confirmation or session_confirmed:
+        if not requires_confirmation or (session_confirmed and not adaptive_team):
             if self.talent_market:
                 for proposal in recruitment_plan.proposals:
                     if proposal.status != "proposed_hire" or not proposal.candidate:
@@ -3623,6 +3632,7 @@ class OPCEngine:
                 or explicit_agent_choice
                 or ("native" if force_native_execution or not preferred_external_agent else preferred_external_agent)
             )
+            execution_agent_locked = bool(selected_role_agent or explicit_agent_choice)
             execution_agent_unavailable = ""
             company_external_execution_capable = False
             execution_unit_kind = "role"
@@ -3632,6 +3642,11 @@ class OPCEngine:
                 and self.adapter_registry is not None
                 and selected_execution_agent not in enrichment_available_external_agents
             ):
+                if execution_agent_locked:
+                    raise RuntimeError(
+                        f"Selected execution agent '{selected_execution_agent}' for role '{role_id}' "
+                        "is unavailable. No alternate agent was started."
+                    )
                 # The chosen external backend cannot run. Dispatch would fall
                 # back to native while seat/task metadata kept claiming the
                 # external agent, and the resume gate trusts that identity
@@ -3655,7 +3670,6 @@ class OPCEngine:
                     execution_unit_kind = selected_adapter.execution_unit_kind()
                 elif selected_adapter is not None:
                     execution_unit_kind = "external_agent"
-            execution_agent_locked = bool(selected_role_agent or explicit_agent_choice)
             selection_source = (
                 "recruitment_user_override"
                 if selected_role_agent
@@ -3663,6 +3677,16 @@ class OPCEngine:
                 if explicit_agent_choice
                 else ""
             )
+            if (
+                execution_agent_locked
+                and selected_execution_agent != "native"
+                and self.adapter_registry is not None
+                and not company_external_execution_capable
+            ):
+                raise RuntimeError(
+                    f"Selected execution agent '{selected_execution_agent}' for role '{role_id}' "
+                    "does not support isolated company execution. No alternate agent was started."
+                )
             seat["employee_id"] = str(employee_assignment.get("employee_id", "") or seat.get("employee_id", "") or "").strip()
             seat["employee_assignment"] = dict(employee_assignment or {})
             seat["preferred_external_agent"] = preferred_external_agent
@@ -5267,6 +5291,12 @@ class OPCEngine:
         *,
         persist: bool = True,
     ) -> ExecutionCheckpoint:
+        if self._is_company_runtime_suspend_checkpoint(checkpoint.checkpoint_type):
+            # Company recovery is identified by its run/WorkItems and root
+            # chat session. It is not a legacy Native execution session.
+            # In particular, looking up its card must not rewrite a Task
+            # protected by another controller's run/attempt fence.
+            return checkpoint
         payload = dict(checkpoint.payload or {})
         runtime_state = dict(payload.get("runtime_v2", {}) or {})
         if runtime_state.get("runtime_session_id"):
@@ -5681,6 +5711,7 @@ class OPCEngine:
     async def _assign_task_execution_agent(self, task: Task, role: Any | None = None) -> str | None:
         assert self.org_engine
         task.metadata = dict(task.metadata)
+        validate_company_execution_agent(task)
         if requires_native_company_execution(task):
             task.assigned_external_agent = None
             task.metadata.update(
@@ -5790,13 +5821,10 @@ class OPCEngine:
                 external_failure_policy = str(
                     task.metadata.get("external_failure_policy") or "fail_closed"
                 ).strip().lower()
-                if (
-                    task.metadata.get("external_company_execution_allowed") is True
-                    and external_failure_policy != "fallback_native"
-                ):
+                if external_failure_policy != "fallback_native":
                     raise RuntimeError(
-                        "company work item requires unavailable external agent "
-                        f"{locked_agent!r}; binding policy is fail_closed"
+                        f"Selected execution agent '{locked_agent}' is unavailable; "
+                        "execution policy is fail_closed. No alternate agent was started."
                     )
                 # A locked external backend that cannot run must not be
                 # stamped as execution identity: this attempt actually runs
@@ -5872,6 +5900,7 @@ class OPCEngine:
             requires_native_company_execution(task)
             or not self.adapter_registry
             or not self._should_use_external_pool(task)
+            or explicit_execution_agent(task) == "native"
         ):
             return []
         preferred = task.assigned_external_agent
@@ -5880,6 +5909,9 @@ class OPCEngine:
             return ordered
 
         preferred_adapter = self.adapter_registry.get(preferred)
+        if explicit_execution_agent(task):
+            available_names = {name for name, _adapter in ordered}
+            return [(preferred, preferred_adapter)] if preferred_adapter and preferred in available_names else []
         if not preferred_adapter:
             return ordered
 
@@ -6014,6 +6046,7 @@ class OPCEngine:
             **previous_defaults,
             "mode": decision.mode.value,
             "company_profile": decision.company_profile or previous_defaults.get("company_profile", ""),
+            "org_id": str(decision.org_id or "") if decision.mode == ExecutionMode.COMPANY_MODE else "",
             "preferred_agent": decision.preferred_agent or previous_defaults.get("preferred_agent", ""),
             "target_output_dir": target_output_dir or previous_defaults.get("target_output_dir", ""),
             "workspace_root": workspace_root or previous_defaults.get("workspace_root", ""),
@@ -6025,6 +6058,11 @@ class OPCEngine:
         }
         metadata["native_approval_level"] = native_approval_level
         metadata["native_permission_scope_id"] = native_permission_scope_id
+        if decision.mode == ExecutionMode.COMPANY_MODE and decision.company_profile == "custom":
+            org_id = validate_organization_id(str(decision.org_id or ""))
+            metadata.update(exec_mode="org", company_profile="custom", org_id=org_id, organization_id=org_id)
+        elif decision.mode == ExecutionMode.COMPANY_MODE:
+            metadata.update(exec_mode="company", company_profile="corporate", org_id="", organization_id="")
         session.metadata = metadata
         session.updated_at = datetime.now()
         await self.store.save_session(session)
@@ -6101,9 +6139,17 @@ class OPCEngine:
                 or session_id
             ).strip(),
         })
-        if exec_mode != "org":
+        if exec_mode == "org":
+            org_id = validate_organization_id(str(decision.org_id or ""))
+            task.org_id = org_id
+            metadata.update(org_id=org_id, organization_id=org_id)
+        else:
+            task.org_id = None
             metadata.pop("org_id", None)
             metadata.pop("organization_id", None)
+        strategy = dict(getattr(decision, "metadata", {}) or {}).get("company_team_strategy")
+        if strategy:
+            metadata["company_team_strategy"] = strategy
         if original_message:
             metadata["original_message"] = original_message
         if origin_channel:
@@ -7715,7 +7761,11 @@ class OPCEngine:
                 ) and external_session_status_allows_resume(
                     gate_external_session.get("status")
                 )
-                if not has_resumable_external_session:
+                pinned_explicitly = bool(
+                    identity.get("execution_agent_locked")
+                    or explicit_execution_agent(task) == pinned_agent
+                )
+                if not has_resumable_external_session and not pinned_explicitly:
                     # The pin is a preference, not a fact: this work item has
                     # no external session to revive, so dispatch would run it
                     # natively anyway (availability fallback). Heal the
@@ -11341,6 +11391,8 @@ class OPCEngine:
         if decision.mode == ExecutionMode.COMPANY_MODE:
             if not decision.company_profile and previous_profile:
                 decision.company_profile = previous_profile
+            if decision.company_profile == previous_profile == "custom" and not decision.org_id:
+                decision.org_id = str(defaults.get("org_id") or "").strip() or None
             if previous_agent and decision.preferred_agent is None:
                 decision.preferred_agent = previous_agent
             return decision
@@ -11352,6 +11404,8 @@ class OPCEngine:
         ):
             decision.mode = ExecutionMode.COMPANY_MODE
             decision.company_profile = decision.company_profile or previous_profile
+            if decision.company_profile == previous_profile == "custom" and not decision.org_id:
+                decision.org_id = str(defaults.get("org_id") or "").strip() or None
             if previous_agent and decision.preferred_agent is None:
                 decision.preferred_agent = previous_agent
             suffix = " Continuing the prior company-mode session by default."
@@ -11904,6 +11958,16 @@ class OPCEngine:
         attempts: list[dict[str, Any]] = []
         policy_native_fallback_agent = ""
         candidates = self._get_external_candidates(task)
+        requested_agent = explicit_execution_agent(task)
+        if requested_agent and requested_agent != "native" and (
+            not candidates or candidates[0][0] != requested_agent
+        ):
+            return TaskResult(
+                status=TaskStatus.FAILED,
+                content=f"Selected execution agent '{requested_agent}' is unavailable or cannot run "
+                "within this task's execution boundary. No alternate agent was started.",
+                artifacts={"selected_execution_agent": requested_agent, "external_fallback_to_native": False},
+            )
         scoped_progress = self._make_task_progress_callback(task)
         if candidates:
             self._apply_task_mode_external_timeout_defaults(task)
@@ -12029,6 +12093,8 @@ class OPCEngine:
                     )
                     return result
                 if self._external_result_denied_by_user(result):
+                    if explicit_user_selected_agent:
+                        return result
                     logger.info(
                         f"User denied external agent {agent_name} for task {task.id}, falling back to native agent"
                     )
@@ -16671,7 +16737,9 @@ class OPCEngine:
                 decision["human_feedback_text"] = text
         elif checkpoint_type == "company_staffing_selection":
             if not decision.get("staffing_action"):
-                if normalized in {"auto", "auto recruit", "auto_recruit"}:
+                if normalized in {"auto team", "auto_team", "auto team recruit", "自动组队", "自动组建团队"}:
+                    decision["staffing_action"] = "auto_team"
+                elif normalized in {"auto", "auto recruit", "auto_recruit"}:
                     decision["staffing_action"] = "auto_recruit"
                 elif normalized in {"deny", "denied", "reject", "no"}:
                     decision["staffing_action"] = "deny"
@@ -19884,6 +19952,7 @@ class OPCEngine:
         staffing_action = str(reply_metadata.get("staffing_action", "") or "").strip().lower()
         approved_tokens = {"1", "y", "yes", "ok", "okay", "approve", "approved", "confirm", "continue", "proceed", "go"}
         auto_tokens = {"auto", "auto_recruit", "auto recruit", "automatic", "automatic recruitment", "recruit"}
+        adaptive_tokens = {"auto team", "auto_team", "auto team recruit", "自动组队", "自动组建团队"}
         denied_tokens = {"2", "n", "no", "deny", "denied", "reject", "rejected", "stop", "cancel", "abort"}
 
         decision = self._deserialize_router_decision(dict(payload.get("decision", {})))
@@ -19909,15 +19978,19 @@ class OPCEngine:
         origin_task_id = str(payload.get("origin_task_id", "")).strip() or None
         attachment_refs = self._normalize_attachment_refs(payload.get("attachment_refs", []))
 
-        if staffing_action == "auto_recruit" or normalized in auto_tokens:
-            try:
-                compiled_teams, role_agent_overrides = self._apply_staffing_external_team_bindings(
-                    payload,
-                    reply_metadata,
-                )
-            except ValueError as exc:
-                return f"Could not apply JiuwenSwarm-team staffing: {exc}"
-            await self._publish_external_team_bindings_changed(compiled_teams)
+        if staffing_action in {"auto_recruit", "auto_team"} or normalized in auto_tokens | adaptive_tokens:
+            adaptive_team = staffing_action == "auto_team" or normalized in adaptive_tokens
+            if adaptive_team:
+                role_agent_overrides = self._staffing_role_agent_overrides(payload, reply_metadata)
+            else:
+                try:
+                    compiled_teams, role_agent_overrides = self._apply_staffing_external_team_bindings(
+                        payload,
+                        reply_metadata,
+                    )
+                except ValueError as exc:
+                    return f"Could not apply JiuwenSwarm-team staffing: {exc}"
+                await self._publish_external_team_bindings_changed(compiled_teams)
             # Preserve dormant descendant choices through recruitment; only
             # the final execution graph removes roles covered by a Team.
             recruitment_agent = normalize_recruitment_agent_choice(
@@ -19937,6 +20010,7 @@ class OPCEngine:
                 force_confirmation=True,
                 role_agent_overrides=role_agent_overrides,
                 recruitment_agent=recruitment_agent,
+                adaptive_team=adaptive_team,
                 conversation_turn_id=str(
                     payload.get("conversation_turn_id", "") or ""
                 ).strip() or None,
@@ -20167,6 +20241,20 @@ class OPCEngine:
         attachment_refs = self._normalize_attachment_refs(payload.get("attachment_refs", []))
 
         if reply_kind == "approve" or (reply_kind != "feedback" and normalized in approved_tokens):
+            if recruitment_plan.metadata.get("adaptive_team_plan"):
+                from opc.layer2_organization.custom_runtime import CustomRuntimeRunner
+
+                return await CustomRuntimeRunner(self).execute_adaptive_team(
+                    recruitment_plan, decision, runtime_spec, original_message,
+                    staffing_selections=reply_metadata.get("staffing_selections"),
+                    role_agent_overrides=role_agent_overrides,
+                    session_id=session_id, origin_channel=origin_channel,
+                    origin_chat_id=origin_chat_id, origin_thread_id=origin_thread_id,
+                    origin_task_id=origin_task_id, attachment_refs=attachment_refs,
+                    conversation_turn_id=str(payload.get("conversation_turn_id", "") or "").strip() or None,
+                    conversation_turn_sequence=int(payload.get("conversation_turn_sequence", 0) or 0),
+                    origin_interaction_lease=origin_interaction_lease,
+                )
             try:
                 compiled_teams, role_agent_overrides = self._apply_staffing_external_team_bindings(
                     payload,
@@ -20385,7 +20473,8 @@ class OPCEngine:
         feedback_history = list(recruitment_plan.recruiter_feedback)
         feedback_history.append(feedback)
         recruitment_scope: dict[str, Any] = {}
-        if decision.mode == ExecutionMode.COMPANY_MODE:
+        adaptive_team = bool(recruitment_plan.metadata.get("adaptive_team_plan"))
+        if decision.mode == ExecutionMode.COMPANY_MODE and not adaptive_team:
             compiled_teams, role_agent_overrides = self._apply_staffing_external_team_bindings(
                 {}, {"recruitment_role_agents": role_agent_overrides},
             )
@@ -20394,16 +20483,32 @@ class OPCEngine:
             recruitment_scope["externally_staffed_role_ids"] = {
                 role_id for team in compiled_teams for role_id in team.covered_role_ids
             }
-        recruitment_llm, selected_recruitment_agent = self._resolve_recruitment_llm(recruitment_agent)
-        revised_plan = await self.company_recruiter.build_recruitment_plan(
-            runtime_spec,
-            domains=decision.domains,
-            project_id=self.project_id or "default",
-            recruiter_feedback=feedback_history,
-            recruitment_llm=recruitment_llm,
-            recruitment_agent=selected_recruitment_agent,
-            **recruitment_scope,
+        adaptive_root = None
+        if adaptive_team:
+            from opc.layer2_organization.adaptive_team import AdaptiveTeamPlan
+
+            adaptive_root = AdaptiveTeamPlan.model_validate(recruitment_plan.metadata["adaptive_team_plan"]).root_id
+        recruitment_llm, selected_recruitment_agent = self._resolve_recruitment_llm(
+            self._company_recruitment_agent(decision, role_agent_overrides, root_role_id=adaptive_root)
         )
+        if adaptive_team:
+            revised_plan = await self.company_recruiter.build_team_recruitment_plan(
+                runtime_spec, project_id=self.project_id or "default", recruiter_feedback=feedback_history,
+                recruitment_llm=recruitment_llm, recruitment_agent=selected_recruitment_agent,
+            )
+            revised_plan.metadata["adaptive_organization_id"] = recruitment_plan.metadata["adaptive_organization_id"]
+        else:
+            revised_plan = await self.company_recruiter.build_recruitment_plan(
+                runtime_spec,
+                domains=decision.domains,
+                project_id=self.project_id or "default",
+                recruiter_feedback=feedback_history,
+                recruitment_llm=recruitment_llm,
+                recruitment_agent=selected_recruitment_agent,
+                **recruitment_scope,
+            )
+        for proposal in revised_plan.proposals:
+            proposal.metadata["selected_execution_agent"] = selected_recruitment_agent
         apply_recruitment_role_agent_overrides(
             revised_plan,
             role_agent_overrides,

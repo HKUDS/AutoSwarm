@@ -194,7 +194,7 @@ class InteractionCoordinator:
             return ""
         if checkpoint_type == "company_staffing_selection":
             action = str(decision.get("staffing_action", "") or "").strip().lower()
-            if action not in {"manual_approve", "auto_recruit", "deny"}:
+            if action not in {"manual_approve", "auto_recruit", "auto_team", "deny"}:
                 return "invalid_staffing_action"
             if not staffing_selections_are_valid(required=action == "manual_approve"):
                 return "invalid_staffing_selections"
