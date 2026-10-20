@@ -1,14 +1,14 @@
 # AutoSwarm v2 实现架构
 
-AutoSwarm 将一次委派变成原生 CLI 调用，将返回值送回发起它的主会话。主 agent 负责分工、选择 agent、管理工作区、判断结果及后续动作。主子角色属于当前调用；Codex、Claude Code、OpenCode 都可以处于任一角色。
+AutoSwarm 将一次委派变成原生 CLI 调用，将返回值送回发起它的主会话。主 agent 负责分工、选择 agent、管理工作区、判断结果及后续动作。主子角色属于当前调用；支持 Codex、Claude Code、OpenCode、Cursor、GitHub Copilot CLI、Meta Muse Code 和 CodeBuddy。
 
 ## 层级与文件
 
 | 层 | 实现 | 职责与理由 |
 | --- | --- | --- |
-| 宿主入口 | `assets/SKILL.md`、`setup.py` | 安装 Skill、可搬迁运行文件及宿主集成；把实际启动 argv 写入安装后的 Skill，减少 GUI PATH 差异 |
+| 宿主入口 | `assets/skill-template.md`、`setup.py` | 安装唯一的 Skill 入口、可搬迁运行文件及宿主集成；把实际启动 argv 写入安装后的 Skill，减少 GUI PATH 差异 |
 | 统一工具 | `cli.py`、`engine.py` | 提供 run、wait、receive、resume、cancel、inspect；让模型通过一个接口调用本地 agents |
-| 原生 agent 适配 | `providers.py`、`native.py` | 构造 argv，以原生双向接口传递任务、批准和结果，保留 session ID |
+| 原生 agent 适配 | `providers.py`、`native.py`、`acp.py`、`muse.py` | 构造 argv，以原生双向接口传递任务、批准和结果，保留 session ID；同一 ACP 客户端供多个产品复用 |
 | 批准交接 | `approvals.py` | 每个请求独立保存、回传及回复，主 agent 可配置代批；复用现有宿主通道 |
 | 调用执行 | `runner.py`、`platform.py` | 每次调用独立运行，收集最终结果、处理取消和进程身份；无需常驻调度服务 |
 | 原主会话回传 | `hosts.py`、`wire.py`、`hooks.py`、`assets/opencode.js` | 连接实际原主会话，处理等待、忙碌、空闲三个场景；宿主能力与子 agent 品牌相互独立 |
@@ -33,13 +33,27 @@ MCP 不作为当前依赖。CLI 已经给支持命令工具的宿主提供统一
 
 首次使用或指定 agent 不可用时，Skill 引导主 agent 检查已有命令、PATH 和 App 暴露的 CLI。确实缺少时询问用户是否安装该 agent 的官方 CLI，同意后按其系统的当前官方说明安装，复查 agents 后继续原任务。已有 CLI 可直接配置路径；认证或权限错误不当作缺少安装。发现和启动失败都会提供诊断，不增加安装服务或另一个状态机，也不自动安装所有产品。
 
+agents/doctor 的快速发现只报告 executable 检查，invocation_verified 默认 false。显式 doctor --agent NAME --probe 使用正常调用和 resume，在当前 AutoSwarm 配置、实际项目目录及原生环境中验证回复和会话记忆；不换成丢失项目配置的临时环境。验证是一次事实，不是永久认证状态。已安装运行时的模板使用普通文件名，并清理旧版嵌套 SKILL.md；从已安装启动器再次安装仍然可用。
+
+CLI 的 --background 仅控制工具是否立即返回，默认 return_mode=wait。--notify-parent 显式开启原生回传；没有可用原主绑定时直接提示使用 wait/receive。普通任务在当前轮派发、收取、处理批准并汇总，不依赖唤醒接口。底层原生回传能力继续用于已验证宿主。
+
 ## 原生批准交接
+
+Cursor、Copilot、CodeBuddy 共用 stdio ACP 客户端：initialize 协商，session/new 或 session/load 后发起 session/prompt，以 prompt 响应的 stopReason 判断最终状态；旧历史回放不混入新结果。session/request_permission 复用同一个批准 Broker，按原生 optionId 回答。allow_always 可能持久化，不能冒充会话级授权；当前只转交一次性批准。
+
+Muse 使用原生 MSP：initialize、session/start 或 session/resume、turn/start，以 turn/completed 判断结束。approval/request 的展示回执与 approval/decide 的实际决定分开；保留 currentRequirementId，批准阶段变化后撤回旧请求。每个写入命令生成原生要求的 UUIDv7 幂等键，选择与授权范围一致的原生选项。
+
+这四种新主宿主安装同一个 Skill，在当前轮 run/wait 收取结果与批准。没有加入空闲 App 唤醒接口，也不把 CLI 成功当作 GUI 侧边栏可见性的证明。
 
 Codex 子端使用自有 app-server 的 stdio JSON-RPC，接收 commandExecution、fileChange、permissions 的 requestApproval，在同一连接、同一请求 ID 上回复。该连接属于本次子调用，与向主 Codex 会话投递消息的连接分开。
 
 Claude 子端使用与原生 SDK 相同的双向 stream-JSON 控制协议，`--permission-prompt-tool stdio` 接收 can_use_tool 请求，回写 control_response。启动时保留原生系统提示、设置来源和权限模式，不引入 SDK 的额外依赖或默认配置。相较于让同步 PermissionRequest hook 长期等人，这条通道避免新增 hook 等待生命周期。
 
-OpenCode 子端启动本次调用自有的 `serve --hostname 127.0.0.1 --port 0`，先订阅该服务的原生 SSE，再提交任务。permission.asked 产生请求；原生 reply 接口回复决定。最终 assistant 响应结束本次调用，runner 回收自己启动的服务。无需用户部署或管理常驻服务，也不附着到猜测的已有服务。
+OpenCode 子端用操作系统选择的本机端口启动本次调用自有的 serve，通过 /global/health 和 /doc 确认服务及必要接口，再创建会话、订阅 SSE 并提交任务。启动文字及 stdout/stderr 位置不参与就绪判断。端口选择与实际绑定之间存在竞争窗口，原生绑定失败会作为启动失败暴露，不接管其他进程。permission.asked 产生请求；原生 reply 接口回复决定。最终 assistant 响应结束调用，runner 回收自有服务。无需用户部署或管理常驻服务。
+
+本机 HTTP 控制及 SSE 使用相同认证和代理策略：沿用原生服务密码，loopback 绕过外网代理；远端模型请求继续由原生产品处理。明确的 HTTP 认证、协议和连接错误保留发生阶段与接口依据；尚未就绪时 handle.phase、endpoint 和 diagnostic 可检查，取消不依赖握手完成。不增加固定启动截止时间；进程存活本身不视为调用已验证。原生 API 不满足适配器时明确报告版本/协议问题，不通过重复安装认证掩盖。
+
+冷启动服务可能接收连接但不回答第一次健康请求，因此单次健康 GET 会让出并重试。这个网络轮询不限制总启动等待、模型任务或批准等待；正常消息 POST 不自动重试，避免重复执行。
 
 `approvals/approval_ID/request.json` 保存原生请求、原生会话/请求 ID、工作目录和可用批准范围。主工具收到 `kind: approval_required`；主会话忙、闲及等待时均复用现有回传机制。批准通知使用独立交付凭据，不能标记最终结果已收到。前台同时到达多个请求时完整返回数组。
 

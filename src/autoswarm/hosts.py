@@ -57,7 +57,7 @@ def http_headers(parent: dict) -> dict:
     return headers
 
 
-def _http(parent: dict, method: str, path: str, body=None):
+def open_http(parent: dict, method: str, path: str, body=None, *, timeout=None):
     endpoint = parent.get("endpoint", "")
     if not endpoint.startswith(("http://", "https://")):
         raise SwarmError("invalid_endpoint", "OpenCode host requires its existing HTTP server endpoint")
@@ -66,7 +66,14 @@ def _http(parent: dict, method: str, path: str, body=None):
     headers = http_headers(parent)
     query = "?directory=" + urllib.parse.quote(parent["workspace"], safe="") if parent.get("workspace") else ""
     request = urllib.request.Request(endpoint.rstrip("/") + path + query, data=None if body is None else json.dumps(body).encode(), headers=headers, method=method)
-    with urllib.request.urlopen(request) as response:
+    # The native loopback control channel must not follow a model/API proxy.
+    host = urllib.parse.urlsplit(endpoint).hostname
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({})) if host in {"127.0.0.1", "localhost", "::1"} else urllib.request.build_opener()
+    return opener.open(request, timeout=timeout)
+
+
+def _http(parent: dict, method: str, path: str, body=None, *, timeout=None):
+    with open_http(parent, method, path, body, timeout=timeout) as response:
         value = response.read()
         return json.loads(value) if value else None
 

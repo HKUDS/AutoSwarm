@@ -35,7 +35,7 @@ def main():
     write_json(settings, value)
     marker = "AUTOSWARM_CLAUDE_RETURN_" + uuid.uuid4().hex
     gate = root / "release"
-    command = shlex.join([*integration["launcher"], "run", "--agent", "codex", "--cwd", str(root), "--background", "--input", str(root / "task.txt")])
+    command = shlex.join([*integration["launcher"], "run", "--agent", "codex", "--cwd", str(root), "--background", "--notify-parent", "--input", str(root / "task.txt")])
     (root / "task.txt").write_text("gate:" + str(gate) + "\n" + marker, encoding="utf-8")
     prompt = "This is an isolated AutoSwarm native-hook test. Use Bash once to run this exact command:\n" + command + "\nThen reply SUBMITTED and stop this turn. Do not wait, poll, or run any other tools. When the asynchronous AutoSwarm result arrives later, reply with only its AUTOSWARM_CLAUDE_RETURN phrase."
     env = engine.runtime_env(records)

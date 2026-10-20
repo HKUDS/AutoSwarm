@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import __version__, engine, approvals
 from .hosts import deliver, detect_parent
-from .providers import discover
+from .providers import BINARIES, discover
 from .records import Records, SwarmError, read_json, write_json
 
 
@@ -21,6 +21,10 @@ def parser() -> argparse.ArgumentParser:
     for name in ("agents", "doctor"):
         item = commands.add_parser(name)
         item.add_argument("--json", action="store_true", help="JSON is also the default")
+        if name == "doctor":
+            item.add_argument("--agent", action="append", help="Provider to check; repeat to select several")
+            item.add_argument("--probe", action="store_true", help="Spend model calls to verify invocation and native resume")
+            item.add_argument("--cwd", default=os.getcwd(), help="Native project/config context for the probe")
     for name in ("run", "resume"):
         item = commands.add_parser(name)
         if name == "run":
@@ -31,6 +35,7 @@ def parser() -> argparse.ArgumentParser:
         item.add_argument("prompt", nargs="?")
         item.add_argument("--input", help="UTF-8 prompt file; '-' reads stdin")
         item.add_argument("--background", action="store_true")
+        item.add_argument("--notify-parent", action="store_true", help="Opt into callbacks through the original host binding; background execution alone uses wait/receive")
         item.add_argument("--model")
         item.add_argument("--provider-arg", action="append", default=None, help="Native argument; use --provider-arg=--flag")
         item.add_argument("--delegate-approvals", choices=["on", "off"], help="Override parent approval delegation for this child (default: config, on)")
@@ -76,7 +81,7 @@ def parser() -> argparse.ArgumentParser:
     item.add_argument("--token-env")
     item.add_argument("--workspace")
     item = commands.add_parser("setup")
-    item.add_argument("--host", choices=["codex", "claude-code", "opencode"], required=True)
+    item.add_argument("--host", choices=list(BINARIES), required=True)
     item.add_argument("--skill-dir")
     item.add_argument("--settings-file", help="Claude settings.json; merged with existing settings")
     item.add_argument("--plugin-dir", help="OpenCode plugin destination")
@@ -109,15 +114,30 @@ def prompt_from(args) -> str:
 def dispatch(args, records: Records):
     name = args.command
     if name in {"agents", "doctor"}:
-        value = {"agents": discover(records.config()), "home": str(records.home)}
+        value = {"agents": discover(records.config(), args.agent if name == "doctor" else None), "home": str(records.home)}
         if name == "doctor":
+            if args.probe:
+                if not args.agent:
+                    raise SwarmError("invalid_input", "Select the providers to test with --agent; --probe spends model calls")
+                from .doctor import probe
+                value["probes"] = [probe(records, agent["provider"], args.cwd) for agent in value["agents"]]
+                value["verified"] = bool(value["probes"]) and all(result["verified"] for result in value["probes"])
+                for agent, result in zip(value["agents"], value["probes"]):
+                    agent["invocation_verified"] = result["verified"]
             value["parent"] = detect_parent()
             value["note"] = "Executable checks do not spend model calls or prove authentication. Native return requires a host binding or installed lifecycle integration."
         return value
     if name in {"run", "resume"}:
         prompt = prompt_from(args)
         parent = engine.parent_from_options(args.parent, args.no_parent)
-        common = {"parent": parent, "model": args.model, "provider_args": args.provider_arg, "return_mode": "native" if args.background else "wait", "delegate_approvals": None if args.delegate_approvals is None else args.delegate_approvals == "on"}
+        callback_parent = parent
+        if name == "resume" and parent is None and not args.no_parent:
+            callback_parent = records.require(args.call_id)[1].get("parent")
+        if args.notify_parent and not args.background:
+            raise SwarmError("invalid_input", "Use --notify-parent with --background, or collect the foreground result directly")
+        if args.notify_parent and (not callback_parent or (callback_parent.get("mode") != "hook" and not callback_parent.get("endpoint") and callback_parent.get("host") != "command")):
+            raise SwarmError("parent_endpoint_required", "--notify-parent needs a usable original host binding. Omit it and collect results with wait/receive.")
+        common = {"parent": parent, "model": args.model, "provider_args": args.provider_arg, "return_mode": "native" if args.notify_parent else "wait", "delegate_approvals": None if args.delegate_approvals is None else args.delegate_approvals == "on"}
         info = engine.start_call(records, args.agent, prompt, args.cwd, **common) if name == "run" else engine.resume(records, args.call_id, prompt, inherit_parent=not args.no_parent, **common)
         if args.background:
             return info

@@ -33,16 +33,25 @@ function client(state) {
 test("idle original session continues without another user prompt", async () => {
   const state = { prompts: [], logs: [], checked: 0, busy: false };
   const plugin = await AutoSwarm({ client: client(state) });
-  await plugin.tool.autoswarm.execute({ arguments: ["run", "--background"] }, { sessionID: "original" });
+  await plugin.tool.autoswarm.execute({ arguments: ["run", "--background", "--notify-parent"] }, { sessionID: "original" });
   await awaitCondition(() => state.prompts.length === 1);
   assert.equal(state.prompts[0].path.id, "original");
   assert.match(state.prompts[0].body.parts[0].text, /CHILD_RESULT/);
 });
 
+test("background collection does not require or trigger a callback", async () => {
+  const state = { prompts: [], logs: [], checked: 0, busy: false };
+  const plugin = await AutoSwarm({ client: client(state) });
+  const returned = JSON.parse(await plugin.tool.autoswarm.execute({ arguments: ["run", "--background"] }, { sessionID: "original" }));
+  assert.equal(returned.data.return_mode, "wait");
+  await plugin.event({ event: { type: "session.idle", properties: { sessionID: "original" } } });
+  assert.equal(state.prompts.length, 0);
+});
+
 test("busy session defers return until its native idle event", async () => {
   const state = { prompts: [], logs: [], checked: 0, busy: true };
   const plugin = await AutoSwarm({ client: client(state) });
-  await plugin.tool.autoswarm.execute({ arguments: ["run", "--background"] }, { sessionID: "original" });
+  await plugin.tool.autoswarm.execute({ arguments: ["run", "--background", "--notify-parent"] }, { sessionID: "original" });
   await awaitCondition(() => state.checked > 0);
   assert.equal(state.prompts.length, 0);
   state.busy = false;
@@ -54,7 +63,7 @@ test("busy session defers return until its native idle event", async () => {
 test("failed native return retains pending output for a later idle event", async () => {
   const state = { prompts: [], logs: [], checked: 0, busy: false, fail: true };
   const plugin = await AutoSwarm({ client: client(state) });
-  await plugin.tool.autoswarm.execute({ arguments: ["run", "--background"] }, { sessionID: "original" });
+  await plugin.tool.autoswarm.execute({ arguments: ["run", "--background", "--notify-parent"] }, { sessionID: "original" });
   await awaitCondition(() => state.logs.length > 0);
   state.fail = false;
   await plugin.event({ event: { type: "session.idle", properties: { sessionID: "original" } } });
@@ -76,7 +85,7 @@ test("approval notification is followed by the final result in the same parent s
   try {
     const state = { prompts: [], logs: [], checked: 0, busy: true };
     const plugin = await AutoSwarm({ client: client(state) });
-    await plugin.tool.autoswarm.execute({ arguments: ["run", "--background", "--approval-sequence"] }, { sessionID: "original" });
+    await plugin.tool.autoswarm.execute({ arguments: ["run", "--background", "--notify-parent", "--approval-sequence"] }, { sessionID: "original" });
     await awaitCondition(() => state.checked > 0);
     assert.equal(state.prompts.length, 0);
     state.busy = false;

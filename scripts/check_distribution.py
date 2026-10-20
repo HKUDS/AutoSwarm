@@ -11,6 +11,8 @@ import tempfile
 from pathlib import Path
 
 
+PROVIDERS = ("codex", "claude-code", "opencode", "cursor", "copilot", "muse", "codebuddy")
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("program", nargs=argparse.REMAINDER, help="-- /absolute/path/to/autoswarm")
@@ -24,7 +26,7 @@ def main():
         root = Path(temporary)
         home = root / "state"
         home.mkdir()
-        (home / "config.json").write_text(json.dumps({"providers": {name: {"command": [sys.executable, str(fixture), name]} for name in ("codex", "claude-code", "opencode")}}), encoding="utf-8")
+        (home / "config.json").write_text(json.dumps({"providers": {name: {"command": [sys.executable, str(fixture), name]} for name in PROVIDERS}}), encoding="utf-8")
         env = dict(os.environ, PYTHONPATH="", AUTOSWARM_HOME=str(home))
         env.pop("AUTOSWARM_PARENT", None)
         env.pop("CODEX_THREAD_ID", None)
@@ -34,7 +36,7 @@ def main():
             value = json.loads(process.stdout)
             assert value["ok"], value
             return value["data"]
-        for provider in ("codex", "claude-code", "opencode"):
+        for provider in PROVIDERS:
             result = invoke(["run", "--agent", provider, "--no-parent", "--cwd", str(root), "安装包测试🐝"])
             assert result["outcome"] == "completed", result
             assert result["content"].startswith("安装包测试🐝"), result
@@ -42,9 +44,10 @@ def main():
             assert resumed["native_session_id"] == result["native_session_id"], resumed
             assert resumed["outcome"] == "completed", resumed
         assert invoke(["config"])["delegate_approvals"] is True
-        for provider in ("codex", "claude-code", "opencode"):
+        for provider in PROVIDERS:
             marker = root / (provider + "-approved")
             call = invoke(["run", "--agent", provider, "--no-parent", "--background", "--cwd", str(root), "approval:" + str(marker)])
+            assert call["return_mode"] == "wait", call
             request = invoke(["wait", call["call_id"]])[0]
             assert request.get("kind") == "approval_required" and not marker.exists(), request
             invoke(["approve", call["call_id"], request["request_id"]])
@@ -53,16 +56,20 @@ def main():
         assert invoke(["config", "--delegate-approvals", "off"])["delegate_approvals"] is False
         assert invoke(["config", "--delegate-approvals", "on"])["delegate_approvals"] is True
         codex = invoke(["setup", "--host", "codex", "--skill-dir", str(root / "codex-skill")])
+        assert list((root / "codex-skill").rglob("SKILL.md")) == [root / "codex-skill/SKILL.md"]
+        assert (root / "codex-skill/references/setup.md").is_file()
         # Reinstall from the Skill's own launcher.
         invoke(["setup", "--host", "codex", "--skill-dir", str(root / "codex-skill")], command=codex["launcher"])
         result = invoke(["run", "--agent", "codex", "--no-parent", "--cwd", str(root), "installed launcher"], command=codex["launcher"])
         assert result["outcome"] == "completed", result
+        checked = invoke(["doctor", "--agent", "opencode", "--probe", "--cwd", str(root)], command=codex["launcher"])
+        assert checked["verified"], checked
         settings = root / "claude/settings.json"
         invoke(["setup", "--host", "claude-code", "--skill-dir", str(root / "claude-skill"), "--settings-file", str(settings)])
         assert json.loads(settings.read_text(encoding="utf-8"))["hooks"]["PostToolUse"][0]["hooks"][0]["asyncRewake"]
         plugin = invoke(["setup", "--host", "opencode", "--skill-dir", str(root / "opencode-skill"), "--plugin-dir", str(root / "plugins")])
         assert "__AUTOSWARM_COMMAND__" not in Path(plugin["plugin"]).read_text(encoding="utf-8")
-    print("Distribution passed: three native transports, approval round trips, delegation config, native resume, installed launchers, reinstall and bundled host integrations")
+    print("Distribution passed: seven providers, approval round trips, delegation config, native resume, installed launchers, reinstall and bundled host integrations")
 
 
 if __name__ == "__main__":

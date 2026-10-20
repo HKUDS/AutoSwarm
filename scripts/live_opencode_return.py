@@ -10,6 +10,7 @@ import sys
 import tempfile
 import time
 import uuid
+from urllib.error import HTTPError
 from pathlib import Path
 
 from autoswarm import engine
@@ -37,7 +38,7 @@ def main():
     gate = root / "release"
     task = root / "task.txt"
     task.write_text("Reply with only " + marker + ". Do not use tools." if args.real_child else "gate:" + str(gate) + "\n" + marker, encoding="utf-8")
-    argv = ["run", "--agent", "opencode" if args.real_child else "codex", "--cwd", str(root), "--background", "--input", str(task)]
+    argv = ["run", "--agent", "opencode" if args.real_child else "codex", "--cwd", str(root), "--background", "--notify-parent", "--input", str(task)]
     prompt = "This is an isolated AutoSwarm plugin test. Use the autoswarm tool once with arguments " + json.dumps(argv) + ". Then reply SUBMITTED and stop this turn. Do not wait, poll, or use any other tools. When the asynchronous AutoSwarm result arrives, reply with only its AUTOSWARM_OPENCODE_RETURN phrase."
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -51,22 +52,16 @@ def main():
     with (root / "server.log").open("wb") as log:
         process = subprocess.Popen(["opencode", "serve", "--hostname", "127.0.0.1", "--port", str(port), "--print-logs"], cwd=root, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=log)
         try:
-            while "server listening on" not in (root / "server.log").read_text(encoding="utf-8", errors="replace"):
-                if process.poll() is not None:
-                    raise RuntimeError("Native OpenCode exited before readiness")
-                time.sleep(0.1)
-            previous_timeout = socket.getdefaulttimeout()
             while True:
                 try:
-                    socket.setdefaulttimeout(1)  # Readiness probe only, not a task limit.
-                    _http(parent, "GET", "/global/health")
+                    _http({"endpoint": parent["endpoint"]}, "GET", "/global/health", timeout=.5)
                     break
+                except HTTPError:
+                    raise
                 except OSError:
                     if process.poll() is not None:
                         raise RuntimeError("Native OpenCode exited; inspect " + str(root / "server.log"))
                     time.sleep(0.1)
-                finally:
-                    socket.setdefaulttimeout(previous_timeout)
             tools = _http(parent, "GET", "/experimental/tool/ids")
             if "autoswarm" not in tools:
                 raise RuntimeError("Native OpenCode did not load the installed autoswarm tool")

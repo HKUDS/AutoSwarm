@@ -92,12 +92,12 @@ export const AutoSwarm = async ({ client, directory }) => {
   return {
     tool: {
       autoswarm: tool({
-        description: "Run the AutoSwarm CLI with argv entries. Background child results return to this original session automatically.",
+        description: "Run AutoSwarm with argv entries. Collect parallel calls with wait; add --notify-parent to return events to this original session automatically.",
         args: { arguments: tool.schema.array(tool.schema.string()) },
         async execute(args, context) {
           const parent = { host: "opencode", session_id: context.sessionID, mode: "hook", workspace: directory, host_instance: hostInstance };
           const value = await invoke(args.arguments, parent);
-          if (value.data?.call_id && args.arguments.includes("--background")) watch(value.data.call_id, context.sessionID);
+          if (value.data?.call_id && value.data.return_mode === "native" && args.arguments.includes("--background")) watch(value.data.call_id, context.sessionID);
           return JSON.stringify(value);
         },
       }),

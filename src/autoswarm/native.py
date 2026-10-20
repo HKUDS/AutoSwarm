@@ -2,15 +2,17 @@
 from __future__ import annotations
 
 import json
-import re
+import errno
 import threading
 import urllib.parse
 import urllib.request
+import urllib.error
 from dataclasses import dataclass, field
 
 from . import platform
 from .approvals import Broker
 from .records import SwarmError
+from .providers import ACP_PROVIDERS
 
 
 @dataclass
@@ -18,6 +20,7 @@ class Output:
     session_id: str | None = None
     content: str = ""
     error: str | None = None
+    error_code: str | None = None
     terminal: bool = False
     permission_denials: list = field(default_factory=list)
     finish_reason: str | None = None
@@ -25,17 +28,27 @@ class Output:
 
 
 class Native:
-    def __init__(self, records, task, process, output, session_changed):
+    def __init__(self, records, task, process, output, session_changed, progress=lambda phase, **details: None):
         self.task, self.process, self.output = task, process, output
         self.session_changed = session_changed
+        self.progress = progress
+        self.phase = "startup"
         self.broker = Broker(records, task)
         self.write_lock = threading.Lock()
+        self.request_lock = threading.Lock()
         self.sequence = 0
         self.callbacks = {}
-        self.endpoint = None
+        self.endpoint = task.get("native_endpoint")
         self.stream = None
         self.work = None
         self.finished = threading.Event()
+        self.adapter = None
+        if task["provider"] in ACP_PROVIDERS:
+            from .acp import ACP
+            self.adapter = ACP(self)
+        elif task["provider"] == "muse":
+            from .muse import Muse
+            self.adapter = Muse(self)
 
     def session(self, session_id):
         if session_id != self.output.session_id:
@@ -43,6 +56,8 @@ class Native:
             self.session_changed(session_id)
 
     def send(self, value):
+        if self.adapter:
+            value = {"jsonrpc": "2.0", **value}
         with self.write_lock:
             self.process.stdin.write((json.dumps(value, ensure_ascii=False) + "\n").encode())
             self.process.stdin.flush()
@@ -53,12 +68,16 @@ class Native:
                 self.process.stdin.close()
 
     def request(self, method, params, callback):
-        self.sequence += 1
-        self.callbacks[self.sequence] = callback
-        self.send({"id": self.sequence, "method": method, "params": params})
+        with self.request_lock:
+            self.sequence += 1
+            request_id = self.sequence
+            self.callbacks[request_id] = callback
+        self.send({"id": request_id, "method": method, "params": params})
 
     def start(self):
-        if self.task["provider"] == "codex":
+        if self.adapter:
+            self.adapter.start()
+        elif self.task["provider"] == "codex":
             def initialized(_):
                 self.send({"method": "initialized", "params": {}})
                 options = {"cwd": self.task["workspace"], **self.task.get("native_options", {})}
@@ -73,20 +92,29 @@ class Native:
             self.request("initialize", {"clientInfo": {"name": "autoswarm-child", "version": "2.0.0.dev0"}}, initialized)
         elif self.task["provider"] == "claude-code":
             self.send({"type": "control_request", "request_id": "autoswarm_initialize", "request": {"subtype": "initialize"}})
+        else:
+            self.work = threading.Thread(target=self.opencode, daemon=True)
+            self.work.start()
 
     def feed(self, line):
         if self.task["provider"] == "opencode":
-            match = re.search(r"opencode server listening on (http://127\.0\.0\.1:\d+)", line)
-            if match and not self.endpoint:
-                self.endpoint = match.group(1)
-                self.work = threading.Thread(target=self.opencode, daemon=True)
-                self.work.start()
             return
         try:
             event = json.loads(line)
         except ValueError:
             return
         if not isinstance(event, dict):
+            return
+        if self.adapter:
+            if not event.get("method") and event.get("id") in self.callbacks:
+                callback = self.callbacks.pop(event["id"])
+                if "error" in event:
+                    error = event["error"]
+                    code = "native_auth_required" if error.get("code") == -32000 and ("auth" in error.get("message", "").lower() or (error.get("data") or {}).get("category") == "auth") else "native_rpc_error"
+                    raise SwarmError(code, json.dumps(error, ensure_ascii=False))
+                callback(event.get("result", {}))
+            else:
+                self.adapter.feed(event)
             return
         if self.task["provider"] == "codex":
             self.codex(event)
@@ -173,9 +201,49 @@ class Native:
                 if text:
                     self.output.content = text
 
-    def http(self, method, path, body=None):
-        from .hosts import _http
-        return _http({"endpoint": self.endpoint, "workspace": self.task["workspace"]}, method, path, body)
+    def http(self, method, path, body=None, *, timeout=None, stream=False):
+        from .hosts import _http, open_http
+        try:
+            parent = {"endpoint": self.endpoint}
+            if path not in {"/global/health", "/doc"}:
+                parent["workspace"] = self.task["workspace"]
+            self.progress(self.phase, http_method=method, http_path=path)
+            return (open_http if stream else _http)(parent, method, path, body, timeout=timeout)
+        except urllib.error.HTTPError as error:
+            code = "native_server_auth_failed" if error.code in {401, 403} else "native_protocol_error" if error.code in {404, 405} else "native_http_error"
+            evidence = error.read().decode("utf-8", errors="replace")
+            raise SwarmError(code, f"OpenCode {self.phase}: {method} {path} returned HTTP {error.code}: {evidence}") from error
+
+    def stage(self, phase, **details):
+        self.phase = phase
+        self.progress(phase, **details)
+
+    def handshake(self):
+        self.stage("startup", endpoint=self.endpoint)
+        while self.process.poll() is None and not self.broker.closed.is_set():
+            try:
+                # One readiness poll must yield even if a cold native server
+                # accepts a socket before it can answer. Only this idempotent
+                # GET is retried; there is no total startup or task deadline.
+                health = self.http("GET", "/global/health", timeout=0.5)
+                if not isinstance(health, dict) or health.get("healthy") is not True:
+                    raise SwarmError("native_protocol_error", "OpenCode health endpoint did not return healthy=true; inspect stdout.log and stderr.log")
+                break
+            except (urllib.error.URLError, TimeoutError) as error:
+                reason = getattr(error, "reason", error)
+                if not isinstance(reason, TimeoutError) and getattr(reason, "errno", None) not in {errno.ECONNREFUSED, 10061}:
+                    raise
+                self.progress("startup", endpoint=self.endpoint, diagnostic=str(reason))
+                self.broker.closed.wait(0.1)
+        else:
+            raise SwarmError("native_start_failed", "OpenCode exited before its HTTP service was ready; inspect stdout.log and stderr.log")
+        self.stage("handshake", native_version=health.get("version"), diagnostic=None)
+        spec = self.http("GET", "/doc")
+        paths = spec.get("paths", {}) if isinstance(spec, dict) else {}
+        required = {"/session": "post", "/session/{sessionID}/message": "post", "/event": "get", "/permission/{requestID}/reply": "post"}
+        missing = [path for path, method in required.items() if method not in paths.get(path, {})]
+        if missing:
+            raise SwarmError("native_protocol_error", "OpenCode's advertised API does not support this adapter: " + ", ".join(missing) + ". Check the actual CLI version and update AutoSwarm; do not reinstall authentication.")
 
     def opencode_event(self, event):
         props = event.get("properties", {})
@@ -190,6 +258,8 @@ class Native:
 
     def opencode(self):
         try:
+            self.handshake()
+            self.stage("session")
             session = self.task.get("native_session_id")
             if not session:
                 body = {"title": self.task.get("native_options", {}).get("title", "AutoSwarm child")}
@@ -197,10 +267,9 @@ class Native:
             else:
                 self.http("GET", "/session/" + urllib.parse.quote(session, safe=""))
             self.session(session)
-            endpoint = self.endpoint + "/event?directory=" + urllib.parse.quote(self.task["workspace"], safe="")
-            # Use the same native authentication as ordinary API requests.
-            from .hosts import http_headers
-            self.stream = urllib.request.urlopen(urllib.request.Request(endpoint, headers=http_headers({})))
+            self.stream = self.http("GET", "/event", stream=True)
+            if "text/event-stream" not in self.stream.headers.get("Content-Type", ""):
+                raise SwarmError("native_protocol_error", "OpenCode /event did not return an SSE stream")
 
             def events():
                 data = []
@@ -214,11 +283,12 @@ class Native:
                             data = []
                     if not self.finished.is_set() and not self.broker.closed.is_set():
                         raise SwarmError("native_events_disconnected", "OpenCode permission event stream disconnected")
-                except (OSError, ValueError, SwarmError) as error:
+                except Exception as error:
                     if not self.broker.closed.is_set() and not self.finished.is_set():
                         self.broker.errors.append(str(error))
 
             threading.Thread(target=events, daemon=True).start()
+            self.stage("execution")
             body = {"parts": [{"type": "text", "text": self.task["prompt"]}]}
             for key, value in self.task.get("native_options", {}).items():
                 if key == "model":
@@ -236,8 +306,9 @@ class Native:
             self.output.finish_reason = info.get("finish")
             self.output.terminal = info.get("finish") == "stop"
             self.output.error = str(info["error"]) if info.get("error") else None
-        except (OSError, ValueError, SwarmError) as error:
+        except Exception as error:
             self.output.error = str(error)
+            self.output.error_code = getattr(error, "code", "native_connection_failed" if isinstance(error, OSError) else "native_protocol_error")
         finally:
             self.finished.set()
             platform.stop_child(self.process)

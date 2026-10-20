@@ -26,3 +26,5 @@ For archived validation, install the v1 `dev` extra in its own environment, chan
 ## Pull requests
 
 Keep changes focused, describe the resulting behavior, and include relevant validation. Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+Keep changes local unless the user explicitly requests a push. Completing an implementation or test does not authorize publishing it.

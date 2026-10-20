@@ -3,11 +3,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import tempfile
-import uuid
+import os
 from pathlib import Path
 
-from autoswarm.engine import resume, start_call, wait
+from autoswarm.doctor import probe
 from autoswarm.records import Records, write_json
 
 
@@ -15,26 +14,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--providers", nargs="+", default=["codex", "claude-code", "opencode"])
     parser.add_argument("--output", required=True)
+    parser.add_argument("--home", help="Existing AutoSwarm config/state; defaults to the normal home")
+    parser.add_argument("--cwd", default=os.getcwd(), help="Use the same native project/config as the actual task")
     args = parser.parse_args()
-    root = Path(tempfile.mkdtemp(prefix="autoswarm-smoke-"))
-    records = Records(root / "state")
-    calls = []
-    report = {"workspace": str(root), "providers": {}}
+    records = Records(args.home)
+    report = {"workspace": str(Path(args.cwd).resolve()), "providers": {}}
     for provider in args.providers:
-        token = "AUTOSWARM_" + uuid.uuid4().hex
-        info = start_call(records, provider, f"Remember the exact phrase {token}. Reply with only that phrase. Do not call tools, read files, or modify files.", root, return_mode="wait")
-        calls.append((provider, token, info["call_id"]))
-    for provider, token, call_id in calls:
-        result = wait(records, [call_id])[0]
-        entry = {"initial": result, "passed": False}
+        entry = probe(records, provider, args.cwd)
+        entry["passed"] = entry["verified"]
         report["providers"][provider] = entry
-        if result["outcome"] == "completed" and token in result["content"]:
-            continued = resume(records, call_id, "What exact phrase did I ask you to remember? Reply with only that phrase. Do not call tools.", return_mode="wait")
-            value = wait(records, [continued["call_id"]])[0]
-            entry["resumed"] = value
-            entry["passed"] = value["outcome"] == "completed" and token in value["content"] and value["native_session_id"] == result["native_session_id"]
         write_json(Path(args.output), report)
-        print(json.dumps({"provider": provider, "passed": entry["passed"], "outcome": result["outcome"], "error": result.get("error")}), flush=True)
+        print(json.dumps({"provider": provider, "passed": entry["passed"], "error": entry.get("error") or entry.get("initial", {}).get("error")}), flush=True)
     raise SystemExit(0 if all(entry["passed"] for entry in report["providers"].values()) else 1)
 
 

@@ -2,6 +2,8 @@
 import json
 import os
 import queue
+import re
+import base64
 import sys
 import threading
 import time
@@ -37,18 +39,39 @@ def prepare(prompt):
 
 
 def finished(prompt):
-    text = prompt + "|session=" + session
+    text = content(prompt)
     if provider == "codex":
         emit({"method": "item/completed", "params": {"threadId": session, "item": {"type": "agentMessage", "text": text}}})
         emit({"method": "turn/completed", "params": {"threadId": session, "turn": {"id": "native-turn", "status": "failed" if prompt == "fail" else "completed"}}})
+    elif provider in {"cursor", "copilot", "codebuddy"}:
+        if prompt == "with-tools":
+            emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "INTERIM COMMENTARY"}}}})
+            emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "tool_call", "toolCallId": "tool-1", "title": "fixture tool"}}})
+        emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": text}}}})
+        emit({"id": prompt_id, "result": {"stopReason": "refusal" if prompt == "fail" else "end_turn"}})
+    elif provider == "muse":
+        emit({"method": "item/completed", "params": {"sessionId": session, "item": {"kind": "agentMessage", "text": text}}})
+        emit({"method": "turn/completed", "params": {"sessionId": session, "terminal": "failed" if prompt == "fail" else "completed"}})
     else:
         emit({"type": "result", "session_id": session, "result": text, "is_error": prompt == "fail", **({"errors": ["fixture failure"], "permission_denials": [{"tool_name": "Bash"}]} if prompt == "fail" else {})})
+
+
+def content(prompt):
+    memory = Path(".fixture-memory-" + provider)
+    match = re.search(r"Remember the exact phrase (AUTOSWARM_\w+)", prompt)
+    if match:
+        memory.write_text(match.group(1), encoding="utf-8")
+        return match.group(1)
+    if prompt.startswith("What exact phrase"):
+        return memory.read_text(encoding="utf-8")
+    return prompt + "|session=" + session
 
 
 if provider == "opencode":
     events = []
     decisions = {}
     permissions = {}
+    health_requests = 0
     class HTTP(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
         def send(self, body):
@@ -59,8 +82,32 @@ if provider == "opencode":
             self.end_headers()
             self.wfile.write(data)
         def do_GET(self):
+            global health_requests
             path = self.path.split("?")[0]
+            if "auth-required" in args:
+                expected = "Basic " + base64.b64encode((os.environ.get("OPENCODE_SERVER_USERNAME", "opencode") + ":" + os.environ.get("OPENCODE_SERVER_PASSWORD", "")).encode()).decode()
+                if self.headers.get("Authorization") != expected:
+                    self.send_error(401)
+                    return
+            if path == "/global/health":
+                health_requests += 1
+                if "slow-health" in args and health_requests == 1:
+                    threading.Event().wait()
+                if "reject-auth" in args:
+                    self.send_error(401)
+                    return
+                if "bad-health" in args:
+                    self.send_error(404)
+                else:
+                    self.send({"healthy": True, "version": "fixture"})
+                return
+            if path == "/doc":
+                self.send({"paths": {} if "bad-protocol" in args else {"/session": {"post": {}}, "/session/{sessionID}/message": {"post": {}}, "/event": {"get": {}}, "/permission/{requestID}/reply": {"post": {}}}})
+                return
             if path == "/event":
+                if "reject-events" in args:
+                    self.send_error(401)
+                    return
                 channel = queue.Queue()
                 events.append(channel)
                 self.send_response(200)
@@ -101,13 +148,65 @@ if provider == "opencode":
                     if allowed:
                         Path(marker).write_text("executed", encoding="utf-8")
                     prompt = "approved" if allowed else "denied"
-                self.send({"info": {"id": "native-assistant", "sessionID": session, "role": "assistant", "finish": "tool-calls" if prompt == "incomplete" else "stop", **({"error": {"message": "fixture failure"}} if prompt == "fail" else {})}, "parts": [{"type": "text", "text": prompt + "|session=" + session}]})
+                self.send({"info": {"id": "native-assistant", "sessionID": session, "role": "assistant", "finish": "tool-calls" if prompt == "incomplete" else "stop", **({"error": {"message": "fixture failure"}} if prompt == "fail" else {})}, "parts": [{"type": "text", "text": content(prompt)}]})
         def log_message(self, *args):
             pass
-    server = ThreadingHTTPServer(("127.0.0.1", 0), HTTP)
+    if "exit-startup" in args:
+        print("fixture cannot bind server", file=sys.stderr)
+        raise SystemExit(1)
+    if "hold-startup" in args:
+        while True:
+            time.sleep(.1)
+    server = ThreadingHTTPServer(("127.0.0.1", int(args[args.index("--port") + 1])), HTTP)
     server.daemon_threads = True
-    print(f"opencode server listening on http://127.0.0.1:{server.server_port}", flush=True)
+    print("Native service ready (changed banner)", file=sys.stderr, flush=True)
     server.serve_forever()
+elif provider in {"cursor", "copilot", "codebuddy", "muse"}:
+    marker = None
+    prompt_id = None
+    unsupported_replied = False
+    for raw in sys.stdin:
+        value = json.loads(raw)
+        method, params = value.get("method"), value.get("params", {})
+        if method == "initialize":
+            if "unknown-interaction" in args:
+                emit({"id": "unsupported", "method": "future/interaction", "params": {}})
+            result = {"schema": {"version": 2 if "bad-protocol" in args else 1}} if provider == "muse" else {"protocolVersion": 2 if "bad-protocol" in args else 1, "agentCapabilities": {"loadSession": "no-resume" not in args}}
+            emit({"id": value["id"], "result": result})
+        elif method in {"session/start", "session/resume", "session/new", "session/load"}:
+            if "auth-required" in args:
+                emit({"id": value["id"], "error": {"code": -32000, "message": "Authentication required"}})
+                continue
+            session = params.get("sessionId", session)
+            if method == "session/load":
+                emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "OLD TRANSCRIPT MUST NOT LEAK"}}}})
+            emit({"id": value["id"], "result": {"session": {"sessionId": session}} if provider == "muse" else {"sessionId": session}})
+        elif method in {"turn/start", "session/prompt"}:
+            if "unknown-interaction" in args:
+                assert unsupported_replied, "unsupported native request was left unanswered"
+            prompt_id = value["id"]
+            if method == "turn/start":
+                import uuid
+                assert uuid.UUID(params["commandId"]).version == 7
+                emit({"id": value["id"], "result": {}})
+            prompt = prepare(params["input" if provider == "muse" else "prompt"][0]["text"])
+            if prompt.startswith("approval:"):
+                marker = prompt[9:]
+                if provider == "muse":
+                    emit({"id": "native-approval", "method": "approval/request", "params": {"sessionId": session, "approvalId": "native-approval", "currentRequirementId": {"approvalId": "native-approval", "sourceIndex": 0}, "availableChoices": [{"choiceId": "persist", "decision": "approved", "scope": "localPersistent"}, {"choiceId": "yes", "decision": "approved", "scope": "once"}, {"choiceId": "no", "decision": "abort" if "abort-only" in args else "denied", "scope": "once", "acceptsFeedback": True}], "command": "test-command", "marker": marker}})
+                else:
+                    emit({"id": "native-approval", "method": "session/request_permission", "params": {"sessionId": session, "toolCall": {"toolCallId": "tool-1", "title": "test-command", "kind": "execute", "rawInput": {"marker": marker}}, "options": [{"optionId": "yes", "kind": "allow_once", "name": "Allow once"}, {"optionId": "always", "kind": "allow_always", "name": "Allow always"}, {"optionId": "no", "kind": "reject_once", "name": "Reject once"}]}})
+            else:
+                finished(prompt)
+        elif method == "approval/decide" or (value.get("id") == "native-approval" and "result" in value and provider != "muse"):
+            allowed = params.get("choiceId") == "yes" if provider == "muse" else value["result"]["outcome"].get("optionId") == "yes"
+            if method:
+                emit({"id": value["id"], "result": {}})
+            if allowed:
+                Path(marker).write_text("executed", encoding="utf-8")
+            finished("approved" if allowed else "denied")
+        elif value.get("id") == "unsupported":
+            unsupported_replied = value.get("error", {}).get("code") == -32601
 else:
     pending_prompt = None
     marker = None

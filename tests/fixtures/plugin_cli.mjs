@@ -5,7 +5,7 @@ const callID = "call_" + "c".repeat(32);
 const approvalCall = "call_" + "d".repeat(32);
 const requestID = "approval_" + "e".repeat(32);
 const marker = process.env.AUTOSWARM_PLUGIN_TEST_DIR && join(process.env.AUTOSWARM_PLUGIN_TEST_DIR, "approval-received");
-if (args[0] === "run") console.log(JSON.stringify({ ok: true, data: { call_id: args.includes("--approval-sequence") ? approvalCall : callID } }));
+if (args[0] === "run") console.log(JSON.stringify({ ok: true, data: { call_id: args.includes("--approval-sequence") ? approvalCall : callID, return_mode: args.includes("--notify-parent") ? "native" : "wait" } }));
 else if (args[0] === "calls") console.log(JSON.stringify({ ok: true, data: [{ call_id: callID, parent: { session_id: "original" } }] }));
 else if (args[0] === "wait") {
   const approval = args[1] === approvalCall && !existsSync(marker);

@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 from autoswarm import approvals, engine, platform
 from autoswarm.hooks import handle_hook
+from autoswarm.providers import BINARIES
 from autoswarm.records import Records, SwarmError, read_json, write_json
 
 FIXTURE = Path(__file__).parent / "fixtures/provider.py"
@@ -23,7 +24,7 @@ class ApprovalTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         self.records = Records(self.root / "state")
-        write_json(self.records.home / "config.json", {"providers": {name: {"command": [sys.executable, str(FIXTURE), name]} for name in ("codex", "claude-code", "opencode")}})
+        write_json(self.records.home / "config.json", {"providers": {name: {"command": [sys.executable, str(FIXTURE), name]} for name in BINARIES}})
         self.ids = []
 
     def tearDown(self):
@@ -55,7 +56,7 @@ class ApprovalTests(unittest.TestCase):
         return call["call_id"], marker
 
     def test_all_native_transports_pause_then_continue_same_invocation(self):
-        for provider in ("codex", "claude-code", "opencode"):
+        for provider in BINARIES:
             with self.subTest(provider=provider):
                 call_id, marker = self.start(provider)
                 request = engine.wait(self.records, [call_id])[0]
@@ -77,7 +78,7 @@ class ApprovalTests(unittest.TestCase):
                 self.assertEqual(approvals.pending(self.records, call_id), [])
 
     def test_all_native_transports_relay_denial_without_executing(self):
-        for provider in ("codex", "claude-code", "opencode"):
+        for provider in BINARIES:
             with self.subTest(provider=provider):
                 call_id, marker = self.start(provider)
                 request = engine.wait(self.records, [call_id])[0]
@@ -99,6 +100,15 @@ class ApprovalTests(unittest.TestCase):
         approvals.decide(self.records, call_id, request["request_id"], "allow", actor="user")
         self.assertEqual(engine.wait(self.records, [call_id])[0]["outcome"], "completed")
         self.assertTrue(marker.exists())
+
+    def test_muse_can_relay_rejection_when_native_offers_only_abort(self):
+        call_id, marker = self.start("muse", provider_args=["abort-only"])
+        request = engine.wait(self.records, [call_id])[0]
+        approvals.decide(self.records, call_id, request["request_id"], "deny")
+        result = engine.wait(self.records, [call_id])[0]
+        self.assertEqual(result["outcome"], "completed")
+        self.assertIn("denied", result["content"])
+        self.assertFalse(marker.exists())
 
     def test_config_toggle_applies_to_pending_requests_and_preserves_provider_config(self):
         call_id, _ = self.start()
