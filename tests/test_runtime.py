@@ -42,8 +42,13 @@ class RuntimeTests(unittest.TestCase):
             try:
                 self.temporary.cleanup()
                 break
-            except PermissionError as error:
-                if getattr(error, "winerror", None) not in {32, 33} or time.monotonic() >= deadline:
+            except OSError as error:
+                # Python 3.10 tempfile can wrap a sharing violation in
+                # NotADirectoryError while trying its permission recovery.
+                sharing = error
+                while sharing and getattr(sharing, "winerror", None) not in {32, 33}:
+                    sharing = sharing.__context__
+                if sharing is None or time.monotonic() >= deadline:
                     raise
                 time.sleep(0.01)
 

@@ -8,6 +8,7 @@ import sys
 import tempfile
 import time
 from datetime import datetime, timezone
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -58,12 +59,53 @@ def write_json(path: Path, value: Any) -> None:
             os.unlink(name)
 
 
-def read_json(path: Path, default: Any = None) -> Any:
+@cache
+def _windows_files():
+    import ctypes
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    kernel.CreateFileW.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    return kernel
+
+
+def _open_record(path: Path):
+    if os.name != "nt":
+        return path.open(encoding="utf-8")
+    import ctypes
+    import msvcrt
+    kernel = _windows_files()
+    # Read access with read/write/delete sharing: a reader keeps its complete
+    # snapshot while the atomic writer replaces the pathname. CreateFile also
+    # preserves native error codes, unlike CRT open's generic EACCES mapping.
+    handle = kernel.CreateFileW(str(path), 0x80000000, 0x1 | 0x2 | 0x4, None, 3, 0x80, None)
+    if handle == ctypes.c_void_p(-1).value:
+        raise ctypes.WinError(ctypes.get_last_error())
     try:
-        with path.open(encoding="utf-8") as stream:
-            return json.load(stream)
-    except FileNotFoundError:
-        return default
+        descriptor = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
+    except BaseException:
+        kernel.CloseHandle(handle)
+        raise
+    try:
+        return os.fdopen(descriptor, "r", encoding="utf-8")
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def read_json(path: Path, default: Any = None) -> Any:
+    while True:
+        try:
+            with _open_record(path) as stream:
+                return json.load(stream)
+        except FileNotFoundError:
+            return default
+        except OSError as error:
+            if getattr(error, "winerror", None) not in {32, 33}:
+                raise
+            time.sleep(0.01)
 
 
 class Records:
