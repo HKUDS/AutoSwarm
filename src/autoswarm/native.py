@@ -9,7 +9,6 @@ import urllib.request
 import urllib.error
 from dataclasses import dataclass, field
 
-from . import platform
 from .approvals import Broker
 from .records import SwarmError
 from .providers import ACP_PROVIDERS
@@ -38,11 +37,17 @@ class Native:
         self.request_lock = threading.Lock()
         self.sequence = 0
         self.callbacks = {}
+        self.rpc_errors = {}
+        self.turn_done = threading.Event()
+        self.turn_id = None
+        self.ready = False
+        self.control_errors = {}
         self.endpoint = task.get("native_endpoint")
         self.stream = None
         self.work = None
         self.finished = threading.Event()
         self.adapter = None
+        self.initial_messages = []
         if task["provider"] in ACP_PROVIDERS:
             from .acp import ACP
             self.adapter = ACP(self)
@@ -65,14 +70,118 @@ class Native:
     def end_input(self):
         with self.write_lock:
             if not self.process.stdin.closed:
-                self.process.stdin.close()
+                try:
+                    self.process.stdin.close()
+                except BrokenPipeError:
+                    pass  # An exited native peer must not hide saved results.
 
-    def request(self, method, params, callback):
+    def request(self, method, params, callback, on_error=None):
         with self.request_lock:
             self.sequence += 1
             request_id = self.sequence
             self.callbacks[request_id] = callback
+            if on_error:
+                self.rpc_errors[request_id] = on_error
         self.send({"id": request_id, "method": method, "params": params})
+
+    def rpc_response(self, event):
+        callback = self.callbacks.pop(event["id"])
+        failure = self.rpc_errors.pop(event["id"], None)
+        if "error" in event:
+            error = event["error"]
+            if failure:
+                failure(error)
+                return
+            code = "native_auth_required" if error.get("code") == -32000 and ("auth" in error.get("message", "").lower() or (error.get("data") or {}).get("category") == "auth") else "native_rpc_error"
+            raise SwarmError(code, json.dumps(error, ensure_ascii=False))
+        callback(event.get("result", {}))
+
+    def initial_prompt(self):
+        from .messages import context, envelope, pending, receipt
+        text = self.task["prompt"]
+        if self.task.get("communication") and not self.task.get("message_only"):
+            text += context(self.task)
+        if self.task.get("message_only"):
+            values = pending(self.broker.records, self.task["agent_id"])
+            self.initial_messages = values
+            text += envelope(self.task, values)
+            for value in values:
+                receipt(self.broker.records, value, "submitted", mechanism="native_resume", call_id=self.task["call_id"])
+        return text
+
+    def continue_turn(self, text):
+        for key, value in vars(Output(session_id=self.output.session_id)).items():
+            setattr(self.output, key, value)
+        self.turn_done.clear()
+        self.turn_id = None
+        self.ready = True
+        if self.adapter:
+            self.adapter.prompt(text)
+        elif self.task["provider"] == "codex":
+            self.request("turn/start", {"threadId": self.output.session_id, "input": [{"type": "text", "text": text}]}, lambda value: setattr(self, "turn_id", value.get("turn", {}).get("id")))
+        elif self.task["provider"] == "claude-code":
+            self.send({"type": "user", "session_id": self.output.session_id or "", "message": {"role": "user", "content": text}, "parent_tool_use_id": None})
+        else:
+            self.work = threading.Thread(target=self.opencode_prompt, args=(text,), daemon=True)
+            self.work.start()
+
+    def insert(self, text, accepted, rejected):
+        name = self.task["provider"]
+        if name == "codex" and self.turn_id:
+            self.request("turn/steer", {"threadId": self.output.session_id, "expectedTurnId": self.turn_id, "input": [{"type": "text", "text": text}]}, accepted, rejected)
+            return True
+        if name == "muse" and self.turn_id:
+            from .muse import command_id
+            self.request("turn/steer", {"commandId": command_id(), "sessionId": self.output.session_id, "expectedTurnId": self.turn_id, "input": [{"type": "text", "text": text}]}, accepted, rejected)
+            return True
+        if name == "opencode":
+            def submit():
+                try:
+                    accepted(self.http("POST", "/session/" + urllib.parse.quote(self.output.session_id, safe="") + "/message", {"noReply": True, "parts": [{"type": "text", "text": text}]}))
+                except Exception as error:
+                    rejected(error)
+            threading.Thread(target=submit, daemon=True).start()
+            return True
+        # ACP v1 and Claude's queued user input have no common live-steer
+        # acknowledgement. Their ordinary mail is delivered at a turn boundary.
+        return False
+
+    def interrupt(self, rejected):
+        name = self.task["provider"]
+        if name == "codex" and self.turn_id:
+            self.request("turn/interrupt", {"threadId": self.output.session_id, "turnId": self.turn_id}, lambda _: None, rejected)
+        elif name == "muse":
+            from .muse import command_id
+            params = {"sessionId": self.output.session_id, "commandId": command_id()}
+            if self.turn_id:
+                params["turnId"] = self.turn_id
+            self.request("turn/interrupt", params, lambda _: None, rejected)
+        elif self.adapter:
+            self.adapter.interrupt()
+        elif name == "claude-code":
+            key = "autoswarm_interrupt_" + str(self.sequence)
+            self.sequence += 1
+            self.control_errors[key] = rejected
+            self.send({"type": "control_request", "request_id": key, "request": {"subtype": "interrupt"}})
+        elif name == "opencode":
+            def stop():
+                try:
+                    self.http("POST", "/session/" + urllib.parse.quote(self.output.session_id, safe="") + "/abort", {})
+                except Exception as error:
+                    rejected(error)
+            threading.Thread(target=stop, daemon=True).start()
+        else:
+            rejected("This native transport did not expose a running turn to interrupt")
+
+    def finish_turn(self):
+        # A completed/cancelled native turn cannot accept a late permission
+        # answer. Keep its record, and let the next turn ask afresh if needed.
+        for path in (self.broker.directory / "approvals").glob("approval_*"):
+            from .records import read_json
+            request = read_json(path / "request.json")
+            if request:
+                self.broker.withdraw(request["native_request_id"], "cancelled" if (self.broker.directory / "cancel.json").exists() else "native_turn_ended")
+        self.turn_done.set()
 
     def start(self):
         if self.adapter:
@@ -87,7 +196,7 @@ class Native:
 
             def started(value):
                 self.session(value["thread"]["id"])
-                self.request("turn/start", {"threadId": self.output.session_id, "input": [{"type": "text", "text": self.task["prompt"]}]}, lambda _: None)
+                self.continue_turn(self.initial_prompt())
 
             self.request("initialize", {"clientInfo": {"name": "autoswarm-child", "version": "2.0.0.dev0"}}, initialized)
         elif self.task["provider"] == "claude-code":
@@ -107,12 +216,7 @@ class Native:
             return
         if self.adapter:
             if not event.get("method") and event.get("id") in self.callbacks:
-                callback = self.callbacks.pop(event["id"])
-                if "error" in event:
-                    error = event["error"]
-                    code = "native_auth_required" if error.get("code") == -32000 and ("auth" in error.get("message", "").lower() or (error.get("data") or {}).get("category") == "auth") else "native_rpc_error"
-                    raise SwarmError(code, json.dumps(error, ensure_ascii=False))
-                callback(event.get("result", {}))
+                self.rpc_response(event)
             else:
                 self.adapter.feed(event)
             return
@@ -124,10 +228,9 @@ class Native:
     def codex(self, event):
         method, params = event.get("method"), event.get("params", {})
         if not method and event.get("id") in self.callbacks:
-            callback = self.callbacks.pop(event["id"])
-            if "error" in event:
-                raise SwarmError("native_rpc_error", str(event["error"]))
-            callback(event.get("result", {}))
+            self.rpc_response(event)
+        elif method == "turn/started" and params.get("threadId") == self.output.session_id:
+            self.turn_id = params.get("turn", {}).get("id")
         elif method in {"item/commandExecution/requestApproval", "item/fileChange/requestApproval", "item/permissions/requestApproval"}:
             if params.get("threadId") != self.output.session_id:
                 raise SwarmError("native_request_mismatch", "Permission request belongs to another native thread")
@@ -156,7 +259,7 @@ class Native:
             self.output.terminal = True
             self.output.cancelled = turn.get("status") == "interrupted"
             self.output.error = None if turn.get("status") == "completed" else str(turn.get("error") or turn.get("status"))
-            self.end_input()
+            self.finish_turn()
         elif method and "id" in event:
             self.send({"id": event["id"], "error": {"code": -32601, "message": "Unsupported native interaction: " + method}})
 
@@ -164,7 +267,11 @@ class Native:
         if event.get("type") == "control_response" and event.get("response", {}).get("request_id") == "autoswarm_initialize":
             if event["response"].get("subtype") == "error":
                 raise SwarmError("native_control_error", str(event["response"]))
-            self.send({"type": "user", "session_id": self.task.get("native_session_id") or "", "message": {"role": "user", "content": self.task["prompt"]}, "parent_tool_use_id": None})
+            self.continue_turn(self.initial_prompt())
+        elif event.get("type") == "control_response" and event.get("response", {}).get("request_id") in self.control_errors:
+            callback = self.control_errors.pop(event["response"]["request_id"])
+            if event["response"].get("subtype") == "error":
+                callback(event["response"])
         elif event.get("type") == "control_request":
             request = event.get("request", {})
             if request.get("subtype") != "can_use_tool":
@@ -194,7 +301,7 @@ class Native:
                 if event.get("is_error"):
                     error = event.get("errors") or self.output.content or event.get("subtype")
                     self.output.error = error if isinstance(error, str) else json.dumps(error, ensure_ascii=False)
-                self.end_input()
+                self.finish_turn()
             elif event.get("type") == "assistant" and not self.output.terminal:
                 blocks = event.get("message", {}).get("content", [])
                 text = "".join(block.get("text", "") for block in blocks if isinstance(block, dict) and block.get("type") == "text")
@@ -289,7 +396,17 @@ class Native:
 
             threading.Thread(target=events, daemon=True).start()
             self.stage("execution")
-            body = {"parts": [{"type": "text", "text": self.task["prompt"]}]}
+            self.ready = True
+            self.opencode_prompt(self.initial_prompt())
+        except Exception as error:
+            self.output.error = str(error)
+            self.output.error_code = getattr(error, "code", "native_connection_failed" if isinstance(error, OSError) else "native_protocol_error")
+            self.finish_turn()
+
+    def opencode_prompt(self, text):
+        try:
+            session = self.output.session_id
+            body = {"parts": [{"type": "text", "text": text}]}
             for key, value in self.task.get("native_options", {}).items():
                 if key == "model":
                     if "/" not in value:
@@ -310,10 +427,10 @@ class Native:
             self.output.error = str(error)
             self.output.error_code = getattr(error, "code", "native_connection_failed" if isinstance(error, OSError) else "native_protocol_error")
         finally:
-            self.finished.set()
-            platform.stop_child(self.process)
+            self.finish_turn()
 
     def close(self):
+        self.finished.set()
         self.broker.close()
         if not self.process.stdin.closed:
             self.end_input()

@@ -10,6 +10,7 @@ AutoSwarm 将一次委派变成原生 CLI 调用，将返回值送回发起它�
 | 统一工具 | `cli.py`、`engine.py` | 提供 run、wait、receive、resume、cancel、inspect；让模型通过一个接口调用本地 agents |
 | 原生 agent 适配 | `providers.py`、`native.py`、`acp.py`、`muse.py` | 构造 argv，以原生双向接口传递任务、批准和结果，保留 session ID；同一 ACP 客户端供多个产品复用 |
 | 批准交接 | `approvals.py` | 每个请求独立保存、回传及回复，主 agent 可配置代批；复用现有宿主通道 |
+| 会话通信 | `messages.py` | 保存定向消息，校验父 agent 指定的同伴规则，处理运行中输入、原生中断和原会话续作；通信异常交回分派者 |
 | 调用执行 | `runner.py`、`platform.py` | 每次调用独立运行，收集最终结果、处理取消和进程身份；无需常驻调度服务 |
 | 原主会话回传 | `hosts.py`、`wire.py`、`hooks.py`、`assets/opencode.js` | 连接实际原主会话，处理等待、忙碌、空闲三个场景；宿主能力与子 agent 品牌相互独立 |
 | 小型记录 | `records.py` | 保存委派、结果及交付凭据；使用原子文件发布与操作系统锁，不复制原生完整历史 |
@@ -109,7 +110,23 @@ Windows 记录读句柄允许其他进程原子替换文件，并保留正在读
 
 新增主宿主：优先使用原生事件/插件/会话 API 绑定原 session，分别实现工具返回与异步继续。可通过现有 command bridge 接收 stdin JSON 并返回交付凭据；不要仅通知用户后标记为已继续。
 
-子 agent 之间的直接通信暂未引入。主 agent 可将一个调用结果交给另一调用，或 resume 原子会话继续讨论；这已经支持基础协作，无需先建设共享聊天室。领域选择知识也不进入基础设施。
+领域选择知识不进入基础设施。不同品牌沿用同一个定向消息协议，不需要共享聊天室、数据库或常驻消息服务器。
+
+## 定向消息与原任务续作
+
+`send`、`send --interrupt` 和 `reply` 复用现有 CLI。分派父 agent 用 name、allow-peer 和 communication-rules 指定名称、联系人和职责；名称在该父会话内唯一，可先声明稍后启动的同伴。子 agent 自动继承自己的身份，不继承父会话身份。联系父 agent 和回复实际收到的消息无需额外同伴授权；其他同伴必须由分派者允许。这是本机协作约定，不是防御同用户恶意进程的安全隔离。
+
+首次调用 ID 同时作为稳定 agent_id；原生续接产生新 call_id，继续沿用 agent_id。没有原生宿主身份时返回 controller_id，主 agent 通过全局 --controller 沿用它。agents/agent_ID/agent.json 只保存当前调用、分派者、联系人和说明。每条消息独立写入 messages/msg_ID/message.json，delivery.json 记录 queued、submitted、delivered 或 needs_attention。回复用 reply_to 指向原消息，无需全局对话表或重新复制原生历史。
+
+runner 在原生会话存活时检查信箱。Codex 和 Muse 优先 turn/steer；OpenCode 用原生 message 的 noReply 输入。ACP v1 与 Claude 在缺少等价运行中 steer 接口时，普通消息等待原生轮次边界；紧急消息通过 session/cancel 或原生 interrupt 停止当前轮，等待终止事件，再在同一原生会话提交消息和继续原任务的说明。不会为投递消息杀掉 CLI。模型使用 reply 返回早期答复，原任务的结果只在后续执行结束后发布。先前已完成的结果在后续收信期间保留，不被通信回答替换。
+
+wait --message 同时暴露相关回复、收到的其他消息和自己委派任务的批准；双方同时等待时，可以先回答对方问题。wait call_ID 同样返回中间事件，包括因收信而新续接的子调用批准，主 agent 必须检查种类并继续收取最终结果。主宿主可在当前工具流中收取；存在精确的 Codex/OpenCode 原主会话连接时，单次后台执行器复用既有回传适配器投递消息，避免阻塞发信者自己的工具。通知失败的消息继续保留供工具收取，不假装任意 App 都能在空闲时被唤醒。
+
+原生轮次结束时撤销旧批准请求；同一会话续作产生的新批准仍由原分派关系处理，消息不会扩大权限。完成且空闲的会话由独立 runner 原生续接以收信；dispatch 的操作系统锁避免重复启动。消息与收尾交错时由当前 runner 或收尾后的唤醒处理。失败、取消和丢失的会话不自动重跑，保留信件并给分派父 agent 产生 communication_issue，由其检查诊断后选择续接、重投或重新安排。原生拒绝单次输入不会使原任务或其他调用退出。
+
+子 agent 的原生沙箱可能看不到 runner 的进程命名空间，因此发信时不以沙箱中查不到 PID 判定同伴已死。没有最终结果的在途会话仍保留消息，分派主 agent 通过调用记录诊断中断。CodeBuddy 的原生取消屏障可能在当前轮终止后继续拒绝紧接着的 prompt；仅当响应回带旧请求 ID 且没有新 userMessageId，确认新输入尚未被接受时，执行器让出一轮轮询再提交同一输入，不重跑已接受的工作，也不增加固定重试次数或总等待时长。
+
+submitted 只证明原生输入已接受，reply_to 才关联实际答复。原生接受与本地保存回执之间无法跨所有产品提供严格 exactly-once；不确定时保留 ID 和错误供父 agent 检查，不能用静默重跑掩盖。消息记录没有自动过期策略、固定等待时长或通信轮次上限。
 
 ## 验证范围
 

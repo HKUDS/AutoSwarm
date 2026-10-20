@@ -46,7 +46,7 @@ autoswarm run --agent opencode --input review.txt --cwd /path/to/project --backg
 autoswarm wait call_A call_B
 ```
 
-Retain the returned call IDs. `wait` can return intermediate `approval_required` events; answer the original request with `approve`/`deny` under the Skill's authorization rules, then wait again until required calls have final outcomes. Check `outcome`, errors and artifacts before answering the user. `ok` describes the CLI operation, not task acceptance.
+Retain the returned call IDs. `wait` can return intermediate approvals, messages or communication issues; handle them and wait again until required calls have final outcomes. Answer original approvals with `approve`/`deny` under the Skill's authorization rules. Check `outcome`, errors and artifacts before answering the user. `ok` describes the CLI operation, not task acceptance.
 
 ```bash
 autoswarm inspect call_A
@@ -56,6 +56,23 @@ autoswarm cancel call_A
 ```
 
 `resume` continues the native child session and keeps the earlier receipt. Interrupting a wait leaves the child running. Native agents retain their full histories; AutoSwarm keeps small file receipts. A missing runner is reported as interrupted and is not automatically rerun. No context, concurrency, turn or task-duration caps are added.
+
+## Communicate during delegated work
+
+The assigning parent uses `--name`, repeatable `--allow-peer` and concise `--communication-rules` on run to name conversations, grant useful peer contacts and define responsibilities. Children receive the rules and CLI instructions automatically. They can contact their parent and reply to received messages; the parent controls other peer contacts.
+
+```bash
+autoswarm run --agent codex --name implementation --allow-peer review --communication-rules "Share interface changes with review; own implementation." --input implementation.txt --background
+autoswarm run --agent cursor --name review --allow-peer implementation --communication-rules "Ask implementation about interfaces; own review." --input review.txt --background
+autoswarm send review --input question.txt
+autoswarm send implementation --interrupt --input urgent-question.txt
+autoswarm reply msg_ID --input answer.txt
+autoswarm wait --message msg_ID
+```
+
+Both send modes prefer live native input. Ordinary messages never force interruption and otherwise arrive at the next native turn boundary. Urgent messages request prompt replies and otherwise use native cancellation followed by continuation of the same conversation. After replying, continue unfinished assigned work. Waiting for a reply also yields incoming questions and approvals; handle those before waiting again so peers do not block each other.
+
+Retain the stable `agent_id` across resumes. Hosts without a native session identity retain the first run's `controller_id` and pass `--controller <id>` before subsequent main-agent subcommands. Inspect delivery with `inspect msg_ID`. A communication issue retains the original message and tells the assigning parent to diagnose, resume or use `deliver msg_ID` after recovery. Completed idle conversations resume to handle mail; cancelled, failed or lost conversations require the parent's recovery decision. See the [communication guide](src/autoswarm/assets/references/communication.md).
 
 ## Recover without making the user debug
 

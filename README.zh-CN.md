@@ -46,7 +46,7 @@ autoswarm run --agent opencode --input review.txt --cwd /项目路径 --backgrou
 autoswarm wait call_A call_B
 ```
 
-保存实际返回的 call ID。`wait` 可能返回中间的 `approval_required`；按照 Skill 的授权规则，用 approve/deny 回答原请求，然后继续等待，直到所需调用都有最终结果。检查 outcome、错误和产物后再向用户交付；`ok` 只表示 CLI 操作成功。
+保存实际返回的 call ID。`wait` 可能返回中间的批准、消息或通信异常；处理后继续等待，直到所需调用都有最终结果。批准按照 Skill 的授权规则，用 approve/deny 回答原请求。检查 outcome、错误和产物后再向用户交付；`ok` 只表示 CLI 操作成功。
 
 ```bash
 autoswarm inspect call_A
@@ -56,6 +56,23 @@ autoswarm cancel call_A
 ```
 
 resume 续接原生子会话，保留之前的凭据。中断等待不会停止子任务。完整历史由原生产品保存，AutoSwarm 仅保存小型文件凭据。runner 消失时明确报告中断，不擅自重跑；不增加上下文、并发、轮次或任务时长上限。
+
+## 任务中的 agent 通信
+
+主 agent 分派时用 `--name` 命名会话、用可重复的 `--allow-peer` 指定同伴，并用 `--communication-rules` 说明沟通职责。子 agent 自动获得对应规则和调用说明；默认可联系父 agent、回复收到的消息，同伴联系由父 agent 授予。
+
+```bash
+autoswarm run --agent codex --name implementation --allow-peer review --communication-rules "接口变化告知 review，负责实现" --input implementation.txt --background
+autoswarm run --agent cursor --name review --allow-peer implementation --communication-rules "向 implementation 确认接口，负责复核" --input review.txt --background
+autoswarm send review --input question.txt
+autoswarm send implementation --interrupt --input urgent-question.txt
+autoswarm reply msg_ID --input answer.txt
+autoswarm wait --message msg_ID
+```
+
+普通消息不强制中断；紧急消息要求优先答复。两者都优先使用原生运行中输入；不支持时，普通消息在下一轮边界交付，紧急消息通过原生取消当前轮并续接同一会话处理。回复后继续未完成的原任务。等待消息时也会返回收到的提问和批准，先处理再继续等，避免相互等待。
+
+保存稳定的 `agent_id`，续接后仍可使用。没有原生宿主身份时，保存首个 run 返回的 `controller_id`，后续主 agent 命令在子命令前加 `--controller <id>`。`inspect msg_ID` 查看投递事实；异常会保留原消息并通知分派的父 agent，由其排障、续接或 `deliver msg_ID` 重投。已完成的空闲会话可自动续接收信；失败、取消或丢失的会话由父 agent 决定恢复方式。详见 [通信指引](src/autoswarm/assets/references/communication.md)。
 
 ## 主 agent 自行排障
 

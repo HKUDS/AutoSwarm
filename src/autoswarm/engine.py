@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 
 from . import platform
-from . import approvals
+from . import approvals, messages
 from .hosts import detect_parent
 from .providers import canonical, invocation
 from .records import Records, SwarmError, now, read_json, write_json
@@ -28,7 +28,7 @@ def runtime_env(records: Records) -> dict:
     return env
 
 
-def start_call(records: Records, provider: str, prompt: str, workspace: str | Path, *, parent: dict | None = None, native_session_id: str | None = None, model: str | None = None, provider_args: list[str] | None = None, previous_call: str | None = None, return_mode: str = "native", delegate_approvals: bool | None = None) -> dict:
+def start_call(records: Records, provider: str, prompt: str, workspace: str | Path, *, parent: dict | None = None, native_session_id: str | None = None, model: str | None = None, provider_args: list[str] | None = None, previous_call: str | None = None, return_mode: str = "native", delegate_approvals: bool | None = None, controller: str | None = None, name: str | None = None, peers: list[str] | None = None, rules: str | None = None, agent_id: str | None = None, message_only: bool = False, _dispatch_locked: bool = False) -> dict:
     provider = canonical(provider)
     directory_path = Path(workspace).expanduser().resolve()
     if not directory_path.is_dir():
@@ -39,11 +39,24 @@ def start_call(records: Records, provider: str, prompt: str, workspace: str | Pa
     approvals.delegated(records, task)
     # Validate and resolve the executable before accepting a background call.
     task["command"] = invocation(task, records.config())
+    task["message_only"] = message_only
+    value = messages.prepare(records, task, controller=controller, name=name, peers=peers, rules=rules, agent_id=agent_id)
+    lease = None if _dispatch_locked else platform.session_lease(messages.agent_path(records, task["agent_id"]) / "dispatch.lock")
     directory = records.call(call_id)
-    directory.mkdir(parents=True, exist_ok=False, mode=0o700)
-    write_json(directory / "task.json", task)
-    with (directory / "runner.log").open("ab") as log:
-        process = subprocess.Popen([*runtime_argv(), "_runner", call_id], env=runtime_env(records), stdin=subprocess.DEVNULL, stdout=log, stderr=log, **platform.detached_options())
+    try:
+        if agent_id:
+            latest = messages.agent(records, agent_id)
+            latest_directory, _ = records.require(latest["call_id"])
+            if not latest.get("idle") and platform.running(read_json(latest_directory / "handle.json")):
+                raise SwarmError("session_busy", "This conversation is handling work or messages; send to its stable agent_id or wait before resuming")
+        directory.mkdir(parents=True, exist_ok=False, mode=0o700)
+        write_json(directory / "task.json", task)
+        write_json(messages.agent_path(records, task["agent_id"]) / "agent.json", {**value, "idle": False})
+        with (directory / "runner.log").open("ab") as log:
+            process = subprocess.Popen([*runtime_argv(), "_runner", call_id], env=runtime_env(records), stdin=subprocess.DEVNULL, stdout=log, stderr=log, **platform.detached_options())
+    finally:
+        if lease:
+            lease.close()
     while not (directory / "handle.json").exists() and not (directory / "result.json").exists():
         if process.poll() is not None:
             raise SwarmError("runner_start_failed", f"Runner exited before startup; see {directory / 'runner.log'}")
@@ -62,14 +75,16 @@ def inspect_call(records: Records, call_id: str) -> dict:
         state = "running"
     else:
         state = "interrupted"
-    return {"call_id": call_id, "provider": task["provider"], "state": state, "return_mode": task.get("return_mode", "native"), "native_session_id": (result or {}).get("native_session_id") or (handle or {}).get("native_session_id") or task.get("native_session_id"), "workspace": task["workspace"], "directory": str(directory), "parent": task.get("parent"), "result": result, "delivery": read_json(directory / "delivery.json"), "handle": handle, "delegate_approvals": approvals.delegated(records, task), "approvals": approvals.pending(records, call_id) if state == "running" else []}
+    return {"call_id": call_id, "agent_id": task.get("agent_id", call_id), "controller_id": task.get("controller_id"), "communication": task.get("communication"), "provider": task["provider"], "state": state, "return_mode": task.get("return_mode", "native"), "native_session_id": (result or {}).get("native_session_id") or (handle or {}).get("native_session_id") or task.get("native_session_id"), "workspace": task["workspace"], "directory": str(directory), "parent": task.get("parent"), "result": result, "delivery": read_json(directory / "delivery.json"), "handle": handle, "communication_error": read_json(directory / "communication-error.json"), "delegate_approvals": approvals.delegated(records, task), "approvals": approvals.pending(records, call_id) if state == "running" else []}
 
 
-def receive(records: Records, call_ids: list[str], *, mark_received: bool = True, unseen: bool = False) -> list[dict]:
+def receive(records: Records, call_ids: list[str], *, mark_received: bool = True, unseen: bool = False, controller: str | None = None, include_inbox: bool = True) -> list[dict]:
     output = []
     for call_id in call_ids:
         directory, _ = records.require(call_id)
         info = inspect_call(records, call_id)
+        if include_inbox and info["communication_error"]:
+            output.append({"kind": "communication_issue", "call_id": call_id, "agent_id": info["agent_id"], "diagnostic": info["communication_error"], "directory": str(directory)})
         if info["result"] is not None:
             output.append(info["result"])
             if mark_received:
@@ -82,16 +97,34 @@ def receive(records: Records, call_ids: list[str], *, mark_received: bool = True
                 output.append(request)
                 if mark_received:
                     write_json(approvals.location(records, call_id, request["request_id"]) / "received.json", {"at": now()})
+    if not include_inbox:
+        return output
+    try:
+        caller = messages.identity(records, controller)
+    except SwarmError:
+        caller = None
+    if caller:
+        output.extend(messages.receive(records, caller, mark=mark_received))
+        # Mail can resume an idle child into a new call. Its native approvals
+        # still belong to this parent even when it waits on older call IDs.
+        for _, task in records.calls():
+            if task.get("controller_id") == caller and task["call_id"] not in call_ids:
+                for request in approvals.pending(records, task["call_id"], unseen=unseen):
+                    output.append(request)
+                    if mark_received:
+                        write_json(approvals.location(records, task["call_id"], request["request_id"]) / "received.json", {"at": now()})
     return output
 
 
-def wait(records: Records, call_ids: list[str], *, any_result: bool = False, mark_received: bool = True, unseen: bool = False) -> list[dict]:
+def wait(records: Records, call_ids: list[str], *, any_result: bool = False, mark_received: bool = True, unseen: bool = False, controller: str | None = None, include_inbox: bool = True) -> list[dict]:
     for call_id in call_ids:
         records.require(call_id)
     while True:
-        values = receive(records, call_ids, mark_received=False, unseen=unseen)
-        if any(value.get("kind") == "approval_required" for value in values) or len(values) == len(call_ids) or (any_result and values):
-            return receive(records, list(dict.fromkeys(value["call_id"] for value in values)), mark_received=mark_received, unseen=unseen)
+        values = receive(records, call_ids, mark_received=False, unseen=unseen, controller=controller, include_inbox=include_inbox)
+        events = any(value.get("kind") in {"approval_required", "agent_message", "communication_issue"} for value in values)
+        complete = {value.get("call_id") for value in values if value.get("outcome")}
+        if events or (call_ids and complete.issuperset(call_ids)) or (any_result and values):
+            return receive(records, call_ids, mark_received=mark_received, unseen=unseen, controller=controller, include_inbox=include_inbox)
         time.sleep(0.1)
 
 
@@ -104,7 +137,7 @@ def resume(records: Records, call_id: str, prompt: str, *, parent: dict | None =
     if not session:
         raise SwarmError("session_unavailable", "Provider did not return a native session ID")
     # A result is retained in the old directory; continuing creates a new call.
-    return start_call(records, task["provider"], prompt, task["workspace"], parent=parent if parent is not None or not inherit_parent else task.get("parent"), native_session_id=session, model=model if model is not None else task.get("model"), provider_args=provider_args if provider_args is not None else task.get("provider_args"), previous_call=call_id, return_mode=return_mode, delegate_approvals=delegate_approvals if delegate_approvals is not None else task.get("delegate_approvals"))
+    return start_call(records, task["provider"], prompt, task["workspace"], parent=parent if parent is not None or not inherit_parent else task.get("parent"), native_session_id=session, model=model if model is not None else task.get("model"), provider_args=provider_args if provider_args is not None else task.get("provider_args"), previous_call=call_id, return_mode=return_mode, delegate_approvals=delegate_approvals if delegate_approvals is not None else task.get("delegate_approvals"), agent_id=task.get("agent_id", call_id))
 
 
 def cancel(records: Records, call_id: str) -> dict:

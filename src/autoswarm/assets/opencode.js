@@ -65,7 +65,7 @@ export const AutoSwarm = async ({ client, directory }) => {
     watched.add(callID);
     void (async () => {
       while (true) {
-        const value = await invoke(["wait", callID, "--peek", "--unseen"]);
+        const value = await invoke(["wait", callID, "--peek", "--unseen", "--call-events-only"]);
         const accepted = value.data.map(item => new Promise(resolve => acknowledgements.set(key(item), resolve)));
         pending.set(sessionID, [...(pending.get(sessionID) || []), ...value.data]);
         await flush(sessionID);

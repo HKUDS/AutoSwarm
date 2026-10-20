@@ -9,11 +9,13 @@ import socketserver
 import struct
 import tempfile
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from autoswarm.hosts import deliver, detect_parent
+from autoswarm import messages
 from autoswarm.records import Records, read_json, write_json
 
 
@@ -124,6 +126,39 @@ class ReturnTests(unittest.TestCase):
         starts = [message for message in server.messages if message["method"] == "turn/start"]
         self.assertEqual(starts[0]["params"]["threadId"], "original")
         self.assertFalse(any(message["method"] == "thread/start" for message in server.messages))
+
+    def send_main_message(self, parent):
+        controller = "main_" + "c" * 32
+        child = self.seed(None)
+        write_json(messages.agent_path(self.records, controller) / "agent.json", {"agent_id": controller, "call_id": None, "owner_id": None, "parent": parent})
+        write_json(messages.agent_path(self.records, child) / "agent.json", {"agent_id": child, "call_id": child, "owner_id": controller})
+        sent = messages.send(self.records, controller, "question from child 中文", sender=child, interrupt=True)
+        end = time.monotonic() + 10  # Test harness only.
+        while time.monotonic() < end:
+            receipt = messages.inspect(self.records, sent["message_id"])["delivery"]
+            if receipt["state"] == "submitted":
+                return sent, receipt
+            time.sleep(.01)
+        self.fail("Host did not accept the message: " + repr(receipt))
+
+    def test_child_message_uses_busy_original_codex_host_through_one_shot_worker(self):
+        server, endpoint = self.websocket("active")
+        sent, receipt = self.send_main_message({"host": "codex", "session_id": "original", "endpoint": endpoint})
+        self.assertEqual(receipt["mechanism"], "codex_turn_steer")
+        steer = next(value for value in server.messages if value["method"] == "turn/steer")
+        self.assertEqual(steer["params"]["threadId"], "original")
+        self.assertIn(sent["message_id"], steer["params"]["input"][0]["text"])
+        self.assertIn("question from child 中文", steer["params"]["input"][0]["text"])
+
+    def test_child_message_uses_original_opencode_host_without_blocking_sender(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), HTTPPeer)
+        server.requests = []
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.servers.append(server)
+        sent, receipt = self.send_main_message({"host": "opencode", "session_id": "original", "endpoint": f"http://127.0.0.1:{server.server_address[1]}"})
+        self.assertEqual(receipt["mechanism"], "opencode_session_message")
+        self.assertEqual(server.requests[0][0], "/session/original/message")
+        self.assertIn(sent["message_id"], server.requests[0][1]["parts"][0]["text"])
 
     def test_busy_codex_steers_exact_active_turn(self):
         server, endpoint = self.websocket("active")

@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import __version__, engine, approvals
+from . import __version__, engine, approvals, messages
 from .hosts import deliver, detect_parent
 from .providers import BINARIES, discover
 from .records import Records, SwarmError, read_json, write_json
@@ -17,6 +17,7 @@ def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(prog="autoswarm", description="Use your installed coding agents together from one conversation.")
     root.add_argument("--version", action="version", version=f"AutoSwarm {__version__}")
     root.add_argument("--home", help="Records/config directory (or AUTOSWARM_HOME)")
+    root.add_argument("--controller", help="Retained controller_id for hosts without a native session identity")
     commands = root.add_subparsers(dest="command")
     for name in ("agents", "doctor"):
         item = commands.add_parser(name)
@@ -30,6 +31,9 @@ def parser() -> argparse.ArgumentParser:
         if name == "run":
             item.add_argument("--agent", required=True)
             item.add_argument("--cwd", "--directory", "-C", default=os.getcwd())
+            item.add_argument("--name", help="Conversation name, unique under this assigning parent")
+            item.add_argument("--allow-peer", action="append", default=None, help="Parent-authorized peer name/agent ID; repeat to allow several")
+            item.add_argument("--communication-rules", help="Concise communication instructions from the assigning parent")
         else:
             item.add_argument("call_id")
         item.add_argument("prompt", nargs="?")
@@ -44,11 +48,20 @@ def parser() -> argparse.ArgumentParser:
         group.add_argument("--no-parent", action="store_true")
     for name in ("wait", "receive"):
         item = commands.add_parser(name)
-        item.add_argument("call_ids", nargs="+")
+        item.add_argument("call_ids", nargs="*")
+        item.add_argument("--message", help="Wait for or receive a reply to this message")
         if name == "wait":
             item.add_argument("--any", action="store_true", dest="any_result")
             item.add_argument("--peek", action="store_true", help="Read without acknowledging receipt; used by native host integrations")
             item.add_argument("--unseen", action="store_true", help="Wait for an approval not yet delivered, or the final result")
+            item.add_argument("--call-events-only", action="store_true", help=argparse.SUPPRESS)
+    for name in ("send", "reply"):
+        item = commands.add_parser(name)
+        item.add_argument("target", help="Peer name, agent ID or parent; reply takes a message ID")
+        item.add_argument("prompt", nargs="?")
+        item.add_argument("--input", help="UTF-8 message file; '-' reads stdin")
+        if name == "send":
+            item.add_argument("--interrupt", action="store_true", help="Request priority handling; use native live input first, otherwise interrupt the running turn")
     for name in ("cancel", "inspect", "deliver"):
         item = commands.add_parser(name)
         item.add_argument("call_id")
@@ -89,6 +102,7 @@ def parser() -> argparse.ArgumentParser:
     item.add_argument("--host", choices=["claude-code"], required=True)
     item.add_argument("--event", choices=["session-start", "post-tool", "stop"], required=True)
     commands.add_parser("_runner", help=argparse.SUPPRESS).add_argument("call_id")
+    commands.add_parser("_message", help=argparse.SUPPRESS).add_argument("message_id")
     item = commands.add_parser("_receipt", help=argparse.SUPPRESS)
     item.add_argument("call_id")
     item.add_argument("--session", required=True)
@@ -138,23 +152,37 @@ def dispatch(args, records: Records):
         if args.notify_parent and (not callback_parent or (callback_parent.get("mode") != "hook" and not callback_parent.get("endpoint") and callback_parent.get("host") != "command")):
             raise SwarmError("parent_endpoint_required", "--notify-parent needs a usable original host binding. Omit it and collect results with wait/receive.")
         common = {"parent": parent, "model": args.model, "provider_args": args.provider_arg, "return_mode": "native" if args.notify_parent else "wait", "delegate_approvals": None if args.delegate_approvals is None else args.delegate_approvals == "on"}
-        info = engine.start_call(records, args.agent, prompt, args.cwd, **common) if name == "run" else engine.resume(records, args.call_id, prompt, inherit_parent=not args.no_parent, **common)
+        info = engine.start_call(records, args.agent, prompt, args.cwd, controller=args.controller, name=args.name, peers=args.allow_peer, rules=args.communication_rules, **common) if name == "run" else engine.resume(records, args.call_id, prompt, inherit_parent=not args.no_parent, **common)
         if args.background:
             return info
-        values = engine.wait(records, [info["call_id"]])
+        values = engine.wait(records, [info["call_id"]], controller=info["controller_id"])
         return values[0] if len(values) == 1 else values
+    if name in {"send", "reply"}:
+        sender = messages.identity(records, args.controller)
+        text = prompt_from(args)
+        return messages.send(records, args.target, text, sender=sender, interrupt=args.interrupt) if name == "send" else messages.reply(records, args.target, text, sender=sender)
+    if name in {"wait", "receive"} and args.message:
+        if args.call_ids:
+            raise SwarmError("invalid_input", "Select call IDs or --message")
+        return messages.wait(records, args.message, sender=messages.identity(records, args.controller), block=name == "wait", mark=not getattr(args, "peek", False))
     if name == "wait":
-        return engine.wait(records, args.call_ids, any_result=args.any_result, mark_received=not args.peek, unseen=args.unseen)
+        return engine.wait(records, args.call_ids, any_result=args.any_result, mark_received=not args.peek, unseen=args.unseen, controller=args.controller, include_inbox=not args.call_events_only)
     if name == "receive":
-        return engine.receive(records, args.call_ids)
+        return engine.receive(records, args.call_ids, controller=args.controller)
     if name == "inspect":
+        if args.call_id.startswith("msg_"):
+            return messages.inspect(records, args.call_id)
         return engine.inspect_call(records, args.call_id)
     if name == "cancel":
         return engine.cancel(records, args.call_id)
     if name == "deliver":
+        if args.call_id.startswith("msg_"):
+            return messages.retry(records, args.call_id, sender=messages.identity(records, args.controller))
         return deliver(records, args.call_id, explicit=True, request_id=args.request)
     if name == "config":
         return approvals.configure(records, None if args.delegate_approvals is None else args.delegate_approvals == "on")
+    if name == "_message":
+        return messages.deliver_to_host(records, args.message_id)
     if name == "approvals":
         ids = [args.call_id] if args.call_id else [task["call_id"] for _, task in records.calls()]
         return [request for call_id in ids for request in approvals.pending(records, call_id)]
@@ -220,7 +248,7 @@ def main() -> None:
     # Python 3.10 argparse can leave an optional trailing positional behind
     # when flags occur after the required call ID. Preserve the same CLI
     # ordering accepted by newer Python versions without accepting extra flags.
-    if args.command in {"run", "resume"} and args.prompt is None and len(remaining) == 1 and not remaining[0].startswith("-"):
+    if args.command in {"run", "resume", "send", "reply"} and args.prompt is None and len(remaining) == 1 and not remaining[0].startswith("-"):
         args.prompt = remaining.pop()
     if remaining:
         root.error("unrecognized arguments: " + " ".join(remaining))

@@ -1,5 +1,6 @@
 """One native ACP client shared by Cursor, Copilot and CodeBuddy."""
-from . import platform
+import threading
+
 from .records import SwarmError
 
 
@@ -8,6 +9,12 @@ class ACP:
         self.n = native
         self.accepting = False
         self.after_tool = False
+        self.permissions = set()
+        self.permission_lock = threading.RLock()
+        self.interrupted_for_message = False
+        self.cancelled_request = None
+        self.retry_prompt = None
+        self.prompt_text = None
 
     def start(self):
         self.n.stage("handshake")
@@ -33,18 +40,53 @@ class ACP:
         self.n.output.content = ""  # session/load may replay the old transcript.
         self.accepting = True
         self.n.stage("execution")
-        self.n.request("session/prompt", {"sessionId": self.n.output.session_id, "prompt": [{"type": "text", "text": self.n.task["prompt"]}]}, self.completed)
+        self.n.continue_turn(self.n.initial_prompt())
+
+    def prompt(self, text):
+        self.prompt_text = text
+        self.after_tool = False
+        self.n.request("session/prompt", {"sessionId": self.n.output.session_id, "prompt": [{"type": "text", "text": text}]}, self.completed)
+
+    def poll(self):
+        if self.retry_prompt is not None:
+            text, self.retry_prompt = self.retry_prompt, None
+            self.prompt(text)
+
+    def interrupt(self):
+        self.interrupted_for_message = True
+        with self.permission_lock:
+            self.n.send({"method": "session/cancel", "params": {"sessionId": self.n.output.session_id}})
+            for request in list(self.permissions):
+                self.permissions.remove(request)
+                self.n.broker.withdraw(request, "interrupted_for_message")
+                self.n.send({"id": request, "result": {"outcome": {"outcome": "cancelled"}}})
 
     def completed(self, result):
         reason = result.get("stopReason")
+        request_id = result.get("_meta", {}).get("codebuddy.ai/requestId")
+        if (self.cancelled_request and reason == "cancelled" and not result.get("userMessageId")
+                and request_id == self.cancelled_request):
+            # CodeBuddy's native cancellation barrier can reject a new prompt
+            # before it enters history, echoing the previous request ID.
+            # Yield to the runner and retry this unaccepted prompt, without
+            # rerunning accepted work, adding a deadline, or resetting history.
+            self.retry_prompt = self.prompt_text
+            self.n.progress("execution", diagnostic="Waiting for native cancellation barrier to clear")
+            return
+        if self.interrupted_for_message and reason == "cancelled" and self.n.task["provider"] == "codebuddy":
+            self.cancelled_request = request_id
+        else:
+            self.cancelled_request = None
+        self.interrupted_for_message = False
+        with self.permission_lock:
+            self.permissions.clear()
         self.n.output.finish_reason = reason
         self.n.output.terminal = reason == "end_turn"
         self.n.output.cancelled = reason == "cancelled"
         if not self.n.output.terminal and not self.n.output.cancelled:
             detail = result.get("_meta", {}).get("codebuddy.ai/errorMessage")
             self.n.output.error = "Native ACP prompt stopped: " + str(reason) + (": " + str(detail) if detail else "")
-        self.n.end_input()
-        platform.stop_child(self.n.process)
+        self.n.finish_turn()
 
     def feed(self, event):
         method, params = event.get("method"), event.get("params", {})
@@ -65,18 +107,24 @@ class ACP:
             options = params.get("options", [])
 
             def reply(value):
-                kind = "allow_once" if value["decision"] == "allow" else "reject_once"
-                choice = next((item for item in options if item.get("kind") == kind), None)
-                if choice:
-                    outcome = {"outcome": "selected", "optionId": choice["optionId"]}
-                elif value["decision"] == "deny":
-                    outcome = {"outcome": "cancelled"}
-                else:
-                    raise SwarmError("unsupported_approval_scope", "Native ACP server offered no one-time approval; persistent grants require explicit native configuration")
-                self.n.send({"id": event["id"], "result": {"outcome": outcome}})
+                with self.permission_lock:
+                    if event["id"] not in self.permissions:
+                        return
+                    self.permissions.remove(event["id"])
+                    kind = "allow_once" if value["decision"] == "allow" else "reject_once"
+                    choice = next((item for item in options if item.get("kind") == kind), None)
+                    if choice:
+                        outcome = {"outcome": "selected", "optionId": choice["optionId"]}
+                    elif value["decision"] == "deny":
+                        outcome = {"outcome": "cancelled"}
+                    else:
+                        raise SwarmError("unsupported_approval_scope", "Native ACP server offered no one-time approval; persistent grants require explicit native configuration")
+                    self.n.send({"id": event["id"], "result": {"outcome": outcome}})
 
             # ACP's allow_always may persist beyond this session. Never label
             # it as a session grant or silently broaden one-time permission.
-            self.n.broker.request(event["id"], self.n.output.session_id, params, reply, scopes=["once"])
+            with self.permission_lock:
+                self.permissions.add(event["id"])
+                self.n.broker.request(event["id"], self.n.output.session_id, params, reply, scopes=["once"])
         elif "id" in event:
             self.n.send({"id": event["id"], "error": {"code": -32601, "message": "Unsupported native ACP interaction: " + str(method)}})

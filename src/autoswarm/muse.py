@@ -3,7 +3,6 @@ import json
 import time
 import uuid
 
-from . import platform
 from .records import SwarmError
 
 
@@ -42,7 +41,10 @@ class Muse:
         self.n.session(result["session"]["sessionId"])
         self.accepting = True
         self.n.stage("execution")
-        self.n.request("turn/start", {"commandId": command_id(), "sessionId": self.n.output.session_id, "input": [{"type": "text", "text": self.n.task["prompt"]}]}, lambda _: None)
+        self.n.continue_turn(self.n.initial_prompt())
+
+    def prompt(self, text):
+        self.n.request("turn/start", {"commandId": command_id(), "sessionId": self.n.output.session_id, "input": [{"type": "text", "text": text}]}, lambda value: setattr(self.n, "turn_id", value.get("turnId")))
 
     def approval(self, params):
         native_id = params["approvalId"]
@@ -76,15 +78,16 @@ class Muse:
             if "id" in event:
                 self.n.send({"id": event["id"], "error": {"code": -32601, "message": "Unsupported native MSP interaction or session: " + str(method)}})
             return
-        if method == "item/completed" and params.get("item", {}).get("kind") == "agentMessage":
+        if method == "turn/started":
+            self.n.turn_id = params.get("turnId")
+        elif method == "item/completed" and params.get("item", {}).get("kind") == "agentMessage":
             self.n.output.content = params["item"].get("text", "")
         elif method == "turn/completed":
             self.n.output.terminal = params.get("terminal") == "completed"
             self.n.output.cancelled = params.get("terminal") == "cancelled"
             self.n.output.error = str(params["error"]) if params.get("error") else None
             self.n.output.finish_reason = params.get("terminal")
-            self.n.end_input()
-            platform.stop_child(self.n.process)
+            self.n.finish_turn()
         elif method in {"approval/request", "approval/requested", "approval/updated"}:
             if "id" in event:
                 self.n.send({"id": event["id"], "result": {}})

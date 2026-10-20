@@ -64,12 +64,26 @@ def main():
         assert result["outcome"] == "completed", result
         checked = invoke(["doctor", "--agent", "opencode", "--probe", "--cwd", str(root)], command=codex["launcher"])
         assert checked["verified"], checked
+        # Exercise the copied runtime's messaging, not the source checkout.
+        conversation = fixture.with_name("conversation.py")
+        config = json.loads((home / "config.json").read_text(encoding="utf-8"))
+        config["providers"]["codex"]["command"] = [sys.executable, str(conversation), "codex"]
+        (home / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        gate, proof = root / "message.gate", root / "message.proof"
+        call = invoke(["run", "--agent", "codex", "--name", "worker", "--no-parent", "--background", "--cwd", str(root), json.dumps({"gate": str(gate), "proof": str(proof)})], command=codex["launcher"])
+        controller = ["--controller", call["controller_id"]]
+        sent = invoke([*controller, "send", "worker", "--interrupt", "packaged messaging"], command=codex["launcher"])
+        replies = invoke([*controller, "wait", "--message", sent["message_id"]], command=codex["launcher"])
+        assert replies[0]["content"] == "reply:packaged messaging" and not proof.exists(), replies
+        gate.touch()
+        result = invoke([*controller, "wait", call["call_id"]], command=codex["launcher"])[0]
+        assert result["outcome"] == "completed" and proof.exists(), result
         settings = root / "claude/settings.json"
         invoke(["setup", "--host", "claude-code", "--skill-dir", str(root / "claude-skill"), "--settings-file", str(settings)])
         assert json.loads(settings.read_text(encoding="utf-8"))["hooks"]["PostToolUse"][0]["hooks"][0]["asyncRewake"]
         plugin = invoke(["setup", "--host", "opencode", "--skill-dir", str(root / "opencode-skill"), "--plugin-dir", str(root / "plugins")])
         assert "__AUTOSWARM_COMMAND__" not in Path(plugin["plugin"]).read_text(encoding="utf-8")
-    print("Distribution passed: seven providers, approval round trips, delegation config, native resume, installed launchers, reinstall and bundled host integrations")
+    print("Distribution passed: seven providers, approval round trips, native resume, installed-launcher messaging and continuation, reinstall and bundled host integrations")
 
 
 if __name__ == "__main__":
