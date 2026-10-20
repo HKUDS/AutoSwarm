@@ -29,7 +29,8 @@ def main():
         env.pop("AUTOSWARM_PARENT", None)
         env.pop("CODEX_THREAD_ID", None)
         def invoke(argv, command=program):
-            process = subprocess.run([*command, *argv], cwd=root, env=env, capture_output=True, text=True, encoding="utf-8", check=True)
+            process = subprocess.run([*command, *argv], cwd=root, env=env, capture_output=True, text=True, encoding="utf-8")
+            assert process.returncode == 0, {"argv": argv, "exit_code": process.returncode, "stdout": process.stdout, "stderr": process.stderr}
             value = json.loads(process.stdout)
             assert value["ok"], value
             return value["data"]

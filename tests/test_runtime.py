@@ -100,7 +100,7 @@ class RuntimeTests(unittest.TestCase):
         parent = {"host": "claude-code", "session_id": "parent-A", "mode": "hook"}
         call_id = self.start(parent=parent)
         engine.wait(self.records, [call_id])
-        process = subprocess.run([*engine.runtime_argv(), "resume", call_id, "follow-up", "--no-parent"], env=engine.runtime_env(self.records), capture_output=True, text=True, check=True)
+        process = subprocess.run([*engine.runtime_argv(), "resume", call_id, "--no-parent", "follow-up"], env=engine.runtime_env(self.records), capture_output=True, text=True, check=True)
         result = json.loads(process.stdout)["data"]
         self.ids.append(result["call_id"])
         self.assertIsNone(engine.inspect_call(self.records, result["call_id"])["parent"])

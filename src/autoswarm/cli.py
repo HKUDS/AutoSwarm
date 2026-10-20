@@ -196,7 +196,14 @@ def main() -> None:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
     root = parser()
-    args = root.parse_args()
+    args, remaining = root.parse_known_args()
+    # Python 3.10 argparse can leave an optional trailing positional behind
+    # when flags occur after the required call ID. Preserve the same CLI
+    # ordering accepted by newer Python versions without accepting extra flags.
+    if args.command in {"run", "resume"} and args.prompt is None and len(remaining) == 1 and not remaining[0].startswith("-"):
+        args.prompt = remaining.pop()
+    if remaining:
+        root.error("unrecognized arguments: " + " ".join(remaining))
     if args.command is None:
         root.print_help()
         return
