@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from autoswarm import approvals, engine
+from autoswarm import approvals, engine, platform
 from autoswarm.hooks import handle_hook
 from autoswarm.records import Records, SwarmError, read_json, write_json
 
@@ -30,7 +30,9 @@ class ApprovalTests(unittest.TestCase):
         for call_id in self.ids:
             engine.cancel(self.records, call_id)
         deadline = time.monotonic() + 10  # Test harness only.
-        while any(engine.inspect_call(self.records, value)["state"] == "running" for value in self.ids) and time.monotonic() < deadline:
+        # A result can be published before the runner closes its log/leases.
+        # Windows requires those handles to close before removing the fixture.
+        while any(platform.running(read_json(self.records.call(value) / "handle.json")) for value in self.ids) and time.monotonic() < deadline:
             time.sleep(0.01)
         self.temporary.cleanup()
 

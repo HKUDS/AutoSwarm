@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from autoswarm import engine
+from autoswarm import engine, platform
 from autoswarm.hooks import handle_hook
 from autoswarm.providers import Output
 from autoswarm.records import Records, SwarmError, read_json, write_json
@@ -34,7 +34,9 @@ class RuntimeTests(unittest.TestCase):
         for call_id in self.ids:
             engine.cancel(self.records, call_id)
         deadline = time.monotonic() + 10  # Test harness deadline, not product policy.
-        while any(engine.inspect_call(self.records, value)["state"] == "running" for value in self.ids) and time.monotonic() < deadline:
+        # Result publication and runner exit are separate events. Wait for
+        # the actual log owner before deleting a fixture directory on Windows.
+        while any(platform.running(read_json(self.records.call(value) / "handle.json")) for value in self.ids) and time.monotonic() < deadline:
             time.sleep(0.01)
         self.temporary.cleanup()
 
