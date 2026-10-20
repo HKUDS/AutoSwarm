@@ -17,20 +17,14 @@ from .records import Records, SwarmError, now, read_json, write_json
 
 
 def runtime_argv() -> list[str]:
-    return [sys.executable] if getattr(sys, "frozen", False) else [sys.executable, "-m", "autoswarm"]
+    return [sys.executable, "-m", "autoswarm"]
 
 
 def runtime_env(records: Records) -> dict:
     env = dict(os.environ)
     env["AUTOSWARM_HOME"] = str(records.home)
-    if getattr(sys, "frozen", False):
-        # A detached onefile runner must own its extraction directory. Reusing
-        # the CLI parent's _MEIPASS works until that short-lived CLI exits and
-        # its bootloader deletes libraries needed later by the child.
-        env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
-    else:
-        root = str(Path(__file__).resolve().parent.parent)
-        env["PYTHONPATH"] = root + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    root = str(Path(__file__).resolve().parent.parent)
+    env["PYTHONPATH"] = root + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     return env
 
 

@@ -12,6 +12,9 @@ provider, *args = sys.argv[1:]
 sys.stdin.reconfigure(encoding="utf-8")
 sys.stdout.reconfigure(encoding="utf-8")
 if "--version" in args:
+    if "version-fail" in args:
+        print("fixture CLI cannot start", file=sys.stderr)
+        raise SystemExit(1)
     print("fixture 2.0")
     raise SystemExit()
 session = "fixture-session"
@@ -39,7 +42,7 @@ def finished(prompt):
         emit({"method": "item/completed", "params": {"threadId": session, "item": {"type": "agentMessage", "text": text}}})
         emit({"method": "turn/completed", "params": {"threadId": session, "turn": {"id": "native-turn", "status": "failed" if prompt == "fail" else "completed"}}})
     else:
-        emit({"type": "result", "session_id": session, "result": text, "is_error": prompt == "fail"})
+        emit({"type": "result", "session_id": session, "result": text, "is_error": prompt == "fail", **({"errors": ["fixture failure"], "permission_denials": [{"tool_name": "Bash"}]} if prompt == "fail" else {})})
 
 
 if provider == "opencode":

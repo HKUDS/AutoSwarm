@@ -4,14 +4,12 @@ from __future__ import annotations
 import hashlib
 import os
 import subprocess
-import tempfile
 import threading
 import time
 
 from . import platform
 from .hosts import deliver
-from .native import Native
-from .providers import Output
+from .native import Native, Output
 from .records import Records, now, write_json
 
 
@@ -24,7 +22,7 @@ def execute(records: Records, call_id: str) -> int:
     session_lock = None
     cancelled = False
     native = None
-    output = Output(task["provider"], task.get("native_session_id"))
+    output = Output(session_id=task.get("native_session_id"))
     try:
         if (directory / "cancel.json").exists():
             cancelled = True
@@ -40,10 +38,8 @@ def execute(records: Records, call_id: str) -> int:
                 env.pop(name, None)
             env["AUTOSWARM_CALL_ID"] = call_id
             env["AUTOSWARM_HOME"] = str(records.home)
-            with (directory / "stderr.log").open("wb") as stderr, tempfile.TemporaryFile() as prompt_input:
-                prompt_input.write(task["prompt"].encode("utf-8"))
-                prompt_input.seek(0)
-                process = subprocess.Popen(task["command"], cwd=task["workspace"], env=env, stdin=subprocess.PIPE if task.get("protocol") else prompt_input, stdout=subprocess.PIPE, stderr=stderr, **platform.detached_options())
+            with (directory / "stderr.log").open("wb") as stderr:
+                process = subprocess.Popen(task["command"], cwd=task["workspace"], env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr, **platform.detached_options())
                 handle["child_pid"] = process.pid
                 write_json(directory / "handle.json", handle)
                 failure = []
@@ -52,42 +48,33 @@ def execute(records: Records, call_id: str) -> int:
                     handle["native_session_id"] = value
                     write_json(directory / "handle.json", handle)
 
-                if task.get("protocol"):
-                    native = Native(records, task, process, output, session_changed)
+                native = Native(records, task, process, output, session_changed)
 
                 def read_output():
                     try:
                         for raw in process.stdout:
-                            if native:
-                                native.feed(raw.decode("utf-8", errors="replace"))
-                            else:
-                                previous = output.session_id
-                                output.feed(raw.decode("utf-8", errors="replace"))
-                                if output.session_id != previous:
-                                    session_changed(output.session_id)
+                            native.feed(raw.decode("utf-8", errors="replace"))
                     except BaseException as error:
                         failure.append(str(error))
 
                 reader = threading.Thread(target=read_output)
                 reader.start()
-                if native:
-                    native.start()
+                native.start()
                 while process.poll() is None:
                     if (directory / "cancel.json").exists() and not cancelled:
                         cancelled = True
                         platform.stop_child(process)
-                    if failure or (native and native.broker.errors):
-                        failure.extend(native.broker.errors if native else [])
+                    if failure or native.broker.errors:
+                        failure.extend(native.broker.errors)
                         platform.stop_child(process)
                     time.sleep(0.1)
                 reader.join()
-                if native and native.work:
+                if native.work:
                     native.work.join()
-                if native:
-                    failure.extend(native.broker.errors)
+                failure.extend(native.broker.errors)
                 process.stdout.close()
                 result["exit_code"] = process.returncode
-                success_exit = process.returncode == 0 or (native and task["provider"] == "opencode" and output.terminal)
+                success_exit = process.returncode == 0 or (task["provider"] == "opencode" and output.terminal)
                 result["outcome"] = "cancelled" if cancelled or output.cancelled else ("completed" if success_exit and not output.error and not failure and output.terminal else "failed")
                 result["error"] = output.error or (failure[0] if failure else None)
                 if result["outcome"] == "failed" and not result["error"]:

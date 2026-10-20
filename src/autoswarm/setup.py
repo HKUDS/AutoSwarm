@@ -1,4 +1,4 @@
-"""Install a relocatable source skill or wire an already packaged executable."""
+"""Install a relocatable Skill and its host return integration."""
 from __future__ import annotations
 
 import json
@@ -19,21 +19,14 @@ def install(records: Records, host: str, skill_dir: str | None = None, settings_
     scripts = destination / "scripts"
     scripts.mkdir(exist_ok=True)
     launcher = scripts / "launch.py"
-    if getattr(sys, "frozen", False):
-        executable = scripts / ("autoswarm.exe" if os.name == "nt" else "autoswarm")
-        if Path(sys.executable).resolve() != executable.resolve():
-            shutil.copy2(sys.executable, executable)
-        argv = [str(executable), "--home", str(records.home)]
-        launcher.write_text("import os, subprocess, sys\nraise SystemExit(subprocess.call([os.path.join(os.path.dirname(__file__), " + repr(executable.name) + "), *sys.argv[1:]]))\n", encoding="utf-8")
-    else:
-        package = scripts / "runtime/autoswarm"
-        source = Path(__file__).parent
-        if source.resolve() != package.resolve():
-            if source.resolve() in package.resolve().parents:
-                raise ValueError("Install the skill outside the AutoSwarm package directory")
-            shutil.copytree(source, package, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-        launcher.write_text("import os, sys\nfrom pathlib import Path\nsys.path.insert(0, str(Path(__file__).resolve().parent / 'runtime'))\nos.environ.setdefault('AUTOSWARM_HOME', " + repr(str(records.home)) + ")\nfrom autoswarm.cli import main\nmain()\n", encoding="utf-8")
-        argv = [sys.executable, str(launcher), "--home", str(records.home)]
+    package = scripts / "runtime/autoswarm"
+    source = Path(__file__).parent
+    if source.resolve() != package.resolve():
+        if source.resolve() in package.resolve().parents:
+            raise ValueError("Install the skill outside the AutoSwarm package directory")
+        shutil.copytree(source, package, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    launcher.write_text("import os, sys\nfrom pathlib import Path\nsys.path.insert(0, str(Path(__file__).resolve().parent / 'runtime'))\nos.environ.setdefault('AUTOSWARM_HOME', " + repr(str(records.home)) + ")\nfrom autoswarm.cli import main\nmain()\n", encoding="utf-8")
+    argv = [sys.executable, str(launcher), "--home", str(records.home)]
     skill = (assets / "SKILL.md").read_text(encoding="utf-8")
     (destination / "SKILL.md").write_text(skill + "\nInstalled launcher argv (append CLI arguments; preserve each argv entry):\n\n```json\n" + json.dumps(argv, ensure_ascii=False) + "\n```\n", encoding="utf-8")
     integration = {"host": host, "skill": str(destination), "launcher": argv, "native_return": "endpoint_required"}

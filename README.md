@@ -8,9 +8,7 @@ The complete v1 implementation is frozen in [autoswarm-v1.0.0/](autoswarm-v1.0.0
 
 ## Install
 
-With a standalone executable built for your operating system, run `autoswarm setup --host codex` (or `claude-code` / `opencode`). The executable includes its Python runtime. The installer prints the installed launcher path; agents can invoke it without relying on a GUI application's PATH.
-
-For a source checkout with uv:
+Use the same Python package on Windows, macOS and Linux. From a source checkout with uv:
 
 ```bash
 uv tool install .
@@ -20,7 +18,9 @@ autoswarm doctor
 
 Alternatively install the package into a **new** Python 3.10+ environment. Do not reuse the archived v1 environment. Runtime Python dependencies: none. Existing native agents, their credentials and their own permissions are reused; authenticate an agent through its own interface when needed.
 
-`setup` installs a relocatable Skill. For Claude Code it merges lifecycle hooks into user settings; for OpenCode it installs a native plugin. Use `--skill-dir`, `--settings-file` and `--plugin-dir` to choose explicit destinations. Existing unrelated settings/hooks are preserved. Native hook trust and reload requirements remain in force. No global host settings are changed until you run setup.
+`setup --host codex` installs the Skill and its local Python launcher; choose `claude-code` or `opencode` for those hosts. The installer prints the exact launcher argv, so an App can invoke AutoSwarm without finding it on PATH. The Python interpreter used for setup must remain available. For Claude Code setup merges lifecycle hooks into user settings; for OpenCode it installs a native plugin. Use `--skill-dir`, `--settings-file` and `--plugin-dir` to choose explicit destinations. Existing unrelated settings/hooks are preserved. Native hook trust and reload requirements remain in force. No global host settings are changed until you run setup.
+
+An App can act as the main agent if it can read the Skill and run local commands. Children currently require callable `codex`, `claude` or `opencode` CLIs; an App installation alone does not guarantee that interface. On first use or when a requested provider is unavailable, the Skill guides the main agent to check existing paths and ask whether to install that provider's official CLI. Only agreed installations are performed, using current official instructions for the user's OS; unrelated providers are not installed. Setup and `agents` report availability without installing providers. A configured executable path can reuse a CLI outside PATH, including an App's exposed CLI. Version checks do not prove authentication.
 
 ## Delegate and collect
 
@@ -162,12 +162,6 @@ python scripts/live_approvals.py --decision deny --output /tmp/autoswarm-denials
 
 They create isolated native test conversations, not messages in an existing user chat. Run in an environment that permits native network/auth access and subprocess persistence.
 
-Build a standalone program on the target operating system after installing PyInstaller:
-
-```bash
-python scripts/build_release.py
-```
-
-A manual CI dispatch also builds platform executables. Desktop UI behavior still needs validation in the actual installed App; a protocol fixture does not prove that all client versions behave identically.
+Desktop UI behavior still needs validation in the actual installed App; a protocol fixture does not prove that all client versions behave identically.
 
 See [the implementation architecture](docs/architecture.zh-CN.md) for layers, return guarantees and adding a provider. [MIT](LICENSE).

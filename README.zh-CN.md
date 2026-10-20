@@ -8,9 +8,7 @@
 
 ## 安装
 
-使用对应系统的独立可执行文件时，执行 `autoswarm setup --host codex`，或将 host 换为 `claude-code`、`opencode`。独立程序包含 Python 运行环境。安装器返回启动器位置，GUI App 无需依赖终端的 PATH。
-
-从源码安装可使用：
+Windows、macOS、Linux 使用同一套 Python 包。从源码安装可使用：
 
 ```bash
 uv tool install .
@@ -20,7 +18,9 @@ autoswarm doctor
 
 也可以安装到新建的 Python 3.10+ 环境。不要复用归档 v1 的环境。核心没有第三方 Python 运行依赖；沿用原生 agents 的认证、模型、权限、记忆和项目设置。
 
-`setup` 安装可搬迁的 Skill；Claude Code 同时合并生命周期 hooks，OpenCode 安装原生插件。可用 `--skill-dir`、`--settings-file`、`--plugin-dir` 指定目标，原有无关设置保持保留。只有实际执行 setup 才会修改相应宿主配置；宿主自己的 hook 信任和重载要求仍然生效。
+`setup --host codex` 安装 Skill 及本地 Python 启动器；其他宿主换为 `claude-code` 或 `opencode`。安装器返回完整启动参数，App 无需从 PATH 查找 AutoSwarm；安装时使用的 Python 解释器须保持可用。Claude Code 同时合并生命周期 hooks，OpenCode 安装原生插件。可用 `--skill-dir`、`--settings-file`、`--plugin-dir` 指定目标，原有无关设置保持保留。只有实际执行 setup 才会修改相应宿主配置；宿主自己的 hook 信任和重载要求仍然生效。
+
+App 具备读取 Skill 和执行本地命令的能力时，可以作为主 agent。子 agent 当前需要可调用的 `codex`、`claude` 或 `opencode` CLI，只有 App 不保证满足条件。首次使用或所请求 agent 不可用时，Skill 引导主 agent 先检查已有路径，确实缺少 CLI 再询问用户是否安装；同意后按照当前系统的官方说明安装并继续原任务，不安装其他无关 agent。`setup`、`agents` 只报告可用情况，不自动安装。CLI 不在 PATH 时可以配置其实际路径，包括 App 已暴露的 CLI。版本检查成功不代表已完成登录。
 
 ## 委派、等待和继续
 
@@ -146,6 +146,6 @@ python scripts/live_approvals.py --output /tmp/autoswarm-approvals.json
 python scripts/live_approvals.py --decision deny --output /tmp/autoswarm-denials.json
 ```
 
-应在允许原生认证、网络和后台进程的环境中运行。安装 PyInstaller 后，`python scripts/build_release.py` 在当前系统构建独立程序；手动触发 CI 也会构建各平台产物。真实 App UI 仍需在对应客户端验收，协议测试不能证明所有客户端版本行为相同。
+应在允许原生认证、网络和后台进程的环境中运行。真实 App UI 仍需在对应客户端验收，协议测试不能证明所有客户端版本行为相同。
 
 层级职责、实现理由及扩展方式见[实现架构](docs/architecture.zh-CN.md)。[MIT](LICENSE)。

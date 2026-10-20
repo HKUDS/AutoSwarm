@@ -6,10 +6,22 @@ import re
 import threading
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass, field
 
 from . import platform
 from .approvals import Broker
 from .records import SwarmError
+
+
+@dataclass
+class Output:
+    session_id: str | None = None
+    content: str = ""
+    error: str | None = None
+    terminal: bool = False
+    permission_denials: list = field(default_factory=list)
+    finish_reason: str | None = None
+    cancelled: bool = False
 
 
 class Native:
@@ -79,7 +91,7 @@ class Native:
         if self.task["provider"] == "codex":
             self.codex(event)
         else:
-            self.claude(event, line)
+            self.claude(event)
 
     def codex(self, event):
         method, params = event.get("method"), event.get("params", {})
@@ -120,7 +132,7 @@ class Native:
         elif method and "id" in event:
             self.send({"id": event["id"], "error": {"code": -32601, "message": "Unsupported native interaction: " + method}})
 
-    def claude(self, event, line):
+    def claude(self, event):
         if event.get("type") == "control_response" and event.get("response", {}).get("request_id") == "autoswarm_initialize":
             if event["response"].get("subtype") == "error":
                 raise SwarmError("native_control_error", str(event["response"]))
@@ -146,12 +158,20 @@ class Native:
         elif event.get("type") == "control_cancel_request":
             self.broker.withdraw(event.get("request_id"))
         else:
-            previous = self.output.session_id
-            self.output.feed(line)
-            if previous != self.output.session_id:
-                self.session_changed(self.output.session_id)
+            self.session(event.get("session_id") or self.output.session_id)
             if event.get("type") == "result":
+                self.output.terminal = True
+                self.output.content = event.get("result", "")
+                self.output.permission_denials = event.get("permission_denials", [])
+                if event.get("is_error"):
+                    error = event.get("errors") or self.output.content or event.get("subtype")
+                    self.output.error = error if isinstance(error, str) else json.dumps(error, ensure_ascii=False)
                 self.end_input()
+            elif event.get("type") == "assistant" and not self.output.terminal:
+                blocks = event.get("message", {}).get("content", [])
+                text = "".join(block.get("text", "") for block in blocks if isinstance(block, dict) and block.get("type") == "text")
+                if text:
+                    self.output.content = text
 
     def http(self, method, path, body=None):
         from .hosts import _http

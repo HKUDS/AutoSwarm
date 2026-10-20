@@ -1,4 +1,4 @@
-"""Check an installed CLI or standalone program outside its source directory."""
+"""Check the installed package and Skill outside the source directory."""
 from __future__ import annotations
 
 import argparse
@@ -53,7 +53,7 @@ def main():
         assert invoke(["config", "--delegate-approvals", "off"])["delegate_approvals"] is False
         assert invoke(["config", "--delegate-approvals", "on"])["delegate_approvals"] is True
         codex = invoke(["setup", "--host", "codex", "--skill-dir", str(root / "codex-skill")])
-        # Reinstall from the installed launcher, including a copied standalone.
+        # Reinstall from the Skill's own launcher.
         invoke(["setup", "--host", "codex", "--skill-dir", str(root / "codex-skill")], command=codex["launcher"])
         result = invoke(["run", "--agent", "codex", "--no-parent", "--cwd", str(root), "installed launcher"], command=codex["launcher"])
         assert result["outcome"] == "completed", result

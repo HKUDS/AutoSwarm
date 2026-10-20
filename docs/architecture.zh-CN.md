@@ -27,6 +27,12 @@ MCP 不作为当前依赖。CLI 已经给支持命令工具的宿主提供统一
 
 一轮原生执行完成与用户任务通过验收分开处理。代码没有自动评审、固定重试轮次或预设上下文压缩策略。
 
+## 安装与 CLI 可用性
+
+三个系统共用 Python 包和同一份 Skill。setup 复制本地执行器并写入完整启动参数，不另建平台独立包。App 主宿主需要本地命令工具；子 agent 需要其 CLI，App 本身不保证提供可调用接口。
+
+首次使用或指定 agent 不可用时，Skill 引导主 agent 检查已有命令、PATH 和 App 暴露的 CLI。确实缺少时询问用户是否安装该 agent 的官方 CLI，同意后按其系统的当前官方说明安装，复查 agents 后继续原任务。已有 CLI 可直接配置路径；认证或权限错误不当作缺少安装。发现和启动失败都会提供诊断，不增加安装服务或另一个状态机，也不自动安装所有产品。
+
 ## 原生批准交接
 
 Codex 子端使用自有 app-server 的 stdio JSON-RPC，接收 commandExecution、fileChange、permissions 的 requestApproval，在同一连接、同一请求 ID 上回复。该连接属于本次子调用，与向主 Codex 会话投递消息的连接分开。
@@ -93,4 +99,4 @@ Windows 记录读句柄允许其他进程原子替换文件，并保留正在读
 
 ## 验证范围
 
-自动化测试使用受控 CLI、真实本地 WebSocket/HTTP 与子进程；真实联调脚本另外调用本机已配置的原生产品。CI 定义 Linux、macOS、Windows 验证与对应独立程序构建。本机测试只证明本机平台，App UI 的会话可见性仍需实际客户端验收。
+自动化测试使用受控 CLI、真实本地 WebSocket/HTTP 与子进程；真实联调脚本另外调用本机已配置的原生产品。CI 定义 Linux、macOS、Windows 的包安装和行为验证。本机测试只证明本机平台，App UI 的会话可见性仍需实际客户端验收。

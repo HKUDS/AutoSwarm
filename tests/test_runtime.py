@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 from autoswarm import engine, platform
 from autoswarm.hooks import handle_hook
-from autoswarm.providers import Output
+from autoswarm.providers import discover
 from autoswarm.records import Records, SwarmError, read_json, write_json
 from autoswarm.setup import install
 
@@ -83,7 +83,37 @@ class RuntimeTests(unittest.TestCase):
     def test_failure_is_retained_and_not_success(self):
         result = engine.wait(self.records, [self.start("claude-code", "fail")])[0]
         self.assertEqual(result["outcome"], "failed")
-        self.assertIsNotNone(result["error"])
+        self.assertIn("fixture failure", result["error"])
+        self.assertEqual(result["permission_denials"], [{"tool_name": "Bash"}])
+
+    def test_missing_cli_is_reported_before_accepting_work_and_can_be_configured(self):
+        config = self.records.config()
+        command = config["providers"]["codex"]["command"]
+        config["providers"]["codex"]["command"] = [str(self.root / "missing-codex")]
+        write_json(self.records.home / "config.json", config)
+        agent = next(value for value in discover(config) if value["provider"] == "codex")
+        self.assertFalse(agent["available"])
+        self.assertIn("official CLI", agent["error"])
+        with self.assertRaises(SwarmError) as caught:
+            self.start()
+        self.assertEqual(caught.exception.code, "provider_unavailable")
+        self.assertEqual(list(self.records.calls()), [])
+        config["providers"]["codex"]["command"] = command
+        write_json(self.records.home / "config.json", config)
+        self.assertEqual(engine.wait(self.records, [self.start()])[0]["outcome"], "completed")
+
+    def test_configured_cli_is_reused_when_not_on_path(self):
+        with patch.dict(os.environ, {"PATH": ""}):
+            agents = discover(self.records.config())
+        self.assertTrue(all(agent["available"] for agent in agents))
+
+    def test_cli_probe_failure_preserves_diagnostics(self):
+        config = self.records.config()
+        config["providers"]["codex"]["command"].append("version-fail")
+        agent = next(value for value in discover(config) if value["provider"] == "codex")
+        self.assertFalse(agent["available"])
+        self.assertEqual(agent["error"], "fixture CLI cannot start")
+        self.assertIn("command", agent)
 
     def test_opencode_return_after_tool_call_is_not_completion(self):
         result = engine.wait(self.records, [self.start("opencode", "incomplete")])[0]
@@ -198,38 +228,3 @@ class RuntimeTests(unittest.TestCase):
         data = json.loads(output.stdout)["data"]
         self.ids.append(data["call_id"])
         self.assertEqual(data["content"], "relocated|session=fixture-session")
-
-
-class ParserTests(unittest.TestCase):
-    def test_opencode_only_final_stop_completes_the_invocation(self):
-        parser = Output("opencode")
-        for reason in ("tool-calls", "length", "error"):
-            parser.feed(json.dumps({"type": "step_finish", "part": {"reason": reason}}))
-            self.assertFalse(parser.terminal)
-        parser.feed('{"type":"step_finish","part":{"reason":"stop"}}')
-        self.assertTrue(parser.terminal)
-
-    def test_opencode_new_step_resets_previous_completion(self):
-        parser = Output("opencode")
-        parser.feed('{"type":"step_finish","part":{"reason":"stop"}}')
-        parser.feed('{"type":"step_start"}')
-        self.assertFalse(parser.terminal)
-        self.assertIsNone(parser.finish_reason)
-
-    def test_transient_codex_error_does_not_override_completed_turn(self):
-        parser = Output("codex")
-        parser.feed('{"type":"error","message":"retrying"}')
-        parser.feed('{"type":"turn.completed"}')
-        self.assertIsNone(parser.error)
-
-    def test_claude_error_and_denials_are_not_discarded(self):
-        parser = Output("claude-code")
-        parser.feed(json.dumps({"type": "result", "is_error": True, "errors": ["permission required"], "permission_denials": [{"tool": "Bash"}]}))
-        self.assertIn("permission required", parser.error)
-        self.assertEqual(parser.permission_denials[0]["tool"], "Bash")
-
-    def test_opencode_updates_part_without_duplicating_text(self):
-        parser = Output("opencode")
-        for value in ("first", "complete"):
-            parser.feed(json.dumps({"type": "text", "sessionID": "native", "part": {"id": "same", "text": value}}))
-        self.assertEqual(parser.content, "complete")
