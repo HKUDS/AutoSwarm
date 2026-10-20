@@ -1,0 +1,29 @@
+{
+  "name": "AutoSwarm",
+  "version": "1.0.0",
+  "archive_date": "2026-10-20",
+  "source_commit": "f50073383391b533a0d8c6b29dc6b11bbf58789e",
+  "source_version": "0.1.0",
+  "source_file_count": 994,
+  "scope": "All Git-tracked files from the clean source working tree.",
+  "release_adjustments": [
+    ".gitignore",
+    "pyproject.toml",
+    "opc/__init__.py",
+    "opc/plugins/office_ui/frontend_src/package.json",
+    "opc/plugins/office_ui/frontend_src/package-lock.json",
+    "README.md",
+    "README.zh-CN.md",
+    "ARCHIVE.md",
+    "RELEASE.json",
+    "SHA256SUMS"
+  ],
+  "excluded_local_state": [
+    ".git/",
+    ".venv/",
+    "node_modules/",
+    "ignored runtime config, credentials, databases, logs and caches",
+    "untracked uv.lock (still identifies the old opc package)"
+  ],
+  "local_state_note": "Existing ignored runtime state and dependency caches were relocated locally alongside the archive; they remain ignored and are excluded from the source bundle and SHA256SUMS."
+}

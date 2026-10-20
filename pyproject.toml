@@ -4,104 +4,32 @@ build-backend = "hatchling.build"
 
 [project]
 name = "autoswarm"
-version = "0.1.0"
-description = "AutoSwarm: Automating Agent Swarms — Self-Built, Self-Run, Self-Grown"
+version = "2.0.0.dev0"
+description = "Delegate to your installed coding agents from one conversation"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
-
-dependencies = [
-    "typer[all]>=0.9.0",
-    "rich>=13.0",
-    "prompt-toolkit>=3.0",
-    "litellm==1.82.1",
-    "pydantic>=2.0",
-    "pydantic-settings>=2.0",
-    "pyyaml>=6.0",
-    "aiosqlite>=0.19.0",
-    "chromadb>=0.4.0",
-    "httpx>=0.27.0",
-    "loguru>=0.7.0",
-    "playwright>=1.40",
-    "mcp>=1.28,<2",
-    "anyio>=4.0",
-    "python-docx>=1.1.0",
-    "openpyxl>=3.1.0",
-    "python-pptx>=0.6.21",
-]
-
-[project.optional-dependencies]
-# Backwards-compatible alias: browser tools are now native and the dependency
-# is installed with the base package.
-browser = []
-# Optional legacy CLI board/TUI inspector; not installed by default.
-cli-board = ["textual>=8.1.1"]
-jiuwen = ["websockets>=12.0", "json-repair>=0.58.4"]
-channels-telegram = ["python-telegram-bot>=21.0"]
-channels-whatsapp = ["websockets>=12.0"]
-channels-discord = ["discord.py>=2.3"]
-channels-feishu = ["lark-oapi>=1.4.0"]
-channels-mochat = ["python-socketio[asyncio_client]>=5.11.0"]
-channels-dingtalk = ["dingtalk-stream>=0.21.0"]
-channels-email = []
-channels-slack = ["slack-sdk>=3.27.0"]
-channels-qq = ["qq-botpy>=1.2.1"]
-channels-matrix = ["matrix-nio>=0.24.0"]
-channels-bridges = [
-    "websockets>=12.0",
-    "python-socketio[asyncio_client]>=5.11.0",
-]
-channels-all = [
-    "python-telegram-bot>=21.0",
-    "websockets>=12.0",
-    "discord.py>=2.3",
-    "lark-oapi>=1.4.0",
-    "python-socketio[asyncio_client]>=5.11.0",
-    "dingtalk-stream>=0.21.0",
-    "slack-sdk>=3.27.0",
-    "qq-botpy>=1.2.1",
-    "matrix-nio>=0.24.0",
-]
-all = [
-    "python-telegram-bot>=21.0",
-    "websockets>=12.0",
-    "discord.py>=2.3",
-    "lark-oapi>=1.4.0",
-    "python-socketio[asyncio_client]>=5.11.0",
-    "dingtalk-stream>=0.21.0",
-    "slack-sdk>=3.27.0",
-    "qq-botpy>=1.2.1",
-    "matrix-nio>=0.24.0",
-]
-
-dev = [
-    "pytest>=9.0",
-    "pytest-timeout>=2.3",
-]
+dependencies = []
 
 [project.scripts]
-autoswarm = "opc.cli.app:main"
-opc = "opc.cli.app:main"
+autoswarm = "autoswarm.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["opc"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"config" = "opc/config_templates"
-"skills/core" = "opc/skills_assets/core"
+packages = ["src/autoswarm"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "opc",
-    "config",
-    "skills/core",
-    "docs",
-    "scripts",
-    "README.md",
-    "pyproject.toml",
+    "/src",
+    "/docs",
+    "/tests",
+    "/scripts",
+    "/README.md",
+    "/README.zh-CN.md",
+    "/CONTRIBUTING.md",
+    "/LICENSE",
+    "/pyproject.toml",
 ]
 
 [tool.pytest.ini_options]
-# Backstop against wedged tests: a hung test fails after 5 minutes instead
-# of stalling the whole suite (requires pytest-timeout, in the `dev` extra).
-timeout = 300
+testpaths = ["tests"]
+addopts = "--ignore=autoswarm-v1.0.0"

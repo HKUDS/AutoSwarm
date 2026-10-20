@@ -1,0 +1,95 @@
+# OPC runtime data (project-local: config with keys, DB, memory, logs)
+# Keep most runtime state ignored, but allow selected shared prompts/skills.
+.opc/*
+!.opc/config/
+.opc/config/*
+!.opc/config/company_orgs/
+!.opc/config/company_orgs/**
+!.opc/prompts/
+!.opc/skills/
+.opc/prompts/*
+!.opc/prompts/talent/
+!.opc/prompts/talent/**
+!.opc/skills/**
+.opc/config/company_orgs/org_hkuds_config.yaml
+
+# Environment and secrets (API keys, tokens, etc.)
+.env
+.env.*
+!.env.example
+
+# Database (SQLite; also under .opc when using default OPC_HOME)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Local-only / non-release artifacts
+data/
+MagicMock/
+.codex
+!/.codex
+
+# Internal notes and legacy top-level benchmark artifacts stay local.
+docs/internal/
+benchmarks/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+uv.lock
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+venv/
+env/
+.conda/
+*.manifest
+
+# Test / type-check / coverage
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+/.tmp-test/
+
+# Logs
+*.log
+logs/
+
+# Task/demo artifacts
+artifacts/
+/sessions/
+
+# Temporary Node/MCP artifacts
+node_modules/
+node_modules.broken*/
+/package.json
+/package-lock.json
+.npm/
+npm-debug.log*
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+
+# OS
+.DS_Store
+Thumbs.db
+
+.opc-comms/
+.claude
+.tmp/
+tmp/

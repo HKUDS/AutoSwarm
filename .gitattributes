@@ -11,3 +11,6 @@
 *.bat text eol=crlf
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
+
+# Keep the frozen archive's checkout bytes consistent with SHA256SUMS.
+autoswarm-v1.0.0/** eol=lf

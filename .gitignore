@@ -30,6 +30,7 @@
 data/
 MagicMock/
 .codex
+!/autoswarm-v1.0.0/.codex
 
 # Internal notes and legacy top-level benchmark artifacts stay local.
 docs/internal/

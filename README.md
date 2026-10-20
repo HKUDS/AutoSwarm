@@ -1,965 +1,173 @@
-<h1 align="center" style="font-size: 1.75em;">AutoSwarm: Automating Agent Swarms — Self-Built, Self-Run, Self-Grown</h1>
+# AutoSwarm v2
 
-<p align="center">
-  <b>English</b> | <a href="README.zh-CN.md">简体中文</a>
-</p>
+[简体中文](README.zh-CN.md)
 
-🏗️ **Self-Built** — Fully automated to recruit role-specific AI employees and build the org.
+Use your installed **Codex, Claude Code and OpenCode** from one agent conversation. Your main agent delegates, receives the results and continues the work. AutoSwarm supplies the invocation and return mechanics; it does not choose agents for particular domains.
 
-⚙️ **Self-Run** — Fully automated to assign tasks, drive handoffs, and keep moving toward your goal.
+The complete v1 implementation is frozen in [autoswarm-v1.0.0/](autoswarm-v1.0.0/ARCHIVE.md). v2 does not import it or reuse its database.
 
-🌱 **Self-Grown** — Learns from every task, builds organizational memory, always delivers smarter.
+## Install
 
-<p align="center">
-  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white">
-  <img alt="Office UI" src="https://img.shields.io/badge/Office%20UI-React%20%2B%20Phaser-14b8a6?style=flat-square">
-  <img alt="CLI and UI" src="https://img.shields.io/badge/interface-CLI%20%2B%20Office%20UI-64748b?style=flat-square">
-  <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-111827?style=flat-square">
-  <a href="https://github.com/HKUDS/.github/blob/main/profile/README.md"><img src="https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat-square&logo=feishu&logoColor=white" alt="Feishu" /></a>
-  <a href="https://github.com/HKUDS/.github/blob/main/profile/README.md"><img src="https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat-square&logo=wechat&logoColor=white" alt="WeChat" /></a>
-</p>
+With a standalone executable built for your operating system, run `autoswarm setup --host codex` (or `claude-code` / `opencode`). The executable includes its Python runtime. The installer prints the installed launcher path; agents can invoke it without relying on a GUI application's PATH.
 
-![AutoSwarm hero banner](docs/assets/chat.png)
-
-## News
-
-- **Sep 3, 2026 — JiuwenSwarm compatibility update:** Setup now uses the verified JiuwenSwarm `0.2.4b4` and openJiuwen `0.1.16` versions.
-- **Sep 1, 2026 — A more responsive Office UI:** Office and developer-tool rendering are now isolated from high-frequency runtime events, reducing unnecessary full-app updates and keeping Workspace and Org views smoother during long-running sessions.
-- **Aug 26, 2026 — JiuwenSwarm integration:** Use JiuwenSwarm-single as a single agent or JiuwenSwarm-team as one opaque Team in both Task and Company modes — a self-organizing swarm that plugs into your org seamlessly. [Setup and role behavior](#jiuwen-integration).
-- **Jul 14, 2026 — More resilient company runs:** Company-mode sessions now recover and resume more seamlessly while preserving agent identity, shared role context, delegation, and review progress.
-- **Jul 13, 2026 — Smoother Office UI:** Faster live updates and chat scrolling improve long-running projects.
-- **Jul 8, 2026 — Smarter approvals:** Session grants persist, low-risk actions flow automatically, and deferred decisions stay available.
-
-## Table Of Contents
-
-- [When To Use AutoSwarm](#when-to-use-autoswarm)
-- [Demos](#demos)
-- [How AutoSwarm Works](#how-autoswarm-works)
-- [Quick Start](#quick-start)
-- [Office UI Guide](#office-ui-guide)
-- [CLI Guide](#cli-guide)
-- [Configuration](#configuration)
-- [JiuwenSwarm](#jiuwen-integration)
-- [Ecosystem And Sharing](#ecosystem-and-sharing)
-- [Roadmap](#roadmap)
-- [Acknowledgements](#acknowledgements)
-
-## When to Use AutoSwarm
-
-**AutoSwarm** covers nine core verticals — from AI development and software engineering to finance, sales, media, e-commerce, and education. Whatever the industry, AutoSwarm assembles the right team and delivers end-to-end.
-
-<table>
-  <tr>
-    <td width="33%" valign="top">
-      <br><strong>🤖 AI Tech & Research</strong>
-      <br><sub>Model training & evaluation, Agent development, LLM apps & AI infrastructure</sub>
-    </td>
-    <td width="33%" valign="top">
-      <br><strong>💻 Software Development</strong>
-      <br><sub>Android apps, SaaS MVPs, websites, mini programs & game development</sub>
-    </td>
-    <td width="33%" valign="top">
-      <br><strong>📈 Financial Investment</strong>
-      <br><sub>Investment memos, market maps, due diligence & IC decision packages</sub>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top">
-      <strong>🚀 Sales Growth</strong>
-      <br><sub>Outbound sales, deal strategy, proposals & channel expansion</sub>
-    </td>
-    <td valign="top">
-      <strong>🎬 Content & Media</strong>
-      <br><sub>Video production, short-form content, scripts, storyboards & multi-platform cuts</sub>
-    </td>
-    <td valign="top">
-      <strong>🤝 Industry Assistants</strong>
-      <br><sub>Copilots for support, real estate, legal intake, HR onboarding, retail</sub>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top">
-      <strong>🧾 Accounting & Finance</strong>
-      <br><sub>Bookkeeping, financial reporting, tax compliance, budgeting & risk review</sub>
-    </td>
-    <td valign="top">
-      <strong>🛍️ Brand & E-commerce</strong>
-      <br><sub>Brand planning, product selection, store ops, user growth & retention</sub>
-    </td>
-    <td valign="top">
-      <strong>🎓 Education & Training</strong>
-      <br><sub>Curriculum design, knowledge base, learner management & content production</sub>
-    </td>
-  </tr>
-</table>
-
-## Demos
-
-<table>
-  <tr>
-    <td width="33%" align="center" valign="top">
-      <a href="https://youtu.be/XqQeTt6XvPQ">
-        <img src="https://img.youtube.com/vi/XqQeTt6XvPQ/maxresdefault.jpg" alt="AutoSwarm video production demo" width="100%">
-      </a>
-      <br><br>
-      <strong>🎬 Video Production</strong>
-    </td>
-    <td width="33%" align="center" valign="top">
-      <a href="https://drive.google.com/drive/folders/1T1Nl6CCE-cmbGy6sKrYML7_UnP8XID88?usp=drive_link">
-        <img src="docs/assets/vc-research-package.svg" alt="AutoSwarm VC investment research demo" width="100%">
-      </a>
-      <br><br>
-      <strong>📈 Investment Research</strong>
-    </td>
-    <td width="33%" align="center" valign="top">
-      <a href="https://youtu.be/SVc9BvE5ohY">
-        <img src="https://img.youtube.com/vi/SVc9BvE5ohY/maxresdefault.jpg" alt="AutoSwarm game prototype demo" width="100%">
-      </a>
-      <br><br>
-      <strong>🎮 Game Prototype</strong>
-    </td>
-  </tr>
-</table>
-
-## How AutoSwarm Works
-
-AutoSwarm assembles a AI company around complex, real-world tasks — through three tightly coupled mechanisms: **Self-Built** staffs the organisation, **Self-Run** executes the work, and **Self-Grown** learns from the outcome.
-
-<p align="center">
-  <img src="docs/assets/video.png" alt="An AutoSwarm company: roles, reporting lines, and the employee staffed into each role" width="100%">
-</p>
-
-**1. Self-Built — Staffing the Organisation**
-
-Before any work begins, the right people must be in place. Given a goal, AutoSwarm:
-
-- 🌿 Drafts the org chart — deriving the roles and reporting structure the task demands.
-- 🎯 Fills each role — a recruiter agent chooses between reusing an existing employee (shaped by prior projects) and onboarding a fresh hire from the talent pool.
-
-💡 Experienced employees carry accumulated context; fresh hires offer a clean slate when a role demands it.
-
-Before sending the first message, choose **Mode → Company** and use the **Company** selector:
-
-- **Adaptive team** uses the selected **Agent** to design responsibilities, reporting relationships and staff assignments in one planning decision. Sending the request opens a combined team/recruitment proposal directly; feedback revises it and approval starts a separate organization. A solo owner is valid, with no fixed team size or hierarchy depth. Members and management layers must justify their complementary contribution against smaller/merged alternatives and the total cost of time, context loading, communication, review, rework and integration.
-- **Fixed organization** uses Corporate or a saved organization with its roles and reporting relationships intact. Staff it manually or use **Auto Recruit**; recruitment does not redesign the organization.
-
-The choice is saved with the chat, survives reloads and is locked after the first message. Existing chats default to fixed organizations. CLI staffing cards still accept `auto team` for combined formation/recruitment and `auto recruit` for existing-role staffing. Formation and recruitment use the selected execution agent. External agents plan in separate temporary workspaces; Codex uses a read-only sandbox. Team size is a qualitative agent decision, not a guarantee of optimality; existing organization configurations are preserved.
-
-The chat's **Agent** handles formation, recruitment and default execution. Each role's **Execution Agent** can override its execution backend, saved per project and organization. Codex uses its own model configuration and runs Company work in a workspace sandbox with task-bound collaboration. An explicitly selected agent that is unavailable or lacks Company isolation support fails visibly rather than silently switching to Native or another agent. Stop/resume preserves explicit choices too.
-
-Approved adaptive hires are persisted and remain available for reuse in later adaptive runs from the same source organization and project, alongside their relevant experience.
-
-Adaptive teams are temporary by default: their runtime snapshots support conversation follow-ups and recovery, but do not appear in the saved organization picker. Only explicitly saved architectures become reusable organizations.
-
-Formation and automatic recruitment impose no extra fixed planning deadline or correction quota. Data validation feedback goes back to the selected agent for correction; the framework does not rewrite the team or substitute heuristic staffing decisions. Users can stop planning, and agent or provider failures are reported explicitly.
-
-**⚙️ 2. Self-Run — Executing the Work**
-
-With the team assembled, Self-Run orchestrates its members toward a finished deliverable. The central challenge is not raw execution but efficient collaboration under uncertainty, which manifests in two distinct problems.
-
-🔀 Dynamic collaboration orchestration. Real work cannot be fully planned upfront. AutoSwarm addresses this through a work-item state machine, where each item's phase determines:
-
-- 📋 Its kanban column — where it stands in the workflow.
-- 👑 Its owner — the role responsible at that phase.
-- ✅ Its runnability — whether it is ready to proceed.
-
-A manager decomposes items, assigns, and reviews results — accepting, reworking, or escalating — across five modes: execute, delegate, review, integrate, and rework. Decomposition defines a dependency DAG, so:
-
-- ⚡ Independent items proceed in parallel.
-- ⏳ Dependent items wait until prerequisites are resolved.
-
-🔗 Dependency resolution and rejection propagate as structured phase transitions, eliminating ad-hoc coordination.
-
-🛡️ Handling blockers surfacing mid-run. Not all obstacles are visible upfront. AutoSwarm resolves them at two levels:
-
-- 💬 Within the team — a blocking message pauses the sender, activating the role best positioned to resolve it.
-- 📡 Beyond the team — when a blocker exceeds the team's authority, the runtime escalates to the human owner, invoking human judgment precisely when needed.
-
-🖥️ The kanban and office views render this orchestration in real time.
-
-**🌱 3. Self-Grown — Learning from the Run**
-
-Execution generates raw experience; Self-Grown turns it into lasting improvement, guided by two principles.
-
-🏅 Attributing outcomes to the right roles. Crediting the whole company teaches nothing. Instead, AutoSwarm:
-
-- 🔍 Resolves user feedback into per-employee evaluations.
-- 🎯 Updates only roles that owned the relevant work items — credit and blame land where they were earned.
-
-📖 Distilling trajectories into knowledge. Execution traces are too noisy to learn from. AutoSwarm therefore:
-- 💡 Distils each role's tasks into high-signal lessons, stored in its private experience profile.
-- 📚 Promotes recurring lessons into shared playbooks, which new hires inherit from the outset — compounding organisational knowledge over time.
-
-<details>
-<summary><strong>How this maps to the UI</strong></summary>
-
-- `Org -> Team` edits the company architecture and roles.
-- `Org -> Employees` hires talent into vacant roles.
-- `Team Roster -> Deploy` turns a hired employee into a visible office agent.
-- The Workspace composer selects the Task Mode execution agent.
-- The role inspector can set runtime policy and preferred external agent for Company Mode roles.
-- During execution, Workspace `Agents` and the Execution Progress panel show which role is active, which work item it owns, and which execution agent is doing the concrete work.
-</details>
-
-## Quick Start
-
-`uv` is the recommended setup path for AutoSwarm. It can install/manage Python, create the project virtualenv, and run commands against that environment without mixing AutoSwarm dependencies into your global Python.
-
-AutoSwarm was previously named OpenOPC. The primary command is now `autoswarm`; `opc` remains an alias. The `opc` Python package, `.opc/` data directory, `OPC_HOME`, and existing project/session identifiers stay compatible. Existing checkouts and workspaces can keep their current directory names; reinstall the editable package to enable the new command.
-
-AutoSwarm requires Python `>=3.10`; the examples below use Python `3.12`.
-
-For direct one-off work, AutoSwarm also includes Task Mode, a LobeChat-like single-agent workspace using AutoSwarm Native, Codex, Claude Code, Cursor, or OpenCode.
-
-<details open>
-<summary><strong>Recommended: uv environment setup</strong></summary>
-
-**macOS**
+For a source checkout with uv:
 
 ```bash
-# Install uv with Homebrew, or use the official standalone installer.
-brew install uv
-# curl -LsSf https://astral.sh/uv/install.sh | sh
-
-cd /path/to/AutoSwarm
-uv python install 3.12
-uv venv --python 3.12
-source .venv/bin/activate
+uv tool install .
+autoswarm setup --host codex
+autoswarm doctor
 ```
 
-**Linux**
+Alternatively install the package into a **new** Python 3.10+ environment. Do not reuse the archived v1 environment. Runtime Python dependencies: none. Existing native agents, their credentials and their own permissions are reused; authenticate an agent through its own interface when needed.
+
+`setup` installs a relocatable Skill. For Claude Code it merges lifecycle hooks into user settings; for OpenCode it installs a native plugin. Use `--skill-dir`, `--settings-file` and `--plugin-dir` to choose explicit destinations. Existing unrelated settings/hooks are preserved. Native hook trust and reload requirements remain in force. No global host settings are changed until you run setup.
+
+## Delegate and collect
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-source "$HOME/.local/bin/env"
+autoswarm agents
+autoswarm run --agent codex --input task.txt --cwd /path/to/project
+autoswarm run --agent claude-code --input task.txt --cwd /path/to/project --background
+autoswarm run --agent opencode --input task.txt --cwd /path/to/project --background
 
-cd /path/to/AutoSwarm
-uv python install 3.12
-uv venv --python 3.12
-source .venv/bin/activate
+autoswarm wait call_ID call_OTHER_ID
+autoswarm wait --any call_ID call_OTHER_ID
+autoswarm receive call_ID
+autoswarm resume call_ID --input followup.txt
+autoswarm inspect call_ID
+autoswarm cancel call_ID
 ```
 
-**Windows PowerShell**
+All operational commands return JSON. `ok` reports whether the AutoSwarm operation succeeded; inspect `data.outcome` for the native invocation's `completed`, `failed`, `cancelled` or `interrupted` outcome, or `kind: approval_required` for a pending native permission. Completion is not a claim that tests passed. `--input -` reads UTF-8 stdin; positional prompts are also accepted. Prompts reach providers through structured stdin or the local native API, without shell interpolation or OS argument-length limits. Results are not truncated.
 
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+`resume` uses the saved native session ID and creates a new call record. It does not replay the full conversation or overwrite the earlier result. Native transcripts remain in each agent's native storage. Pass an explicit `--model` or repeated `--provider-arg=--native-flag` only when you want a native override. AutoSwarm adds no context budget, concurrent-agent quota, maximum turn count or task deadline. User/native limits remain authoritative.
 
-cd C:\path\to\AutoSwarm
-uv python install 3.12
-uv venv --python 3.12
-.\.venv\Scripts\Activate.ps1
-```
+Interrupting a wait leaves background work running. `cancel` requests termination of the child process tree; an already returned result is retained. A missing runner without a final receipt is reported as interrupted, never automatically rerun. A host sandbox that destroys all subprocesses after a shell command exits cannot support detached calls through that shell; use its native integration or a host execution environment that permits background processes.
 
-**Windows Command Prompt**
+## Native approvals in the main conversation
 
-```bat
-winget install --id=astral-sh.uv -e
-:: Or run the standalone installer from cmd:
-:: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+When a child requests permission, its original operation pauses. AutoSwarm returns an `approval_required` event through `run`/`wait`/`receive`, or sends it through the same exact-parent host integration used for results. Even `wait` for several children returns immediately on an approval so the parent can respond. This event is not a final result or permission to execute the operation. A foreground `run` returns an array if several approvals arrive together.
 
-cd C:\path\to\AutoSwarm
-uv python install 3.12
-uv venv --python 3.12
-.venv\Scripts\activate.bat
-```
-</details>
+Parent approval delegation is **on by default**, and is configurable globally or per child:
 
 ```bash
-# Install AutoSwarm into the uv-managed environment
-uv pip install -e .
-
-# Optional but recommended for browser tools
-uv run python -m playwright install chromium
-
-# Initialize local config, memory, skills, projects, and workspace folders
-uv run autoswarm init
-
-# Add an API key in .opc/config/llm_config.yaml
-# or configure the env var named by llm.api_key_env.
-
-# Launch the browser UI
-uv run autoswarm ui
+autoswarm config                              # Read the current default
+autoswarm config --delegate-approvals off     # Require human decisions
+autoswarm config --delegate-approvals on
+autoswarm run --agent claude-code --input task.txt --delegate-approvals off
+autoswarm approvals call_ID
+autoswarm approve call_ID approval_ID
+autoswarm deny call_ID approval_ID --message "Use another approach"
+autoswarm approve call_ID approval_ID --by user
+autoswarm wait call_ID
 ```
 
-Open `http://localhost:8765` by default.
+Enabled delegation lets the main agent decide within the user's task and its host's authorization; it does not automatically approve everything. With delegation off, parent-authored decisions are rejected. The main agent asks in the current conversation, waits for the user's answer, and relays that actual answer with `--by user`. This actor label records the source of the decision; a CLI running as the same local user cannot independently authenticate a chat message. The installed Skill explicitly forbids impersonating a user decision or changing delegation to bypass confirmation. Per-child overrides take precedence and carry over on resume; otherwise changes to the global default also apply to pending requests.
+
+The default grant covers the native request. `approve --scope session` is available only when that request supports a session grant. Native explicit denials, managed restrictions and existing auto-approval rules remain authoritative. Codex configurations using its native auto-review may settle a request before AutoSwarm receives it. Denial follows the native offered choices; some Codex requests offer cancellation rather than continuing after rejection. Unanswered requests have no AutoSwarm-imposed deadline. Cancellation or native withdrawal invalidates a pending request. A decision is tied to its exact call/request and cannot be overwritten by a conflicting decision.
+
+Child transport details: Codex uses an owned `codex app-server` over stdio; Claude uses its bidirectional stream-JSON control protocol (`can_use_tool`); OpenCode uses an owned loopback `opencode serve` with native permission events/replies. These processes are started and stopped by the per-call runner, reuse native configuration/authentication and need no separately deployed service or Python SDK. Provider arguments must be supported by that transport; common Codex sandbox/approval and OpenCode model/agent flags are translated into native request fields. Notification and final-result receipts are separate. `deliver call_ID --request approval_ID` retries an approval notification.
+
+The portable UI is a question in the original conversation. A native App approval popup depends on host capabilities. This implements the native command/file/tool permission paths exposed by these transports; OS prompts, managed-policy changes and provider-specific prompts outside those paths are not converted into generic approvals. A Skill cannot independently prove human consent or create every host's native popup.
+
+## Return to the original main conversation
+
+The three interaction paths share the same durable result file:
+
+| Main-agent state | Return path |
+| --- | --- |
+| Waiting for the child | `run` / `wait` returns through the normal host tool result |
+| Working on something else | Collect with `wait` / `receive`, or use the native host integration |
+| Finished its current turn | Native integration delivers the output and requests/observes continuation in that same conversation |
+
+A result saved on disk, a submitted notification and an observed continuation are reported separately. AutoSwarm never guesses the latest conversation or opens a replacement parent thread.
+
+**Codex:** `CODEX_THREAD_ID` binds the current conversation when exported by the host. Native return additionally needs the *existing* app-server control socket or WebSocket endpoint. The standard local control socket is detected; `AUTOSWARM_CODEX_ENDPOINT` overrides it. The bridge steers an active turn or starts a turn in the same idle thread. It does not treat `codex queue` success as proof of continuation. Socket access depends on the actual host and sandbox.
 
 ```bash
-# Interactive CLI
-uv run autoswarm chat -p demo
-
-# One-shot task mode
-uv run autoswarm chat -p demo --mode task --agent codex "Refactor this module and run focused tests"
-
-# Company mode with the built-in Corporate architecture
-uv run autoswarm chat -p demo --mode company --company-profile corporate "Plan, implement, review, and document this feature"
-
-# Non-interactive scripting / CI style usage
-uv run autoswarm exec -p demo --mode task --agent native --json "Summarize the current repo status"
+autoswarm bind --host codex --session ORIGINAL_THREAD_ID --endpoint unix:///absolute/control.sock --output parent.json
+autoswarm run --agent claude-code --input task.txt --background --parent parent.json
 ```
 
-<details>
-<summary><strong>Install notes</strong></summary>
+Use `ws://` for local endpoints and `wss://` for authenticated remote endpoints. If needed, bind `--token-env VARIABLE_NAME`; credentials are read from that environment variable rather than stored in the binding. `--no-parent` selects explicit wait/receive.
 
-- Python: `>=3.10`. Current required dependencies do not all publish Python 3.9-compatible releases.
-- `uv` is recommended for local development and release testing. If you prefer classic pip, create and activate a Python `>=3.10` virtualenv, then run `python -m pip install -e .`.
-- If virtualenv activation is blocked, stay unactivated and run commands with `uv run ...`.
-- See the official [`uv` installation](https://docs.astral.sh/uv/getting-started/installation/) and [Python management](https://docs.astral.sh/uv/guides/install-python/) docs for alternative package managers and managed Python details.
-- Node.js: `>=18` is needed when the Office UI frontend must be built.
-- `autoswarm ui` auto-installs missing `aiohttp` / `aiosqlite` and auto-builds the frontend if needed.
-- If you have not installed external agent CLIs yet, run `autoswarm init --no-external-agent-preflight` to skip the first-run external-agent checks.
-- Browser tools are native Playwright tools. Install Chromium with `python -m playwright install chromium` before asking agents to browse pages.
-</details>
+**Claude Code:** setup installs `SessionStart`, `PostToolUse` with native `asyncRewake`, and `Stop` hooks. SessionStart binds the exact parent; the async hook signals new output even when the native session is idle. The Stop hook returns available results or asks the main agent to wait for outstanding calls. Async submission is recorded as `submitted`, not an invented observed turn. Native Claude hook availability and lifecycle limits still apply. Start a new session after setup. The implementation targets the installed 2.1.304 interface.
 
-<details>
-<summary><b>Development setup (build from source)</b></summary>
+**OpenCode:** restart after setup and use the native `autoswarm` tool with an `arguments` array containing the CLI arguments. It binds `context.sessionID`, waits for children asynchronously, defers busy-session return to the native `session.idle` event and submits output through the existing native client. It records the returned assistant message as the continuation receipt. Plain shell calls can still use wait/receive; they do not automatically gain the plugin's session binding.
 
-```bash
-python -m pip install -e .
-python -m pytest
+Reloading the plugin restores watchers belonging to that native host instance. A new host process recovers an older conversation when native input confirms that exact session is being continued; another CLI in the same workspace does not take it over automatically. Internal watchers use `wait --peek --unseen`, deliver each approval separately and continue watching for the final result.
 
-cd opc/plugins/office_ui/frontend_src
-npm install
-npm run typecheck
-npm run build
-```
+For an already reachable OpenCode server, `bind --host opencode --session ID --endpoint http://127.0.0.1:PORT --workspace /project --output parent.json` enables the native HTTP bridge. It observes an assistant response rather than treating HTTP queue acceptance as completed work.
 
-The frontend build output is served from `opc/plugins/office_ui/frontend_dist/`.
-</details>
+OpenCode's native API must return an assistant message with the final `stop` reason for normal completion. Intermediate `tool-calls` is not completion; the native session ID is retained if the invocation fails. The owned server's exit code describes server shutdown, while the task outcome comes from the native assistant response.
 
-## Office UI Guide
+`inspect` exposes `delivery`. A disconnected native endpoint leaves a pending receipt and intact result; transient connection failures can be retried while the runner lives. Permanent binding errors remain explicit. `deliver call_ID` retries native endpoint delivery without rerunning the child; lifecycle-hook returns are handled by the installed host integration. A custom `command` host binding can supply an argv bridge that receives the parent/result JSON on stdin and returns an explicit delivery/continuation receipt.
 
-<details>
-<summary><b>Expand the Office UI guide — visual tour, workspace, company mode, kanban, office, org</b></summary>
+Native app sidebar visibility is separate from session persistence and return. AutoSwarm exposes the native session ID; whether the native UI lists, opens or attaches it is a provider/client capability. It does not rewrite native databases or source classifications.
 
-Start it with:
+## Small local receipts
 
-```bash
-autoswarm ui
-autoswarm ui --port 9000 --project demo
-autoswarm ui --rebuild
-```
-
-The compatible `opc ui` command uses the same configuration, projects, and sessions.
-
-### Visual Tour
-
-Scroll horizontally to browse the Office UI walkthrough. Each screenshot keeps its short guide text attached.
-
-<div style="overflow-x:auto; padding:8px 0 18px;">
-  <div style="display:flex; gap:18px; min-width:5520px;">
-    <figure style="flex:0 0 900px; width:900px; margin:0;">
-      <img src="docs/assets/fig1.png" alt="Workspace project, chat, mode, organization, and agent controls" width="900">
-      <figcaption><strong>Workspace And Setup.</strong> Choose or create a project, start <code>New Chat</code>, then select <code>Company</code> or <code>Task</code> plus the matching organization or agent. In Company Mode, pick role employees and execution agents, or let AutoSwarm auto-recruit.</figcaption>
-    </figure>
-    <figure style="flex:0 0 900px; width:900px; margin:0;">
-      <img src="docs/assets/fig2.png" alt="Execution Progress panel showing role status and execution records" width="900">
-      <figcaption><strong>Execution Progress.</strong> Track every role's state, then click a role or work item to inspect detailed execution records, tool activity, handoffs, reviews, and runtime metadata.</figcaption>
-    </figure>
-    <figure style="flex:0 0 900px; width:900px; margin:0;">
-      <img src="docs/assets/fig3.png" alt="Kanban board showing agent work items and status" width="900">
-      <figcaption><strong>Kanban.</strong> Supervise each agent's concrete tasks and work items as they move through planning, execution, review, blockers, and completion.</figcaption>
-    </figure>
-    <figure style="flex:0 0 900px; width:900px; margin:0;">
-      <img src="docs/assets/fig4.png" alt="Organization editor for tuning existing organizations and creating new ones" width="900">
-      <figcaption><strong>Org Control.</strong> Tune existing organizations, adjust roles and reporting lines, review runtime policy, or create a new organization.</figcaption>
-    </figure>
-    <figure style="flex:0 0 900px; width:900px; margin:0;">
-      <img src="docs/assets/fig5.png" alt="Talent market for browsing and recruiting employees" width="900">
-      <figcaption><strong>Talent Market.</strong> Browse talent templates, inspect candidate details, and recruit employees into vacant roles when the company needs more capability.</figcaption>
-    </figure>
-    <figure style="flex:0 0 900px; width:900px; margin:0;">
-      <img src="docs/assets/fig6.png" alt="Animated office view showing what each role is doing" width="900">
-      <figcaption><strong>Office View.</strong> Watch the organization as an animated office, with each role/agent showing status, current task, active tool, seat, and runtime activity.</figcaption>
-    </figure>
-  </div>
-</div>
-
-The Office UI has three primary pages:
-
-| Page | What you do there |
-|---|---|
-| **Workspace** | Main working surface: session list, kanban board, chat, task details, role progress, comms, and team cockpit. |
-| **Office** | Visual office map: agents appear as characters, can be selected, moved, assigned to seats, and inspected. |
-| **Org** | Company architecture: switch corporate/saved orgs, create new organizations, edit roles, hire talent, apply architecture presets, and import/export configs. |
-
-### Workspace
-
-The Workspace page is the default screen.
-
-| Area | What to look for |
-|---|---|
-| Left sidebar | Project sessions, activity, unread counts, and new chat creation. |
-| Center board | Kanban cards. In Task Mode, a card is normally one task-backed chat session. In Company Mode, the board follows the selected runtime session and shows delegated work items. |
-| Right panel | Context panel with tabs such as `Chat`, `Agents`, `Info`, `Comms`, and `Team`. Collapse, resize, or maximize it while work is running. |
-| Composer | Send messages, attach files, choose mode, choose company architecture, and in Task Mode choose the execution agent. |
-
-### Start Work From The UI
-
-1. Create or select a project from the top project selector.
-2. In Workspace, click `New Chat`.
-3. In the composer, choose `Task` or `Company`.
-4. For Task Mode, choose the agent: `AutoSwarm Native`, `Codex`, `Claude Code`, `Cursor`, or `OpenCode`.
-5. For Company Mode, choose `Corporate` or a saved org architecture.
-6. Send the brief.
-
-Once the first message is sent, the mode and task agent are locked for that chat. Use the locked-mode popover to continue in a new chat with a different mode.
-
-### Company Mode In The UI
-
-Company Mode turns one brief into a runtime session plus role-owned work items.
-
-| Tab | What it shows |
-|---|---|
-| `Chat` | Parent conversation, final responses, runtime progress cards, checkpoint replies, stop/continue/done controls, and links into work-item execution. |
-| `Agents` | Role rollup: active/waiting/pending/done roles, current tool, role work items, filters, search, and links to detailed execution progress. |
-| `Info` | Status, assignees, role identity, employee assignment, selected execution agent, timing, and developer details. |
-| `Comms` | Role inboxes, unread/read/sent messages, meetings, decisions, and recent communication failures. |
-| `Team` | Runtime cockpit: teams, seats, approvals, unread communication, run state, and stop controls for the current run. |
-
-To inspect the detailed workflow for a role, open a company-mode session and click a role/work item in the `Chat` progress card or `Agents` tab. The Execution Progress panel shows each work item, its status, activity sections, tool progress, handoffs, review targets, and execution turn metadata.
-
-### Kanban
-
-- Task Mode: the kanban is a project-level board. You can quick-create tasks in `Todo`, start them, and inspect each task from the right panel.
-- Company Mode: the active board follows the selected runtime session. Cards represent company work items and move from planning/execution/review/done according to backend runtime state.
-- Manual drag between status columns is intentionally restricted when runtime owns the state. Same-column reorder is supported where applicable.
-
-### Office
-
-Use the Office page when you want a visual view of the running team.
-
-- Click an agent character or row to inspect status, current tool, current task, role, office, and seat.
-- Use the office/seat controls to move an agent.
-- Sub-agents can be shown or hidden.
-- Agents created from employees or templates appear in the office and are persisted in `.opc/ui_state.db`.
-
-### Org
-
-The Org page is where company structure becomes runnable.
-
-| Sub-tab | Purpose |
-|---|---|
-| `Team` | View/edit the role graph, table, role inspector, roster, saved org selector, export package flow, and deploy hired employees to the office. |
-| `Runtime` | Tune runtime teams, seats, final decider, delegation strategy, and runtime policy. Corporate is read-only; saved orgs are editable. |
-| `Architecture` | Browse built-in architecture presets, preview/apply packages, manage installed packages, and import/export YAML. |
-| `Employees` | Search talent templates, view details, hire into vacant roles, and staff the company. |
-
-To create a new company: open `Org`, click `New organization`, enter a name, add at least two members with responsibilities and reporting lines, review, and create. AutoSwarm saves it automatically and switches the composer to `Company / <your org>`.
-
-To recruit: import talent templates first, then open `Org -> Employees`, search a template, click `Hire`, choose a vacant role, and deploy the employee from `Team Roster` if you want it visible in the Office page.
-
-```bash
-autoswarm talent import /path/to/agency-agents
-```
-
-To refresh this repository's talent catalog without saving company configuration, run `PYTHONPATH=. python scripts/sync_agency_talent.py /path/to/agency-agents --opc-home .opc`. It updates matching source templates, adds new ones and records the source revision and content hashes. Local custom templates are retained; example workflows and organizational playbooks are excluded from recruitment imports.
-
-<details>
-<summary><strong>Where project files live</strong></summary>
-
-AutoSwarm separates runtime/config state from deliverable workspace files.
-
-| Path | Meaning |
-|---|---|
-| `.opc/config/` | Local config copied from `config/` by `autoswarm init`. |
-| `.opc/memory/` | Global and project markdown memory. |
-| `.opc/projects/<project>/` | Project runtime metadata and task stores. |
-| `.opc/ui_state.db` | Office UI chat, channels, and visual agent state. |
-| `../<repo-name>_workplace/<project>/` | Default project workplace. Agents should write durable project files here. |
-| `../<repo-name>_workplace/<project>/.opc-comms/` | Internal company-mode comms mailboxes, meetings, and tool-result scratch space. |
-
-`<repo-name>` is the existing checkout directory name, such as `OpenOPC` or `AutoSwarm`.
-
-Set `OPC_HOME=/path/to/opc-home` if you want config and runtime state outside the repo.
-</details>
-
-</details>
-
-## CLI Guide
-
-<details>
-<summary><b>Expand the CLI guide — common commands and interactive slash commands</b></summary>
-
-AutoSwarm exposes both high-level natural-language commands and lower-level UI/service commands.
-
-Conceptually AutoSwarm has two execution modes: `task` and `company`. Some lower-level CLI/service commands still expose `org` as a compatibility selector for Company Mode with a saved organization architecture; in the UI this appears as Company plus an architecture choice.
-
-### Common Commands
-
-```bash
-# Chat
-autoswarm chat
-autoswarm chat -p demo --mode task --agent native "Inspect the failing tests"
-autoswarm chat -p demo --mode company --company-profile corporate "Ship this change with review"
-
-# Scriptable execution
-autoswarm exec -p demo --mode task --agent codex --stream-json "Run the migration check"
-autoswarm exec -p demo --mode company --company-profile corporate "Draft the research report"
-
-# Project lifecycle
-autoswarm project list
-autoswarm project create demo
-autoswarm project switch demo
-
-# Sessions
-autoswarm session list -p demo
-autoswarm session create "New feature" -p demo --mode company
-autoswarm session send <task_id> "Continue with implementation" -p demo
-autoswarm session stop <task_id> -p demo
-autoswarm session continue <task_id> "Proceed after review" -p demo
-
-# Runtime inspection
-autoswarm runtime status -p demo
-autoswarm runtime logs <task_id> -p demo
-autoswarm work-item list -p demo
-autoswarm work-item show <work_item_id> -p demo
-autoswarm comms state <task_id> -p demo
-
-# Recruitment
-autoswarm talent import /path/to/agency-agents
-autoswarm talent hire <template_id> <role_id> -p demo
-```
-
-### Interactive Slash Commands
-
-Run `autoswarm chat`, then use slash commands:
+The data directory defaults to the platform's user state/application-data location. Override it with `AUTOSWARM_HOME` or the global `--home PATH` option.
 
 ```text
-/status
-/mode task
-/mode company corporate
-/agent codex
-/project switch demo
-/session list
-/runtime --full
-/logs <task_id> --full
-/comms <task_id> --full
-/org
-/talent list
-/market list
+calls/call_ID/
+  task.json       # Original delegation, parent binding, native invocation
+  handle.json     # Runner identity and native child session ID
+  result.json     # Actual native result and termination information
+  delivery.json   # When a return integration is involved
+  stderr.log      # Native diagnostics
+  approvals/approval_ID/
+    request.json  # Exact native request and session, not a copied transcript
+    decision.json # Decision and actor, when answered
+    resolution.json # Reply, withdrawal, cancellation or interruption
+    delivery.json # Optional notification receipt
 ```
 
-See [`docs/cli-chat-slash.md`](docs/cli-chat-slash.md) for the full command table.
+Files are published after complete writes. Calls have independent directories; no SQLite server, shared mutable JSON queue or background scheduler is required. A small OS lease prevents simultaneous AutoSwarm writes to the same resumed native session; this is a session correctness condition, not an agent-count limit. Invocation and return locks release on process exit. Records are not silently expired or pruned.
 
-<details>
-<summary><strong>CLI command groups</strong></summary>
+Optionally configure native executable locations/arguments in the user-owned `config.json`:
 
-| Group | Examples |
-|---|---|
-| `autoswarm project` | `list`, `show`, `create`, `switch`, `rename`, `delete --yes` |
-| `autoswarm session` | `list`, `create`, `show`, `config`, `send`, `rename`, `delete --yes`, `stop`, `continue`, `resume`, `complete` |
-| `autoswarm mode` | `show`, `set task`, `set company --profile corporate`, `set org --org <id>` for a saved-org company run |
-| `autoswarm kanban` | `view`, `task create`, `task update`, `task move`, `task assign`, `task status`, `task delete --yes` |
-| `autoswarm agent` | `list`, `create`, `create-from-template`, `import-employee`, `detail`, `move`, `delete --yes` |
-| `autoswarm org` | `info`, `export`, `import`, `saved list/save/load/delete`, `role add/update/bulk-add/delete`, `policy update`, `strategy update`, `reset --yes` |
-| `autoswarm talent` | `list`, `employees`, `import`, `hire`, `scan`, `import-selected`, `employee-detail`, `import-agent` |
-| `autoswarm market` | `presets`, `browse`, `preview`, `apply-preset`, `export`, `install`, `list`, `uninstall --yes` |
-| `autoswarm runtime` | `status`, `checkpoints`, `logs`, `run` |
-| `autoswarm permissions` | Show the Native default, or `set read-only|auto|full-access` for new sessions |
-| `autoswarm channels` | `status`, `login`, `start`, `stop` |
+```json
+{
+  "providers": {
+    "codex": {"command": ["/path/to/codex"], "args": []},
+    "claude-code": {"command": ["/path/to/claude"], "args": []},
+    "opencode": {"command": ["/path/to/opencode"], "args": []}
+  }
+}
+```
 
-Most service-style commands accept `--project/-p` and `--json`.
+Executable detection does not claim authentication is valid. Keys, models, project instructions, native permissions and native memory are not migrated into AutoSwarm.
 
-For saved organization architectures, some CLI/service commands currently use `org` as a compatibility selector even though the conceptual runtime is still Company Mode:
+## Develop and verify
 
 ```bash
-autoswarm exec -p demo --mode org --org hku_research_lab "Draft the research report"
-autoswarm session create "Research sprint" -p demo --mode org --org hku_research_lab
-```
-</details>
-
-</details>
-
-## Configuration
-
-Run `autoswarm init` once from the repo root. It creates `.opc/`, copies the template config from `config/`, creates memory/skills/log folders, and optionally creates the first project.
-
-Project-local `.opc/config` files can select local executables, remote endpoints, and credential sources. AutoSwarm therefore asks for workspace trust before loading an existing project's config; non-interactive commands fail closed. Review the files, then use `autoswarm trust add /path/to/workspace`. Trust is bound to fingerprints of the security-relevant source files and their normalized effective authority, so changes to system, LLM, agent, or channel configuration require renewal. Legacy path-only records also require one renewal. Use `autoswarm trust list` and `autoswarm trust remove /path/to/workspace` to inspect or revoke the user-owned decision. A workspace initialized by `autoswarm init` is trusted automatically at creation time.
-
-<a id="jiuwen-integration"></a>
-<details>
-<summary><strong>JiuwenSwarm setup and role behavior</strong> — <a href="https://github.com/openJiuwen-ai/jiuwenswarm">JiuwenSwarm</a></summary>
-
-AutoSwarm exposes two choices in both Task and Company modes:
-
-- **JiuwenSwarm-single** is a single external agent, like Codex or Claude Code. It handles only the selected task or role. Its compatible AutoSwarm agent ID is `jiuwen`.
-- **JiuwenSwarm-team** is one opaque external Team. AutoSwarm works with the Team as a whole and does not manage its internal agents. Its compatible AutoSwarm agent ID is `jiuwenswarm`.
-
-### Setup
-
-JiuwenSwarm reads `~/.jiuwenswarm/config/.env`; it does not automatically read AutoSwarm's `.opc/config/llm_config.yaml`. You may reuse the same provider credentials, but the model name must support JiuwenSwarm agent requests. For example, Volcengine Ark Agent Plan uses:
-
-```dotenv
-API_BASE="https://ark.cn-beijing.volces.com/api/plan/v3"
-API_KEY="<your API key>"
-MODEL_NAME="ark-code-latest"
-MODEL_PROVIDER="OpenAI"
+python -m unittest discover -s tests -v
+node --test tests/test_opencode_plugin.mjs
+python scripts/check_distribution.py -- autoswarm
 ```
 
-JiuwenSwarm requires Python 3.11–3.13. Install the verified JiuwenSwarm
-`0.2.4b4` / openJiuwen `0.1.16` combination and the AutoSwarm Gateway adapter
-from the AutoSwarm repository root.
+Tests use controlled CLI peers and real local HTTP/WebSocket connections. They exercise delegation, parallel collection, Unicode/large prompts, native session continuation, cancellation, interrupted runners, relocation, exact parent routing, busy/idle races, hook returns and disconnected delivery. macOS/Linux/Windows checks are defined in CI; running tests locally only verifies the current platform.
 
-macOS / Linux:
+Optional live checks use configured providers and spend model calls:
 
 ```bash
-python -m pip install -e ".[jiuwen]"
-uv tool install --force --python 3.12 \
-  --overrides docs/jiuwen-openjiuwen-overrides.txt \
-  "https://github.com/openJiuwen-ai/jiuwenswarm/archive/ec305b70bf4a82f3603ea1a7b3ddc212386662df.tar.gz"
-jiuwenswarm-init
-chmod 600 ~/.jiuwenswarm/config/.env
-jiuwenswarm-start app
-autoswarm agents preflight jiuwen
-autoswarm agents preflight jiuwenswarm
-autoswarm exec --mode task --agent jiuwen "Handle this task"
-autoswarm exec --mode task --agent jiuwenswarm "Have one Team handle this task"
+python scripts/live_smoke.py --output /tmp/autoswarm-live.json
+python scripts/live_codex_return.py --output /tmp/autoswarm-codex-return.json
+python scripts/live_claude_return.py --output /tmp/autoswarm-claude-return.json
+python scripts/live_opencode_return.py --output /tmp/autoswarm-opencode-return.json
+python scripts/live_approvals.py --output /tmp/autoswarm-approvals.json
+python scripts/live_approvals.py --decision deny --output /tmp/autoswarm-denials.json
 ```
 
-Windows PowerShell / Command Prompt (no `chmod` step):
+They create isolated native test conversations, not messages in an existing user chat. Run in an environment that permits native network/auth access and subprocess persistence.
 
-```powershell
-py -3.12 -m pip install -e ".[jiuwen]"
-uv tool install --force --python 3.12 `
-  --overrides docs/jiuwen-openjiuwen-overrides.txt `
-  "https://github.com/openJiuwen-ai/jiuwenswarm/archive/ec305b70bf4a82f3603ea1a7b3ddc212386662df.tar.gz"
-jiuwenswarm-init
-jiuwenswarm-start app
-autoswarm agents preflight jiuwen
-autoswarm agents preflight jiuwenswarm
-```
-
-`jiuwenswarm-start app` stays in the foreground; keep that terminal open while
-using AutoSwarm.
-
-On Windows the Jiuwen configuration is normally stored under
-`%USERPROFILE%\.jiuwenswarm\config\.env`; on macOS/Linux it is under
-`~/.jiuwenswarm/config/.env`. AutoSwarm reads Jiuwen's persisted custom Gateway
-port, so both sides continue to use the same endpoint. Set
-`JIUWENSWARM_GATEWAY_URL` or a non-default `gateway_url` in
-`.opc/config/agent_config.yaml` only for an intentional remote/custom endpoint.
-
-AutoSwarm supports JiuwenSwarm-single and JiuwenSwarm-team in both Task and
-Company modes on Windows, macOS, and Linux. Company communication uses the
-same protected workspace boundary on every platform: POSIX directory handles
-on macOS/Linux and native handle-relative, reparse-point-safe access on
-Windows. Windows workspaces must be local; UNC/network-share workspaces fail
-closed because they cannot provide the same boundary guarantees.
-
-### Role selection in Company Mode
-
-Choose the execution agent in Staffing / Recruitment Review, or under **Company → Org → role → Runtime**.
-
-- Select **JiuwenSwarm-single** on CTO: only CTO uses JiuwenSwarm-single. CTO's subordinates remain separate AutoSwarm roles and keep their own staffing and agent choices.
-- Select **JiuwenSwarm-team** on CTO: CTO and every role below CTO become one Team. The roles remain visible in the org chart, but descendant controls are locked and AutoSwarm does not recruit or assign employees inside that subtree. CEO delegates to the CTO Team boundary and receives one Team result.
-- Select **JiuwenSwarm-team** on CEO: CEO and the entire company subtree become one Team. Descendants cannot select separate agents or create nested Teams.
-- Select Teams on several peer managers, such as COO, CTO, and CMO: they become separate Teams coordinated and reviewed by their parent manager.
-- Select no Team: normal Company staffing and per-role execution continue unchanged.
-
-The parent manager receives a capability summary compiled from the covered roles, skills, tools, and deliverables. JiuwenSwarm-team decides how work is divided internally.
-
-### Team Activity (read-only)
-
-When JiuwenSwarm-team emits its official Team events, **Execution Progress** still shows one organizational node and one AutoSwarm WorkItem executor. Its second line summarizes the observed internal run, for example `3 members · 2 active · Leader synthesizing`. Select that node to open **Team Activity**:
-
-<img src="docs/assets/jiuwen-team-activity.png" alt="Read-only JiuwenSwarm Team Activity drawer showing the leader and three observed internal members" width="100%">
-
-- **Overview** shows the leader and only the internal members Jiuwen actually created. AutoSwarm covered roles are listed separately and never become inferred members.
-- **Tasks** is a read-only internal Kanban; **Timeline** shows official member, task, message, retry, completion, and error events; **Output** keeps member outputs separate from the leader synthesis.
-- `todo_create`, `task_tool`, `covered_role_ids`, and natural-language claims never create Team rows. Team telemetry never creates an AutoSwarm Agent, Session, WorkItem, or main Kanban card, and never changes WorkItem progress, review, permissions, or scheduling.
-- Task and Company modes use the same view. Stored telemetry survives refresh/reconnect and is isolated by project, AutoSwarm task, and concrete external invocation. Older runs without structured events say that internal telemetry is unavailable instead of guessing.
-
-This view observes Jiuwen's existing `/tui` stream only. It does not modify the Jiuwen harness or open another control connection.
-
-</details>
-
-<details>
-<summary><b>Expand configuration — config files, LLM keys, external agents, channels, browser/MCP, troubleshooting</b></summary>
-
-| File | Purpose |
-|---|---|
-| `.opc/config/llm_config.yaml` | Default model, LiteLLM/OpenRouter-compatible API base, API key, env var indirection, routing, fallback, temperature, token limit. |
-| `.opc/config/system_config.yaml` | Runtime behavior, browser tools, native runtime, compaction, verification, permissions, sandbox, and safety settings. |
-| `.opc/config/agent_config.yaml` | External agent command paths, preferred order, model flags, session modes, timeouts, approval modes, and native subagent profiles. |
-| `.opc/config/channel_config.yaml` | External messaging providers and credentials. Inbound sender lists are deny-by-default. |
-| `.opc/config/company_corporate_config.yaml` | Built-in corporate company architecture template. |
-| `.opc/config/company_orgs/org_<id>_config.yaml` | Saved custom company architectures used by Company Mode. |
-| `.opc/config/org_index.yaml` | Active saved company architecture selector. |
-
-### LLM Keys
-
-After `autoswarm init`, edit `.opc/config/llm_config.yaml` in the repo-local AutoSwarm home. If you set `OPC_HOME`, edit `$OPC_HOME/config/llm_config.yaml` instead.
-
-The template leaves secrets empty. Write your key directly into the file:
-
-```yaml
-llm:
-  default_model: "openai/gpt-5.4"
-  api_base: "https://openrouter.ai/api/v1"
-  api_key: "sk-or-v1-..."   # your OpenRouter (or other provider) API key
-
-  max_tokens: 32768         # max output tokens per request; lower it if your
-                            # model's output cap is smaller
-  # context_window: 128000  # total input window. Usually auto-detected via
-                            # litellm; unmapped models fall back to 128000.
-                            # Uncomment and set only when the fallback is
-                            # wrong for your model.
-```
-
-Then verify with `autoswarm status`.
-
-If you prefer not to store the key in the file, leave `api_key` empty and set `api_key_env` to the name of an environment variable that holds it (e.g. `api_key_env: "OPENROUTER_API_KEY"`).
-
-### Approval & Agent Permissions
-
-AutoSwarm Native has three permission levels. Set the default copied into each new session in `.opc/config/system_config.yaml`:
-
-```yaml
-autonomy:
-  native_approval_level: auto   # read-only | auto | full-access
-```
-
-| Level | Runs automatically | Asks first | Sandbox |
-|---|---|---|---|
-| `read-only` | Local reads and side-effect-free internal tools | Writes, processes that may write, network, external effects, and outside access | Read-only, offline |
-| `auto` | Reads, workspace edits, commands, and tests | Network, workspace-external access/effects, and explicit safety rules | Workspace-write, offline |
-| `full-access` | All registered Native tools | No Native tool approval prompts | Off |
-
-Use the **Permissions** selector beside Mode/Agent in the UI, including while a session is running. Changes take effect at the next tool call; already-open approval requests are not replayed or auto-approved. The same setting is available from the CLI:
+Build a standalone program on the target operating system after installing PyInstaller:
 
 ```bash
-autoswarm permissions
-autoswarm permissions set auto
-autoswarm chat --approval-level read-only
-autoswarm exec --approval-level full-access "Run the task"
-autoswarm session config <task-id> --approval-level auto
+python scripts/build_release.py
 ```
 
-Interactive chat supports `/permissions` and `/permissions read-only|auto|full-access`; `autoswarm status` and `/status` show the effective level and sandbox. A new session freezes the current default. Native subagents and all Native Company roles inherit the root session level, while different projects and sessions remain isolated.
+A manual CI dispatch also builds platform executables. Desktop UI behavior still needs validation in the actual installed App; a protocol fixture does not prove that all client versions behave identically.
 
-Changing the default through the UI or `autoswarm permissions set` atomically refreshes the trust fingerprint of an already trusted workspace. If you edit `.opc/config/*.yaml` by hand, review the change and run `autoswarm trust add <workspace>` as usual.
-
-When a call asks, approval cards retain once/session/project/global scopes; no grant can override an explicit deny. **Default** in the UI changes only future sessions.
-
-`full-access` bypasses only Native tool permission prompts. Organization reviews, hiring decisions, user questions, Company WorkItem gates, controller ownership, durable effect fences, and explicit deny rules remain active. **This setting does not control Codex, Claude Code, JiuwenSwarm-single, JiuwenSwarm-team, or any other external harness; their approval and sandbox settings remain independent.** Legacy Native risk settings are read once for migration, then `native_approval_level` is authoritative.
-
-### External Agents
-
-Task Mode can explicitly select an execution agent:
-
-```bash
-autoswarm chat -p demo --mode task --agent codex "Implement the change"
-```
-
-Available values are `native`, `codex`, `claude_code`, `cursor`, `opencode`, `jiuwen` (JiuwenSwarm-single), and `jiuwenswarm` (JiuwenSwarm-team). See [JiuwenSwarm setup and role behavior](#jiuwen-integration).
-
-### Feishu Connection
-
-```bash
-pip install -e .[channels-feishu]
-autoswarm init
-autoswarm channels login feishu
-```
-
-Edit `.opc/config/channel_config.yaml`:
-
-```yaml
-channels:
-  feishu:
-    enabled: true
-    app_id: "cli_xxx"
-    app_secret: "..."
-    encrypt_key: ""
-    verification_token: ""
-    react_emoji: THUMBSUP
-    allow_from:
-      - "ou_xxx"
-```
-
-Then:
-
-```bash
-autoswarm channels status
-autoswarm channels start -p demo
-# or run the long-lived engine + channel runtime:
-autoswarm run -p demo
-```
-
-Feishu uses the `lark-oapi` WebSocket client. `app_id` and `app_secret` are required; `encrypt_key` and `verification_token` are optional unless your tenant/app configuration requires them. Keep `allow_from` explicit; an empty list denies all inbound messages.
-
-<details>
-<summary><strong>Other channel providers</strong></summary>
-
-| Provider | Install extra | Runtime | Required fields |
-|---|---|---|---|
-| Telegram | `channels-telegram` | polling | `token` |
-| Slack | `channels-slack` | socket | `bot_token`, `app_token` |
-| Discord | `channels-discord` | socket | `token` |
-| DingTalk | `channels-dingtalk` | socket | `client_id`, `client_secret` |
-| Email | `channels-email` | polling | IMAP/SMTP fields, `consent_granted` |
-| Matrix | `channels-matrix` | sync/polling | `homeserver`, `access_token`, `user_id` |
-| QQ | `channels-qq` | socket | `app_id`, `secret` |
-| WhatsApp | `channels-whatsapp` | bridge | `bridge_url` |
-| Mochat | `channels-mochat` | bridge | `base_url`, `claw_token`, `agent_user_id` |
-
-Useful commands:
-
-```bash
-autoswarm channels login slack
-autoswarm channels status
-autoswarm channels start -p demo
-autoswarm channels stop
-autoswarm run -p demo
-```
-
-See [`docs/channels.md`](docs/channels.md) and [`docs/channel-bridges.md`](docs/channel-bridges.md).
-</details>
-
-<details>
-<summary><strong>Browser tools and MCP servers</strong></summary>
-
-Browser tools:
-
-```bash
-python -m playwright install chromium
-```
-
-Configure launch behavior in `.opc/config/system_config.yaml`:
-
-```yaml
-system:
-  browser:
-    mode: embedded   # embedded | chrome | auto
-    headless: true
-    chrome_channel: chrome
-    user_data_dir: ""
-```
-
-Native browser tools include `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type`, `browser_wait_for`, `browser_scroll`, `browser_select_option`, `browser_evaluate`, `browser_take_screenshot`, and `browser_close`.
-
-MCP servers can be added under `mcp_servers` in `system_config.yaml`. Local servers use stdio commands; remote servers use HTTP/SSE-style URLs. Discovered tools are registered with a server prefix to avoid collisions.
-</details>
-
-### Troubleshooting
-
-<details>
-<summary><strong>Office UI does not open or looks stale</strong></summary>
-
-```bash
-autoswarm ui --rebuild
-```
-
-If the browser still shows stale UI state, hard refresh the page. If a previous process died mid-run, restart `autoswarm ui` first so in-memory locks are released.
-</details>
-
-<details>
-<summary><strong>A task appears stuck</strong></summary>
-
-Start with a server restart and browser hard refresh. If persisted task state is still dirty, use the reset helper:
-
-```bash
-python scripts/reset_stuck_task.py --project <project> --session <session_id> --apply
-python scripts/reset_stuck_task.py --all --apply
-```
-</details>
-
-<details>
-<summary><strong>External agent is not available</strong></summary>
-
-Run:
-
-```bash
-autoswarm status
-```
-
-Check `.opc/config/agent_config.yaml` for command names such as `codex`, `claude`, `cursor-agent`, `opencode`, and `jiuwenswarm`. Gateway mode also requires a running `jiuwenswarm-start` service; use `autoswarm agents preflight jiuwen` to verify it.
-</details>
-
-<details>
-<summary><strong>Channel provider receives no messages</strong></summary>
-
-Check:
-
-- The provider extra is installed, for example `pip install -e .[channels-feishu]`.
-- The provider is `enabled: true`.
-- Required credentials are filled.
-- `allow_from` contains the sender IDs you expect.
-- `autoswarm channels status` reports the provider as configured and available.
-</details>
-
-</details>
-
-## Ecosystem And Sharing
-
-Everything AutoSwarm builds is yours to keep, reuse, and share — organizations, employees, talent templates, skills, and channels are just files. Import a popular talent library, reuse a team across projects, or package a whole company as a shareable `.opcpkg`.
-
-```bash
-# Hire from a talent library (e.g. agency-agents) into a role
-autoswarm talent import /path/to/agency-agents
-autoswarm talent hire <template_id> <role_id> -p demo
-
-# Reuse or share a whole organization
-autoswarm org export --json > my-org.yaml
-autoswarm market export --id hku_lab --name "HKU Lab" --output-dir packages
-autoswarm market install packages/hku_lab.opcpkg
-```
-
-<!--
-## Architecture
-
-AutoSwarm is a coordination runtime, not just an agent launcher — it separates interaction, organization, execution, tools, memory, and observability into seven layers.
-
-<details>
-<summary><b>The seven layers</b></summary>
-
-| Layer | Name | Responsibilities |
-|---|---|---|
-| 0 | Interaction | CLI, Office UI, message bus, external channel runtime. |
-| 1 | Perception & Context | Context loading, routing metadata, context assembly. |
-| 2 | Organization | Work-item planning, company runtime, comms, escalation, approval, recovery, recruitment. |
-| 3 | Agent Execution | Native runtime, subagents, external agent adapters, permissions, tool planning. |
-| 4 | Tools | Shell, file ops, browser, web search, Python execution, git, collaboration tools. |
-| 5 | Memory & Evolution | Markdown memory, session compaction, preferences, skill library, talent import. |
-| 6 | Observability | Events, cost tracking, structured logs, UI/runtime snapshots. |
-</details>
-
-<details>
-<summary><b>Core mechanisms</b></summary>
-
-- **Collaboration** — Company Mode compiles a brief into a work-item graph; each role runs in its own session, with reviewers and final deciders as first-class runtime roles. Roles pause on `AWAITING_PEER`, hand off, meet, and pass review/delivery gates — all mirrored to the UI (chat, transcripts, Agents, Comms, Kanban, Execution Progress).
-- **Communication** — a file-backed, role-scoped `.opc-comms/` workspace (inboxes, meeting transcripts, shared memory) that can be audited, replayed, and used to wake blocked peers.
-- **Self-evolution** — runs feed employee experience, reviewer preferences, checklists, and learned skills into `employee_evolution.json`, so the org improves who it assigns and what context each role gets.
-</details>
--->
-
-## Roadmap
-
-AutoSwarm is moving quickly. The areas below reflect active development priorities — each grounded in real gaps identified during early usage.
-
-| Area | Planned direction |
-|---|---|
-| **Role-level skills** | Role config already carries `skill_refs`, and the Org UI surfaces skill metadata today. The next step is letting users select which skills mount to which roles directly from the Org page — feeding into a broader self-evolving skill ecosystem. |
-| **Secretary settings** | The secretary will grow into a stronger configuration and memory steward: owning AutoSwarm system memory, analysing and comparing projects, and providing guided setup for AutoSwarm YAML configuration. |
-| **Company-mode channels** | External channels will evolve beyond simple chat entrypoints into richer company-mode workflows — with role-aware notifications, structured approvals, and cross-platform collaboration. |
-| **CLI parity** | The CLI is functional today, but the Office UI remains the more complete surface. Upcoming work targets org editing, company-mode inspection, failure recovery, and long-running runtime control from the terminal. |
-| **TUI** | A full terminal UI is under consideration once CLI parity matures. The Office UI remains the primary interface in the meantime. |
-| **Market and presets** | More architecture presets, recruitable talent packs, import/export workflows, and a package marketplace for sharing and discovering community-built components. |
-| **Runtime polish** | Continued improvements to recovery, checkpointing, execution-progress visibility, and visual documentation — making long company runs more observable and resilient. |
-
-## Acknowledgements
-
-AutoSwarm is built with gratitude for several open-source projects that helped shape its agent design, skill structure, and talent template ecosystem:
-
-- [openai/codex](https://github.com/openai/codex/) for inspiring practical coding-agent workflows and execution patterns.
-- [BloopAI/vibe-kanban](https://github.com/BloopAI/vibe-kanban) for inspiration around kanban-centered agent work management and task visibility.
-- [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) for the talent-template foundation. All talent templates included in this repository are imported from `agency-agents`.
-- [HKUDS/nanobot](https://github.com/HKUDS/nanobot) for inspiration around skill-oriented agent design and `SKILL.md`-style organization.
-- [pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents) for inspiration around the animated pixel-art office visualization of agent activity.
-
----
-
-<p align="center">
-  <em> ❤️ Thanks for visiting ✨ AutoSwarm!</em><br><br>
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.OpenOPC&style=for-the-badge&color=00d4ff"
-  alt="Views">
-</p>
+See [the implementation architecture](docs/architecture.zh-CN.md) for layers, return guarantees and adding a provider. [MIT](LICENSE).

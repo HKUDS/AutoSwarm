@@ -1,44 +1,28 @@
-# Contributing to AutoSwarm
+# Contributing to AutoSwarm v2
 
-Thanks for your interest in improving AutoSwarm! This guide covers how to set up, make changes, and submit them.
+The repository root contains v2. Make implementation changes under `src/autoswarm/`, documentation under `docs/`, and regression tests under `tests/`. See [the architecture](docs/architecture.zh-CN.md) for responsibilities and extension points.
 
-## Ways to contribute
-- **Report bugs** and **request features** via the [issue templates](.github/ISSUE_TEMPLATE).
-- **Improve docs**, fix typos, add examples.
-- **Submit code** — bug fixes, new features, talent templates, channel providers.
-- **Discuss** in the Feishu / WeChat community groups linked in the [README](README.md).
+The complete v1 implementation is frozen in [`autoswarm-v1.0.0/`](autoswarm-v1.0.0/ARCHIVE.md). Keep the archive unchanged during v2 development. Its package, tests, runtime data, and frontend dependencies belong to v1.
 
 ## Development setup
-AutoSwarm requires **Python >= 3.10** (3.12 recommended). [`uv`](https://docs.astral.sh/uv/) is the recommended tool.
 
 ```bash
-git clone https://github.com/<your-username>/OpenOPC AutoSwarm
-cd AutoSwarm
-uv venv --python 3.12
-source .venv/bin/activate
-uv pip install -e ".[dev]"
-uv run autoswarm init
+uv venv .venv-v2 --python 3.12
+uv pip install --python .venv-v2/bin/python -e .
+.venv-v2/bin/autoswarm --version
+.venv-v2/bin/autoswarm --help
 ```
 
-Run the UI with `autoswarm ui` (needs Node.js >= 18 for the Office UI) or the CLI with `autoswarm chat`.
+Requires Python 3.10 or later. On Windows the environment executables are under `Scripts/`. Keep any pre-existing v1 environment separate.
 
-## Making changes
-1. **Fork** the repo and create a branch: `git checkout -b my-change`.
-2. Keep changes **focused** — one logical change per PR.
-3. Match the existing code style; add type hints where the surrounding code uses them.
-4. Update docs/README when you change user-facing behavior.
+## Validation
 
-## Testing
-```bash
-python -m pytest
-```
-The `external-agent-smoke` GitHub workflow also runs on pull requests.
+Run `python -m unittest discover -s tests -v` and `node --test tests/test_opencode_plugin.mjs`. Tests use controlled native CLI peers and local HTTP/WebSocket servers; they require local socket and subprocess access. CI installs the built wheel and tests Linux, macOS and Windows with Python 3.10 and 3.12. Python runtime dependencies are empty; Node is needed only for the OpenCode plugin tests.
 
-## Submitting a pull request
-1. Push your branch to your fork.
-2. Open a PR against `main` using the pull request template.
-3. Link the related issue (e.g. `Closes #123`).
-4. Make sure CI passes and respond to review feedback.
+The `scripts/live_*` checks create isolated native conversations and spend model calls using existing credentials. They are optional integration checks, not part of ordinary CI. `scripts/build_release.py` creates a standalone executable on the target operating system using PyInstaller.
 
-## Code of Conduct
-By participating, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
+For archived validation, install the v1 `dev` extra in its own environment, change into `autoswarm-v1.0.0/`, and run `python -m pytest tests`. Historical CI checks are preserved in its `.github/` directory.
+
+## Pull requests
+
+Keep changes focused, describe the resulting behavior, and include relevant validation. Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
