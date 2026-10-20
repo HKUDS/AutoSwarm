@@ -38,7 +38,14 @@ class RuntimeTests(unittest.TestCase):
         # the actual log owner before deleting a fixture directory on Windows.
         while any(platform.running(read_json(self.records.call(value) / "handle.json")) for value in self.ids) and time.monotonic() < deadline:
             time.sleep(0.01)
-        self.temporary.cleanup()
+        while True:
+            try:
+                self.temporary.cleanup()
+                break
+            except PermissionError as error:
+                if getattr(error, "winerror", None) not in {32, 33} or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.01)
 
     def start(self, provider="codex", prompt="hello", **kwargs):
         call = engine.start_call(self.records, provider, prompt, self.root, **kwargs)
