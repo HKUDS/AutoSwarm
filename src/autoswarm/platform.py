@@ -17,6 +17,28 @@ def detached_options() -> dict:
     return {"start_new_session": True}
 
 
+def link_directory(link: Path, target: Path) -> None:
+    """Reuse native storage; Windows junctions need no symlink privilege."""
+    if os.name != "nt":
+        link.symlink_to(target.resolve(), target_is_directory=True)
+        return
+    # Keep paths in environment data, not shell source. Windows paths cannot
+    # contain quotes; disable delayed expansion and avoid CALL re-expansion.
+    env = {**os.environ, "AUTOSWARM_LINK_PATH": str(link.resolve()), "AUTOSWARM_TARGET_PATH": str(target.resolve())}
+    if any(char in env[key] for key in ("AUTOSWARM_LINK_PATH", "AUTOSWARM_TARGET_PATH") for char in '\r\n"'):
+        raise SwarmError("invalid_config_path", "Invalid Windows native-storage path")
+    result = subprocess.run([env.get("COMSPEC", "cmd.exe"), "/d", "/v:off", "/c", 'mklink /J "%AUTOSWARM_LINK_PATH%" "%AUTOSWARM_TARGET_PATH%"'], env=env, capture_output=True)
+    if result.returncode:
+        raise SwarmError("native_config_isolation_failed", "Could not link native session storage: " + result.stderr.decode(errors="replace"))
+
+
+def unlink_directory(link: Path) -> None:
+    if os.name == "nt":
+        link.rmdir()  # Remove the junction, never its native target.
+    else:
+        link.unlink()
+
+
 def identity(pid: int) -> str | None:
     try:
         if sys.platform.startswith("linux"):

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+from contextlib import ExitStack
 import os
 import subprocess
 import threading
@@ -20,6 +21,7 @@ def execute(records: Records, call_id: str) -> int:
     handle = {"pid": os.getpid(), "identity": platform.identity(os.getpid()), "started_at": now(), "native_session_id": task.get("native_session_id"), "phase": "startup"}
     write_json(directory / "handle.json", handle)
     result = {"call_id": call_id, "agent_id": task["agent_id"], "controller_id": task["controller_id"], "provider": task["provider"], "native_session_id": task.get("native_session_id"), "outcome": "failed", "content": "", "error": None, "artifacts": [], "finished_at": None}
+    result["requested_selection"] = {key: task[key] for key in ("model", "effort") if task.get(key) is not None}
     process = None
     session_lock = None
     cancelled = False
@@ -27,6 +29,7 @@ def execute(records: Records, call_id: str) -> int:
     mailbox = None
     handle_lock = threading.Lock()
     output = Output(session_id=task.get("native_session_id"))
+    environment = ExitStack()
     try:
         if (directory / "cancel.json").exists():
             cancelled = True
@@ -42,6 +45,8 @@ def execute(records: Records, call_id: str) -> int:
                 env.pop(name, None)
             env["AUTOSWARM_CALL_ID"] = call_id
             env["AUTOSWARM_HOME"] = str(records.home)
+            from .selection import native_environment
+            env = environment.enter_context(native_environment(task, env))
             with (directory / "stderr.log").open("wb") as stderr, (directory / "stdout.log").open("wb") as stdout_log:
                 process = subprocess.Popen(task["command"], cwd=task["workspace"], env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr, **platform.detached_options())
                 handle["child_pid"] = process.pid
@@ -148,6 +153,7 @@ def execute(records: Records, call_id: str) -> int:
     finally:
         if native:
             native.close()
+        environment.close()
         if session_lock:
             session_lock.close()
         result["finished_at"] = now()

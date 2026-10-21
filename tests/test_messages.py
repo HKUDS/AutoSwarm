@@ -22,7 +22,7 @@ class MessageTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         self.records = Records(self.root / "state")
-        write_json(self.records.home / "config.json", {"providers": {name: {"command": [sys.executable, str(FIXTURE), name]} for name in BINARIES}})
+        write_json(self.records.home / "config.json", {"providers": {name: {"command": [sys.executable, str(FIXTURE), name], **({"python": [sys.executable, str(FIXTURE), name]} if name == "nanobot" else {})} for name in BINARIES}})
         self.controller = "main_" + uuid.uuid4().hex
         write_json(messages.agent_path(self.records, self.controller) / "agent.json", {"agent_id": self.controller, "call_id": None, "owner_id": None})
 
@@ -42,11 +42,11 @@ class MessageTests(unittest.TestCase):
         self.eventually(lambda: all(not platform.running(read_json(path / "handle.json")) for path, _ in self.records.calls()))
         self.tmp.cleanup()
 
-    def start(self, provider="codex", name=None, peers=None, approval=False):
+    def start(self, provider="codex", name=None, peers=None, approval=False, **selection):
         key = uuid.uuid4().hex
         gate, proof = self.root / (key + ".gate"), self.root / (key + ".proof")
         call = engine.start_call(self.records, provider, json.dumps({"gate": str(gate), "proof": str(proof), "approval": approval}), self.root,
-                                 controller=self.controller, name=name, peers=peers, rules="Reply to questions and continue assigned work.", return_mode="wait")
+                                 controller=self.controller, name=name, peers=peers, rules="Reply to questions and continue assigned work.", return_mode="wait", **selection)
         self.eventually(lambda: (self.root / ("events-" + call["agent_id"])).exists())
         return call, gate, proof
 
@@ -82,6 +82,26 @@ class MessageTests(unittest.TestCase):
                 self.assertEqual(self.result(call)["content"], "assignment complete")
                 self.eventually(lambda: self.reply(sent))
                 self.assertNotIn("cancelled", (self.root / ("events-" + call["agent_id"])).read_text())
+
+    def test_selected_model_and_effort_survive_interrupt_and_idle_message_resume(self):
+        call, gate, proof = self.start("codebuddy", model="native-model", effort="native-effort")
+        sent = messages.send(self.records, call["agent_id"], "urgent", sender=self.controller, interrupt=True)
+        self.eventually(lambda: self.reply(sent))
+        self.assertFalse(proof.exists())
+        gate.touch()
+        self.assertEqual(self.result(call)["outcome"], "completed")
+        self.eventually(lambda: messages.agent(self.records, call["agent_id"]).get("idle"))
+        later = messages.send(self.records, call["agent_id"], "idle followup", sender=self.controller)
+        self.eventually(lambda: self.reply(later))
+        latest = self.eventually(lambda: (value if value.get("idle") else None) if (value := messages.agent(self.records, call["agent_id"])) else None)
+        self.assertNotEqual(latest["call_id"], call["call_id"])
+        task = self.records.require(latest["call_id"])[1]
+        expected = {"model": "native-model", "effort": "native-effort"}
+        self.assertEqual({key: task[key] for key in expected}, expected)
+        trace = (self.root / ("events-" + call["agent_id"])).read_text().splitlines()
+        turns = [json.loads(line.removeprefix("selection:")) for line in trace if line.startswith("selection:")]
+        self.assertGreaterEqual(len(turns), 3)  # Original, urgent handling/continued assignment, idle mail.
+        self.assertTrue(all(value == expected for value in turns))
 
     def test_idle_delivery_and_explicit_resume_preserve_address_and_old_result(self):
         call, gate, proof = self.start("cursor", name="reviewer")

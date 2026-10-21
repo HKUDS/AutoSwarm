@@ -20,6 +20,16 @@ if "--version" in args:
     print("fixture 2.0")
     raise SystemExit()
 session = "fixture-session"
+trace_path = next((value.split("=", 1)[1] for value in args if value.startswith("--selection-trace=")), None)
+
+
+def trace(value):
+    if trace_path:
+        with Path(trace_path).open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(value, ensure_ascii=False) + "\n")
+
+
+trace({"argv": args, **({"config_dir": os.environ.get("CURSOR_CONFIG_DIR")} if provider == "cursor" else {})})
 
 
 def emit(value):
@@ -43,7 +53,7 @@ def finished(prompt):
     if provider == "codex":
         emit({"method": "item/completed", "params": {"threadId": session, "item": {"type": "agentMessage", "text": text}}})
         emit({"method": "turn/completed", "params": {"threadId": session, "turn": {"id": "native-turn", "status": "failed" if prompt == "fail" else "completed"}}})
-    elif provider in {"cursor", "copilot", "codebuddy"}:
+    elif provider in {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok"}:
         if prompt == "with-tools":
             emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "INTERIM COMMENTARY"}}}})
             emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "tool_call", "toolCallId": "tool-1", "title": "fixture tool"}}})
@@ -84,6 +94,7 @@ if provider == "opencode":
         def do_GET(self):
             global health_requests
             path = self.path.split("?")[0]
+            trace({"method": "GET", "path": path})
             if "auth-required" in args:
                 expected = "Basic " + base64.b64encode((os.environ.get("OPENCODE_SERVER_USERNAME", "opencode") + ":" + os.environ.get("OPENCODE_SERVER_PASSWORD", "")).encode()).decode()
                 if self.headers.get("Authorization") != expected:
@@ -103,6 +114,18 @@ if provider == "opencode":
                 return
             if path == "/doc":
                 self.send({"paths": {} if "bad-protocol" in args else {"/session": {"post": {}}, "/session/{sessionID}/message": {"post": {}}, "/event": {"get": {}}, "/permission/{requestID}/reply": {"post": {}}}})
+                return
+            if path == "/provider":
+                self.send({"all": [{"id": "fixture", "models": {"native-model": {"variants": {"deep-native": {}, "light-native": {}}}}}]})
+                return
+            if path == "/config":
+                self.send({"model": "fixture/native-model"})
+                return
+            if path == "/agent":
+                self.send([])
+                return
+            if path.endswith("/message"):
+                self.send([])
                 return
             if path == "/event":
                 if "reject-events" in args:
@@ -126,6 +149,7 @@ if provider == "opencode":
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             path = self.path.split("?")[0]
+            trace({"method": "POST", "path": path, "params": body})
             if path == "/session":
                 self.send({"id": session})
             elif path.startswith("/permission/"):
@@ -161,17 +185,18 @@ if provider == "opencode":
     server.daemon_threads = True
     print("Native service ready (changed banner)", file=sys.stderr, flush=True)
     server.serve_forever()
-elif provider in {"cursor", "copilot", "codebuddy", "muse"}:
+elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot", "dsh", "grok"}:
     marker = None
     prompt_id = None
     unsupported_replied = False
     for raw in sys.stdin:
         value = json.loads(raw)
+        trace(value)
         method, params = value.get("method"), value.get("params", {})
         if method == "initialize":
             if "unknown-interaction" in args:
                 emit({"id": "unsupported", "method": "future/interaction", "params": {}})
-            result = {"schema": {"version": 2 if "bad-protocol" in args else 1}} if provider == "muse" else {"protocolVersion": 2 if "bad-protocol" in args else 1, "agentCapabilities": {"loadSession": "no-resume" not in args}}
+            result = {"schema": {"version": 2 if "bad-protocol" in args else 1}} if provider == "muse" else {"protocolVersion": 2 if "bad-protocol" in args else 1, "agentCapabilities": ({"sessionCapabilities": {"resume": {}}} if provider == "dsh" and "no-resume" not in args else {"loadSession": "no-resume" not in args})}
             emit({"id": value["id"], "result": result})
         elif method in {"session/start", "session/resume", "session/new", "session/load"}:
             if "auth-required" in args:
@@ -180,7 +205,15 @@ elif provider in {"cursor", "copilot", "codebuddy", "muse"}:
             session = params.get("sessionId", session)
             if method == "session/load":
                 emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "OLD TRANSCRIPT MUST NOT LEAK"}}}})
-            emit({"id": value["id"], "result": {"session": {"sessionId": session}} if provider == "muse" else {"sessionId": session}})
+            result = {"session": {"sessionId": session}} if provider == "muse" else {"sessionId": session}
+            if "selection-catalog" in args and provider != "muse":
+                result.update({"models": {"currentModelId": "native-model", "availableModels": [{"modelId": "native-model", "name": "Native Model"}]}, "configOptions": [{"id": "model", "category": "model", "options": [{"value": "native-model"}]}, {"id": "reasoning" if provider == "cursor" else "thought_level", "category": "thought_level", "options": [{"name": "Native choices", "options": [{"value": "deep-native"}, {"value": "light-native"}]}]}]})
+            emit({"id": value["id"], "result": result})
+        elif method in {"session/set_model", "session/set_config_option", "session/setModel", "session/setReasoningEffort"}:
+            if "reject-selection" in args:
+                emit({"id": value["id"], "error": {"code": -32602, "message": "Native model/effort selection was rejected"}})
+            else:
+                emit({"id": value["id"], "result": {"status": "accepted"} if provider == "muse" else {"configOptions": result.get("configOptions", [])}})
         elif method in {"turn/start", "session/prompt"}:
             if "unknown-interaction" in args:
                 assert unsupported_replied, "unsupported native request was left unanswered"
@@ -212,6 +245,7 @@ else:
     marker = None
     for raw in sys.stdin:
         value = json.loads(raw)
+        trace(value)
         if provider == "codex":
             method = value.get("method")
             if method == "initialize":
@@ -243,8 +277,17 @@ else:
                 if prompt.startswith("approval:"):
                     marker = prompt[9:]
                     emit({"type": "control_request", "request_id": "native-approval", "request": {"subtype": "can_use_tool", "tool_name": "Bash", "input": {"command": "test-command", "marker": marker}, "tool_use_id": "native-tool"}})
+                elif prompt.startswith("question:"):
+                    marker = prompt[len("question:"):]
+                    emit({"type": "control_request", "request_id": "native-question", "request": {"subtype": "can_use_tool", "tool_name": "AskUserQuestion", "input": {"questions": [{"question": "Choose scope?", "options": [{"label": "本地"}, {"label": "Shared"}], "multiSelect": False}]}}})
                 else:
                     finished(prompt)
+            elif value.get("type") == "control_response" and value.get("response", {}).get("request_id") == "native-question":
+                response = value["response"]["response"]
+                assert response["behavior"] == "allow"
+                assert response["updatedInput"]["answers"] == {"Choose scope?": "本地"}
+                Path(marker).write_text("answered", encoding="utf-8")
+                finished("answered")
             elif value.get("type") == "control_response":
                 allowed = value["response"]["response"]["behavior"] == "allow"
                 if allowed:

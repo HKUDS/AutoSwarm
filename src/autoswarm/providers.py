@@ -11,12 +11,15 @@ from .records import SwarmError
 ALIASES = {
     "claude": "claude-code", "claude_code": "claude-code", "cursor-agent": "cursor",
     "github-copilot": "copilot", "muse-code": "muse", "meta-muse-code": "muse", "codebuddy-code": "codebuddy",
+    "hermes-agent": "hermes", "nanobot-ai": "nanobot", "deepseek-harness": "dsh",
+    "grok-build": "grok", "grok_build": "grok",
 }
 BINARIES = {
     "codex": "codex", "claude-code": "claude", "opencode": "opencode",
     "cursor": "cursor-agent", "copilot": "copilot", "muse": "muse", "codebuddy": "codebuddy",
+    "hermes": "hermes", "nanobot": "nanobot", "dsh": "dsh", "grok": "grok",
 }
-ACP_PROVIDERS = {"cursor", "copilot", "codebuddy"}
+ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok"}
 OWNED_SERVERS = ACP_PROVIDERS | {"opencode", "muse"}
 
 
@@ -40,6 +43,9 @@ def command_for(name: str, config: dict) -> list[str]:
 
 def invocation(task: dict, config: dict) -> list[str]:
     name = canonical(task["provider"])
+    for key in ("model", "effort"):
+        if task.get(key) is not None and (not isinstance(task[key], str) or not task[key].strip()):
+            raise SwarmError("invalid_selection", f"{key} must be a non-empty native value; omit it to keep native defaults")
     command = command_for(name, config)
     extras = []
     for extra in (config.get("providers", {}).get(name, {}).get("args", []), task.get("provider_args", [])):
@@ -49,8 +55,12 @@ def invocation(task: dict, config: dict) -> list[str]:
     options = {}
     native_args = []
     index = 0
-    mappings = ({"--sandbox": "sandbox", "-s": "sandbox", "--ask-for-approval": "approvalPolicy", "-a": "approvalPolicy", "--model": "model", "-m": "model"}
-                if name == "codex" else {"--model": "model", "-m": "model", "--agent": "agent", "--variant": "variant", "--title": "title"} if name == "opencode" else {})
+    mappings = {"--model": "model", **({"--sandbox": "sandbox", "-s": "sandbox", "--ask-for-approval": "approvalPolicy", "-a": "approvalPolicy", "-m": "model"}
+                if name == "codex" else {"-m": "model", "--agent": "agent", "--variant": "variant", "--title": "title"} if name == "opencode" else {})}
+    if name in {"claude-code", "copilot"}:
+        mappings["--effort"] = "effort"
+        if name == "copilot":
+            mappings["--reasoning-effort"] = "effort"
     while index < len(extras):
         flag, sep, inline = extras[index].partition("=")
         if name == "opencode" and flag in {"--port", "--hostname"}:
@@ -68,6 +78,12 @@ def invocation(task: dict, config: dict) -> list[str]:
             index += 1
     if task.get("model"):
         options["model"] = task["model"]
+    if task.get("effort"):
+        options["effort"] = task["effort"]
+        if name == "opencode":
+            if options.get("variant") and options["variant"] != task["effort"]:
+                raise SwarmError("conflicting_selection", "--effort and native --variant request different OpenCode variants")
+            options["variant"] = task["effort"]
     task["native_options"] = options
     if name == "codex":
         command += ["app-server"]
@@ -75,17 +91,35 @@ def invocation(task: dict, config: dict) -> list[str]:
         command += ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--permission-prompt-tool", "stdio"]
         if task.get("native_session_id"):
             command += ["--resume=" + task["native_session_id"]]
-        if task.get("model"):
-            command += ["--model", task["model"]]
+        if options.get("model"):
+            command += ["--model", options["model"]]
+    elif name == "nanobot":
+        from .nanobot import bridge_command
+        return [*bridge_command(command, config), *native_args,
+                *(["--model", options["model"]] if options.get("model") else []),
+                *(["--effort", options["effort"]] if options.get("effort") else [])]
+    elif name == "hermes":
+        return [*command, "acp", *native_args]
+    elif name == "dsh":
+        return [*command, "--profile", "acp", *native_args]
+    elif name == "grok":
+        command += ["agent", "--no-leader"]
+        if options.get("model"):
+            command += ["--model", options["model"]]
+        if options.get("effort"):
+            command += ["--reasoning-effort", options["effort"]]
+        return [*command, *native_args, "stdio"]
     elif name in ACP_PROVIDERS:
-        if task.get("model"):
-            command += ["--model", task["model"]]
+        if options.get("model"):
+            command += ["--model", options["model"]]
+        if name == "copilot" and options.get("effort"):
+            command += ["--reasoning-effort", options["effort"]]
         command += native_args + (["acp"] if name == "cursor" else ["--acp"])
         return command
     elif name == "muse":
         command += ["serve"]
-        if task.get("model"):
-            command += ["--model", task["model"]]
+        if options.get("model"):
+            command += ["--model", options["model"]]
     else:
         # A known, OS-selected endpoint removes dependence on startup wording
         # or whether the native CLI sends its banner to stdout or stderr.
@@ -95,6 +129,8 @@ def invocation(task: dict, config: dict) -> list[str]:
         task["native_endpoint"] = f"http://127.0.0.1:{port}"
         command += ["serve", "--hostname", "127.0.0.1", "--port", str(port)]
     command += native_args
+    if name == "claude-code" and options.get("effort"):
+        command += ["--effort", options["effort"]]
     return command
 
 
@@ -104,7 +140,7 @@ def discover(config: dict, providers=None) -> list[dict]:
         try:
             command = command_for(name, config)
             info = subprocess.run([*command, "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace")
-            value = {"provider": name, "available": info.returncode == 0, "check": "executable", "command": command, "version": info.stdout.strip(), "invocation_verified": False, "session_resume": True, "approval_relay": True}
+            value = {"provider": name, "available": info.returncode == 0, "check": "executable", "command": command, "version": info.stdout.strip(), "invocation_verified": False, "session_resume": True, "approval_relay": name != "nanobot"}
             if info.returncode:
                 value["error"] = info.stderr.strip() or info.stdout.strip() or f"CLI version check exited with code {info.returncode}"
             found.append(value)

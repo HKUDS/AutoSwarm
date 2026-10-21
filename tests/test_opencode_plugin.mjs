@@ -101,3 +101,23 @@ test("approval notification is followed by the final result in the same parent s
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+for (const [flag, kind] of [["--interaction-sequence", "interaction_required"], ["--issue-sequence", "communication_issue"]]) {
+  test(`${kind} notification keeps watching until final result`, async () => {
+    const directory = await mkdtemp(join(tmpdir(), "autoswarm-plugin-interaction-"));
+    process.env.AUTOSWARM_PLUGIN_TEST_DIR = directory;
+    try {
+      const state = { prompts: [], logs: [], checked: 0, busy: false };
+      const plugin = await AutoSwarm({ client: client(state) });
+      await plugin.tool.autoswarm.execute({ arguments: ["run", "--background", "--notify-parent", flag] }, { sessionID: "original" });
+      await awaitCondition(() => state.prompts.length === 2);
+      assert.match(state.prompts[0].body.parts[0].text, new RegExp(kind));
+      assert.match(state.prompts[1].body.parts[0].text, /CHILD_RESULT/);
+      assert.equal(state.logs.length, 0);
+      if (kind === "communication_issue") assert.equal(await readFile(join(directory, "issue-received"), "utf8"), "diagnostic-stamp");
+    } finally {
+      delete process.env.AUTOSWARM_PLUGIN_TEST_DIR;
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+}

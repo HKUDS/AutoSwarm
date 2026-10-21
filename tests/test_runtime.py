@@ -13,8 +13,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from autoswarm import engine, platform
-from autoswarm.hooks import handle_hook
-from autoswarm.providers import BINARIES, discover
+from autoswarm.hooks import handle_hook, submit
+from autoswarm.providers import ACP_PROVIDERS, BINARIES, discover
 from autoswarm.records import Records, SwarmError, read_json, write_json
 from autoswarm.setup import install
 from autoswarm.doctor import probe
@@ -28,7 +28,7 @@ class RuntimeTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         self.records = Records(self.root / "state")
-        write_json(self.records.home / "config.json", {"providers": {name: {"command": [sys.executable, str(FIXTURE), name]} for name in BINARIES}})
+        write_json(self.records.home / "config.json", {"providers": {name: {"command": [sys.executable, str(FIXTURE), name], **({"python": [sys.executable, str(FIXTURE), name]} if name == "nanobot" else {})} for name in BINARIES}})
         self.ids = []
 
     def tearDown(self):
@@ -89,7 +89,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result["permission_denials"], [{"tool_name": "Bash"}])
 
     def test_new_transports_reject_incompatible_protocol_and_report_auth(self):
-        for provider in ("cursor", "copilot", "codebuddy", "muse"):
+        for provider in sorted(ACP_PROVIDERS | {"muse"}):
             for flag, code in (("bad-protocol", "native_protocol_error"), ("auth-required", "native_auth_required")):
                 with self.subTest(provider=provider, flag=flag):
                     result = engine.wait(self.records, [self.start(provider, provider_args=[flag])])[0]
@@ -107,13 +107,18 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result["error_code"], "session_unavailable")
 
     def test_new_transports_answer_unsupported_server_requests(self):
-        for provider in ("cursor", "copilot", "codebuddy", "muse"):
+        for provider in sorted(ACP_PROVIDERS | {"muse"}):
             with self.subTest(provider=provider):
-                result = engine.wait(self.records, [self.start(provider, provider_args=["unknown-interaction"])])[0]
+                call_id = self.start(provider, provider_args=["unknown-interaction"])
+                events = engine.wait(self.records, [call_id])
+                self.assertTrue(any(item.get("kind") == "communication_issue" for item in events), events)
+                while not any(item.get("outcome") for item in events):
+                    events = engine.wait(self.records, [call_id])
+                result = next(item for item in events if item.get("outcome"))
                 self.assertEqual(result["outcome"], "completed", result)
 
     def test_new_transports_keep_native_failure_and_allow_cancellation(self):
-        for provider in ("cursor", "copilot", "codebuddy", "muse"):
+        for provider in sorted(ACP_PROVIDERS | {"muse"}):
             with self.subTest(provider=provider):
                 result = engine.wait(self.records, [self.start(provider, "fail")])[0]
                 self.assertEqual(result["outcome"], "failed")
@@ -123,13 +128,13 @@ class RuntimeTests(unittest.TestCase):
                 self.assertEqual(engine.wait(self.records, [held])[0]["outcome"], "cancelled")
 
     def test_acp_final_content_excludes_commentary_before_tools(self):
-        for provider in ("cursor", "copilot", "codebuddy"):
+        for provider in sorted(ACP_PROVIDERS):
             with self.subTest(provider=provider):
                 result = engine.wait(self.records, [self.start(provider, "with-tools")])[0]
                 self.assertEqual(result["content"], "with-tools|session=fixture-session")
 
     def test_new_hosts_install_one_skill_and_use_explicit_collection(self):
-        for host in ("cursor", "copilot", "muse", "codebuddy"):
+        for host in sorted(ACP_PROVIDERS | {"muse"}):
             with self.subTest(host=host):
                 directory = self.root / host
                 result = install(self.records, host, str(directory))
@@ -336,6 +341,14 @@ class RuntimeTests(unittest.TestCase):
         receipt = read_json(self.records.call(call_id) / "delivery.json")
         self.assertEqual(receipt["state"], "submitted")
         self.assertFalse(receipt["continued"])
+
+    def test_hook_submission_shares_runner_delivery_lock(self):
+        directory = self.root / "delivery-race"
+        with platform.session_lease(directory / "delivery.lock"):
+            self.assertFalse(submit(directory, {"state": "submitted"}))
+            write_json(directory / "delivery.json", {"state": "pending"})
+        self.assertTrue(submit(directory, {"state": "submitted"}))
+        self.assertEqual(read_json(directory / "delivery.json")["state"], "submitted")
 
     def test_setup_merges_settings_and_launcher_is_relocatable(self):
         settings = self.root / "claude/settings.json"

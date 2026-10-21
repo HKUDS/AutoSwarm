@@ -9,6 +9,23 @@ Use the installed launcher argv in SKILL.md. Keep technical investigation in the
 3. If no usable CLI exists, ask whether to install the requested provider's official CLI. With agreement, follow its current official OS-specific instructions. Do not install other providers or replace the requested agent to hide a failure.
 4. Run `doctor --agent <provider> --probe --cwd <workspace>` using the same AutoSwarm home and project as the real task. This creates a native test conversation, checks a reply and native resume, and spends model calls. Only report verification after `verified: true`; an `approval_required` probe is pending, not failed. Answer its original request, collect the result and continue verification. Normal task success is evidence too; do not run extra probes for every task.
 
+## Hermes, Nanobot, DSH and Grok Build
+
+Use provider names `hermes`, `nanobot`, `dsh`, `grok`; `grok-build` is a child-provider alias. They use the same run/resume, messaging and result collection commands. With these main hosts, collect work using wait in the current turn.
+
+| Provider | Native entry | Skill installation |
+|---|---|---|
+| Hermes | `hermes acp` | `$HERMES_HOME/skills/autoswarm`, default `~/.hermes/skills/autoswarm` |
+| Nanobot | Installed Python SDK through the bundled local bridge | Native configured workspace's `skills/autoswarm`, resolved by its own config loader |
+| DSH | `dsh --profile acp` | `$DSH_AGENTS_HOME/skills/autoswarm`, default `~/.agents/skills/autoswarm` |
+| Grok Build | `grok agent --no-leader stdio` | `~/.grok/skills/autoswarm` |
+
+`setup --host <provider> --skill-dir <path>` overrides the destination when native skill roots differ. Native profile/tool policies still determine which skills, memory and tools are available; AutoSwarm does not replace them. A native transcript/session ID does not guarantee that every product App lists that session.
+
+DSH's ACP profile can select a different route from its configured headless/web profile. Inspect the existing native profile and reuse its provider configuration and credential references. Add compatible overlays with `providers.dsh.args: ["--patch", "<existing-route-patch>", "--patch", "<acp-route-patch>"]`; do not switch to a web/headless application that cannot speak ACP. The ACP route patch replaces the native `acp` entry's complete `config` with the already-configured `provider` and `model` (retain any other desired native ACP fields). Explicit `--model provider/model` can instead select a route advertised by the composed ACP profile. Do not infer missing credentials from the untouched ACP default. Keep machine-specific patches outside the distributed package.
+
+Nanobot runs in the environment that installed its CLI, without another SDK installation. The adapter finds its Python from the launcher or neighboring venv executables. For wrappers where this cannot be inferred, set `providers.nanobot.python` to the existing native Python argv, for example `["<native-venv>/bin/python"]` or `["<native-venv>/Scripts/python.exe"]`. Native `--config`/`--workspace` arguments can go in `providers.nanobot.args`; do not replace its memory/skills workspace with the project cwd. The bridge supplies the project through native session workspace scope. This SDK has no native interactive approval channel, reported as `approval_relay: false`, so AutoSwarm defaults each new/resumed Nanobot session to native Full Access (`access_mode: full`). This is session metadata, not a global native config edit. For restricted access, set `providers.nanobot.args` to include `["--access-mode", "restricted"]` or pass `--provider-arg=--access-mode --provider-arg=restricted` on the call. Native OS/enforced sandbox boundaries still apply; SDK/tool errors remain visible to the parent. Hermes, DSH and Grok permissions use the shared ACP relay without unconditional approval flags.
+
 ## Recovery
 
 Start with `inspect <call-id>`, its result diagnostics, handle phase, stdout.log and stderr.log. Check the actual executable and workspace before changing installations.

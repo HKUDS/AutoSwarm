@@ -1,6 +1,6 @@
 # AutoSwarm v2 实现架构
 
-AutoSwarm 将一次委派变成原生 CLI 调用，将返回值送回发起它的主会话。主 agent 负责分工、选择 agent、管理工作区、判断结果及后续动作。主子角色属于当前调用；支持 Codex、Claude Code、OpenCode、Cursor、GitHub Copilot CLI、Meta Muse Code 和 CodeBuddy。
+AutoSwarm 将一次委派变成原生 CLI 调用，将返回值送回发起它的主会话。主 agent 负责分工、选择 agent、管理工作区、判断结果及后续动作。主子角色属于当前调用；支持 Codex、Claude Code、OpenCode、Cursor、GitHub Copilot CLI、Meta Muse Code、CodeBuddy、Hermes、Nanobot、DSH 和 Grok Build。
 
 ## 层级与文件
 
@@ -28,6 +28,10 @@ MCP 不作为当前依赖。CLI 已经给支持命令工具的宿主提供统一
 
 一轮原生执行完成与用户任务通过验收分开处理。代码没有自动评审、固定重试轮次或预设上下文压缩策略。
 
+run/resume 的可选 --model、--effort 保存为任务选择；不传时沿用原生默认配置，resume 和空闲消息续接继承之前的显式选择。Codex 每个 turn/start 都带回选择；Claude/Copilot 使用原生启动参数，ACP 在首次 prompt 前设置模型及原生公开的强度控件，Muse 按序设置会话模型及 reasoningEffort，OpenCode 映射为当前模型的 variant 并按实时元数据校验。模型和强度取值由原生接口决定，不维护共同枚举或模型注册表；错误保留并交回父 agent，不降级替换。inspect/result 的 requested_selection 是请求记录，不冒充后端生效观测。
+
+Cursor 协商 parameterizedModelPicker，使用模型返回的参数控件设置强度和显式 bracket 参数。其实测 ACP setter 会写全局偏好，因此显式选择时使用原生 CURSOR_CONFIG_DIR：在私有临时目录中复用现有根目录 JSON 配置，保持原生数据/会话目录不变，退出后删除临时副本；不复制完整历史、插件或创建长期配置分支。原生认证与权限继续有效。
+
 ## 安装与 CLI 可用性
 
 三个系统共用 Python 包和同一份 Skill。setup 复制本地执行器并写入完整启动参数，不另建平台独立包。App 主宿主需要本地命令工具；子 agent 需要其 CLI，App 本身不保证提供可调用接口。
@@ -40,7 +44,9 @@ CLI 的 --background 仅控制工具是否立即返回，默认 return_mode=wait
 
 ## 原生批准交接
 
-Cursor、Copilot、CodeBuddy 共用 stdio ACP 客户端：initialize 协商，session/new 或 session/load 后发起 session/prompt，以 prompt 响应的 stopReason 判断最终状态；旧历史回放不混入新结果。session/request_permission 复用同一个批准 Broker，按原生 optionId 回答。allow_always 可能持久化，不能冒充会话级授权；当前只转交一次性批准。
+Cursor、Copilot、CodeBuddy、Hermes、DSH 和 Grok Build 共用 stdio ACP 客户端：initialize 协商，session/new 后发起 session/prompt；续接按原生能力选择 session/load 或 session/resume，以 prompt 响应的 stopReason 判断最终状态，旧历史回放不混入新结果。session/request_permission 复用同一个批准 Broker，按原生 optionId 回答。allow_always 可能持久化，不能冒充会话级授权；当前只转交一次性批准。
+
+Nanobot 没有原生 ACP 入口，由其 CLI 所属 Python 运行本地 `nanobot_bridge.py`，把同一 ACP 通道映射到原生 SDK 的 run_streamed、sessions 和取消接口。独立原生 session key 避免 HTTP 服务共用会话；原生配置负责模型、记忆、Skill 和工具，项目目录通过原生 workspace_scope 元数据传入，不替换 agent 的记忆工作区。因 SDK 无原生交互式批准通道，AutoSwarm 在新建及续接会话时默认写入 access_mode: full，使用原生 Full Access；可通过 Nanobot provider 参数 --access-mode restricted 显式选择受限模式。访问模式保存在会话元数据中，模型/强度覆盖仅在进程内生效。桥接没有增加第三方依赖或修改原生全局配置；错误沿原有诊断交给主 agent。DSH 保留原生 ACP profile 及配置叠加方式；Grok 使用独占 agent 入口，取消不会把工作留给共享 leader。
 
 Muse 使用原生 MSP：initialize、session/start 或 session/resume、turn/start，以 turn/completed 判断结束。approval/request 的展示回执与 approval/decide 的实际决定分开；保留 currentRequirementId，批准阶段变化后撤回旧请求。每个写入命令生成原生要求的 UUIDv7 幂等键，选择与授权范围一致的原生选项。
 
@@ -131,3 +137,12 @@ submitted 只证明原生输入已接受，reply_to 才关联实际答复。原�
 ## 验证范围
 
 自动化测试使用受控 CLI、真实本地 WebSocket/HTTP 与子进程；真实联调脚本另外调用本机已配置的原生产品。CI 定义 Linux、macOS、Windows 的包安装和行为验证。本机测试只证明本机平台，App UI 的会话可见性仍需实际客户端验收。
+
+
+## 原生交互转接
+
+权限与提问共用每次调用的文件记录和等待流程，不新增服务或数据库。`approval_required` 仍用 approve/deny；`interaction_required` 携带原始请求、响应格式与是否需要用户回答，使用 answer 提交经过格式校验的 JSON。支持 Codex 阻塞提问、异步 question item（同轮 steer 回答）及 elicitation、Claude AskUserQuestion/elicitation、Cursor 问题/计划、OpenCode question、Muse MSP userInput 和 ACP elicitation；CodeBuddy AskUserQuestion 使用其原生 resolveInterruption 回填答案。只协商已实现的能力，不声明未知 Claude dialog kind。
+
+Muse 的展示回执与实际答案分开；父会话读到问题后发送 engaged，遵守原生计时规则。Muse/CodeBuddy 命令等待原生 ACK，OpenCode 检查 HTTP 回执。原生撤回、取消和轮次结束使旧请求失效；同一连接的新轮次即使复用原生 RPC ID，也生成不同的交互记录。重复通知共用原记录，迟到/重复 RPC 响应不当作新请求。
+
+每次投递保留尝试和错误。明确拒绝后可人工修正，异常不自动重放不确定的操作，也不因一次答案失败结束子任务。未知交互保存完整载荷并向分派父 agent 发通信异常；父 agent 可检查原生会话、修正、取消后续接或调整分工，独立任务可继续。wait/receive、Claude hooks、OpenCode 插件与可用的原会话回传均识别中间交互；wait 模式的诊断不会意外唤醒宿主。用户授权、宿主权限和原生安全规则继续生效。

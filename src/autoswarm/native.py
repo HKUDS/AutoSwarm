@@ -64,6 +64,7 @@ class Native:
         if self.adapter:
             value = {"jsonrpc": "2.0", **value}
         with self.write_lock:
+            self.broker.check_reply()
             self.process.stdin.write((json.dumps(value, ensure_ascii=False) + "\n").encode())
             self.process.stdin.flush()
 
@@ -83,6 +84,34 @@ class Native:
             if on_error:
                 self.rpc_errors[request_id] = on_error
         self.send({"id": request_id, "method": method, "params": params})
+        return request_id
+
+    def command(self, method, params):
+        """Await a native ACK on a broker worker, leaving its reader free."""
+        done = threading.Event()
+        result = {}
+        def accepted(value):
+            result["value"] = value
+            done.set()
+        def rejected(error):
+            result["error"] = error
+            done.set()
+        self.request(method, params, accepted, rejected)
+        while not done.wait(0.1):
+            if self.broker.closed.is_set() or self.turn_done.is_set():
+                # Keep callbacks until a late ACK arrives; it belongs only to
+                # this command and cannot answer a later native request.
+                raise SwarmError("native_reply_interrupted", "Native turn/connection ended before the response was acknowledged; inspect the retained attempt")
+        if "error" in result:
+            raise SwarmError("native_answer_rejected", json.dumps(result["error"], ensure_ascii=False))
+        return result.get("value", {})
+
+    def unknown(self, event, *, control=False, error=None):
+        self.broker.unsupported(event.get("request_id", event.get("id")), {**event, **({"bridge_error": str(error)} if error else {})})
+        if control:
+            self.send({"type": "control_response", "response": {"subtype": "error", "request_id": event["request_id"], "error": "Unsupported native interaction; the parent has the original request and diagnostics"}})
+        elif "id" in event:
+            self.send({"id": event["id"], "error": {"code": -32601, "message": "Unsupported native interaction; reported to the assigning parent: " + str(event.get("method"))}})
 
     def rpc_response(self, event):
         callback = self.callbacks.pop(event["id"])
@@ -110,6 +139,7 @@ class Native:
         return text
 
     def continue_turn(self, text):
+        self.broker.new_turn()
         for key, value in vars(Output(session_id=self.output.session_id)).items():
             setattr(self.output, key, value)
         self.turn_done.clear()
@@ -118,7 +148,8 @@ class Native:
         if self.adapter:
             self.adapter.prompt(text)
         elif self.task["provider"] == "codex":
-            self.request("turn/start", {"threadId": self.output.session_id, "input": [{"type": "text", "text": text}]}, lambda value: setattr(self, "turn_id", value.get("turn", {}).get("id")))
+            options = self.task.get("native_options", {})
+            self.request("turn/start", {"threadId": self.output.session_id, "input": [{"type": "text", "text": text}], **{key: options[key] for key in ("model", "effort") if key in options}}, lambda value: setattr(self, "turn_id", value.get("turn", {}).get("id")))
         elif self.task["provider"] == "claude-code":
             self.send({"type": "user", "session_id": self.output.session_id or "", "message": {"role": "user", "content": text}, "parent_tool_use_id": None})
         else:
@@ -180,7 +211,7 @@ class Native:
             from .records import read_json
             request = read_json(path / "request.json")
             if request:
-                self.broker.withdraw(request["native_request_id"], "cancelled" if (self.broker.directory / "cancel.json").exists() else "native_turn_ended")
+                self.broker.withdraw(request["native_request_id"], "cancelled" if (self.broker.directory / "cancel.json").exists() else "native_turn_ended", epoch=request.get("native_turn", self.broker.epoch))
         self.turn_done.set()
 
     def start(self):
@@ -189,7 +220,7 @@ class Native:
         elif self.task["provider"] == "codex":
             def initialized(_):
                 self.send({"method": "initialized", "params": {}})
-                options = {"cwd": self.task["workspace"], **self.task.get("native_options", {})}
+                options = {"cwd": self.task["workspace"], **{key: value for key, value in self.task.get("native_options", {}).items() if key != "effort"}}
                 if self.task.get("native_session_id"):
                     options["threadId"] = self.task["native_session_id"]
                 self.request("thread/resume" if self.task.get("native_session_id") else "thread/start", options, started)
@@ -214,9 +245,21 @@ class Native:
             return
         if not isinstance(event, dict):
             return
+        if event.get("method") or event.get("type") == "control_request":
+            try:
+                self.dispatch(event)
+            except (SwarmError, KeyError, TypeError, AttributeError) as error:
+                self.unknown(event, control=event.get("type") == "control_request", error=error)
+        else:
+            self.dispatch(event)
+
+    def dispatch(self, event):
         if self.adapter:
-            if not event.get("method") and event.get("id") in self.callbacks:
-                self.rpc_response(event)
+            if not event.get("method") and ("result" in event or "error" in event):
+                if event.get("id") in self.callbacks:
+                    self.rpc_response(event)
+                # A duplicate/late response is not a server request. Never
+                # answer responses or route them into permission handling.
             else:
                 self.adapter.feed(event)
             return
@@ -233,7 +276,8 @@ class Native:
             self.turn_id = params.get("turn", {}).get("id")
         elif method in {"item/commandExecution/requestApproval", "item/fileChange/requestApproval", "item/permissions/requestApproval"}:
             if params.get("threadId") != self.output.session_id:
-                raise SwarmError("native_request_mismatch", "Permission request belongs to another native thread")
+                self.unknown(event)
+                return
             def reply(value):
                 allow = value["decision"] == "allow"
                 if method == "item/permissions/requestApproval":
@@ -247,11 +291,31 @@ class Native:
             if method == "item/permissions/requestApproval" or not available or "acceptForSession" in available:
                 scopes.append("session")
             self.broker.request(event["id"], self.output.session_id, {"method": method, **params}, reply, scopes=scopes)
+        elif method in {"item/tool/requestUserInput", "mcpServer/elicitation/request"}:
+            if params.get("threadId") != self.output.session_id:
+                self.unknown(event)
+                return
+            kind = "codex-question" if method == "item/tool/requestUserInput" else "elicitation"
+            self.broker.request(event["id"], self.output.session_id, {"method": method, **params},
+                                lambda value: self.send({"id": event["id"], "result": value["response"]}),
+                                interaction=kind, user_required=kind == "elicitation")
         elif method == "serverRequest/resolved":
             self.broker.withdraw(params.get("requestId"), "resolved_by_native")
         elif method == "item/completed" and params.get("item", {}).get("type") == "agentMessage":
             if params.get("threadId") == self.output.session_id:
-                self.output.content = params["item"].get("text", "")
+                item = params["item"]
+                self.output.content = item.get("text", "")
+                if item.get("questions"):
+                    questions = item.get("questions", [])
+                    self.output.content += "\nNative questions: " + json.dumps(questions, ensure_ascii=False)
+                    turn_id = params.get("turnId") or self.turn_id
+                    def answer(value):
+                        if not turn_id:
+                            raise SwarmError("native_turn_unavailable", "No active native turn for this question; inspect and resume the original conversation after it ends")
+                        self.command("turn/steer", {"threadId": self.output.session_id, "expectedTurnId": turn_id,
+                                     "input": [{"type": "text", "text": "Answer to native question " + str(item.get("id")) + ":\n" + value["response"]["text"]}]})
+                    self.broker.request("async:" + str(item.get("id")), self.output.session_id, params, answer,
+                                        interaction="codex-async-question")
         elif method == "turn/completed":
             if params.get("threadId") != self.output.session_id:
                 return
@@ -261,7 +325,7 @@ class Native:
             self.output.error = None if turn.get("status") == "completed" else str(turn.get("error") or turn.get("status"))
             self.finish_turn()
         elif method and "id" in event:
-            self.send({"id": event["id"], "error": {"code": -32601, "message": "Unsupported native interaction: " + method}})
+            self.unknown(event)
 
     def claude(self, event):
         if event.get("type") == "control_response" and event.get("response", {}).get("request_id") == "autoswarm_initialize":
@@ -274,8 +338,25 @@ class Native:
                 callback(event["response"])
         elif event.get("type") == "control_request":
             request = event.get("request", {})
+            def respond(response):
+                self.send({"type": "control_response", "response": {"subtype": "success", "request_id": event["request_id"], "response": response}})
+            if request.get("subtype") == "elicitation":
+                self.broker.request(event["request_id"], self.output.session_id, request,
+                                    lambda value: respond(value["response"]), interaction="elicitation", user_required=True)
+                return
+            if request.get("subtype") == "can_use_tool" and request.get("tool_name") == "AskUserQuestion":
+                def answer(value):
+                    body = value["response"]
+                    if body.get("action") == "cancel":
+                        respond({"behavior": "deny", "message": "The question was declined in the parent conversation"})
+                    else:
+                        respond({"behavior": "allow", "updatedInput": {**request.get("input", {}), "answers": body["answers"]}})
+                self.broker.request(event["request_id"], self.output.session_id, request, answer, interaction="claude-question")
+                return
             if request.get("subtype") != "can_use_tool":
-                self.send({"type": "control_response", "response": {"subtype": "error", "request_id": event["request_id"], "error": "Unsupported native interaction"}})
+                # Opaque dialog kinds are not advertised. Native protocol
+                # forbids inventing a cancelled settlement for unknown kinds.
+                self.unknown(event, control=True)
                 return
             def reply(value):
                 response = {"behavior": value["decision"]}
@@ -311,6 +392,7 @@ class Native:
     def http(self, method, path, body=None, *, timeout=None, stream=False):
         from .hosts import _http, open_http
         try:
+            self.broker.check_reply()
             parent = {"endpoint": self.endpoint}
             if path not in {"/global/health", "/doc"}:
                 parent["workspace"] = self.task["workspace"]
@@ -353,6 +435,12 @@ class Native:
             raise SwarmError("native_protocol_error", "OpenCode's advertised API does not support this adapter: " + ", ".join(missing) + ". Check the actual CLI version and update AutoSwarm; do not reinstall authentication.")
 
     def opencode_event(self, event):
+        try:
+            self.opencode_dispatch(event)
+        except (SwarmError, KeyError, TypeError, AttributeError) as error:
+            self.broker.unsupported(None, {"event": event, "bridge_error": str(error)})
+
+    def opencode_dispatch(self, event):
         props = event.get("properties", {})
         if props.get("sessionID") != self.output.session_id:
             return
@@ -360,8 +448,19 @@ class Native:
             def reply(value):
                 self.http("POST", "/permission/" + urllib.parse.quote(props["id"], safe="") + "/reply", {"reply": ("always" if value["scope"] == "session" else "once") if value["decision"] == "allow" else "reject", "message": value["message"]})
             self.broker.request(props["id"], self.output.session_id, props, reply, scopes=["once", "session"])
-        elif event.get("type") == "permission.replied":
+        elif event.get("type") == "question.asked":
+            def answer(value):
+                body = value["response"]
+                base = "/question/" + urllib.parse.quote(props["id"], safe="")
+                result = self.http("POST", base + ("/reject" if body.get("action") == "cancel" else "/reply"),
+                                   None if body.get("action") == "cancel" else {"answers": body["answers"]})
+                if result is False:
+                    raise SwarmError("native_answer_rejected", "OpenCode did not accept the question answer")
+            self.broker.request(props["id"], self.output.session_id, props, answer, interaction="opencode-question")
+        elif event.get("type") in {"permission.replied", "question.replied", "question.rejected"}:
             self.broker.withdraw(props.get("requestID"), "resolved_by_native")
+        elif event.get("type", "").endswith((".asked", ".requested")):
+            self.broker.unsupported(props.get("id"), event)
 
     def opencode(self):
         try:
@@ -374,6 +473,8 @@ class Native:
             else:
                 self.http("GET", "/session/" + urllib.parse.quote(session, safe=""))
             self.session(session)
+            from .selection import validate_opencode_effort
+            validate_opencode_effort(self)
             self.stream = self.http("GET", "/event", stream=True)
             if "text/event-stream" not in self.stream.headers.get("Content-Type", ""):
                 raise SwarmError("native_protocol_error", "OpenCode /event did not return an SSE stream")

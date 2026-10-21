@@ -28,6 +28,31 @@ def pending_calls(records: Records, session_id: str, *, include_submitted: bool 
         yield directory, task
 
 
+def submit(directory, receipt):
+    # Runner delivery and hook submission publish to the same receipt. Share
+    # its existing lock so a late pending receipt cannot erase submission.
+    try:
+        lease = session_lease(directory / "delivery.lock")
+    except SwarmError as error:
+        if error.code != "session_busy":
+            raise
+        return False
+    with lease:
+        write_json(directory / "delivery.json", receipt)
+    return True
+
+
+def native_issue(directory, info):
+    diagnostic = info.get("communication_error")
+    if not diagnostic or read_json(directory / "communication-received.json", {}).get("diagnostic_at") == diagnostic.get("at"):
+        return None
+    return {"kind": "communication_issue", "call_id": info["call_id"], "diagnostic": diagnostic}
+
+
+def issue_received(directory, value):
+    write_json(directory / "communication-received.json", {"diagnostic_at": value["diagnostic"].get("at"), "at": now()})
+
+
 def handle_hook(records: Records, event: str) -> int:
     payload = json.load(sys.stdin)
     session_id = payload.get("session_id")
@@ -51,6 +76,10 @@ def handle_hook(records: Records, event: str) -> int:
         ready, running, waiting_for_input = [], [], False
         for directory, task in calls:
             info = inspect_call(records, task["call_id"])
+            issue = native_issue(directory, info)
+            if issue:
+                ready.append(result_message(issue, directory))
+                issue_received(directory, issue)
             if info["result"]:
                 ready.append(result_message(info["result"], directory))
                 write_json(directory / "received.json", {"at": now(), "mechanism": "claude_stop_hook"})
@@ -93,13 +122,20 @@ def handle_hook(records: Records, event: str) -> int:
                 if requests:
                     request = requests[0]
                     path = approvals.location(records, task["call_id"], request["request_id"])
-                    write_json(path / "delivery.json", {"call_id": task["call_id"], "request_id": request["request_id"], "state": "submitted", "continued": False, "mechanism": "claude_async_rewake", "at": now()})
+                    if not submit(path, {"call_id": task["call_id"], "request_id": request["request_id"], "state": "submitted", "continued": False, "mechanism": "claude_async_rewake", "at": now()}):
+                        continue
                     print(approvals.message(request), file=sys.stderr, flush=True)
+                    return 2
+                issue = native_issue(directory, info)
+                if issue:
+                    issue_received(directory, issue)
+                    print(result_message(issue, directory), file=sys.stderr, flush=True)
                     return 2
                 if info["result"] is None and info["state"] != "interrupted":
                     continue
                 message = result_message(info["result"], directory) if info["result"] else f"AutoSwarm {task['call_id']} was interrupted; inspect the call."
-                write_json(directory / "delivery.json", {"call_id": task["call_id"], "state": "submitted", "continued": False, "mechanism": "claude_async_rewake", "at": now()})
+                if not submit(directory, {"call_id": task["call_id"], "state": "submitted", "continued": False, "mechanism": "claude_async_rewake", "at": now()}):
+                    continue
                 print(message, file=sys.stderr, flush=True)
                 # Claude's asyncRewake contract: exit 2 wakes an idle session.
                 # Submission is not mislabeled as an observed assistant turn.

@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 
-PROVIDERS = ("codex", "claude-code", "opencode", "cursor", "copilot", "muse", "codebuddy")
+PROVIDERS = ("codex", "claude-code", "opencode", "cursor", "copilot", "muse", "codebuddy", "hermes", "nanobot", "dsh", "grok")
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -26,8 +26,8 @@ def main():
         root = Path(temporary)
         home = root / "state"
         home.mkdir()
-        (home / "config.json").write_text(json.dumps({"providers": {name: {"command": [sys.executable, str(fixture), name]} for name in PROVIDERS}}), encoding="utf-8")
-        env = dict(os.environ, PYTHONPATH="", AUTOSWARM_HOME=str(home))
+        (home / "config.json").write_text(json.dumps({"providers": {name: {"command": [sys.executable, str(fixture), name], **({"python": [sys.executable, str(fixture), name]} if name == "nanobot" else {})} for name in PROVIDERS}}), encoding="utf-8")
+        env = dict(os.environ, PYTHONPATH="", AUTOSWARM_HOME=str(home), CURSOR_CONFIG_DIR=str(root / "native-cursor"))
         env.pop("AUTOSWARM_PARENT", None)
         env.pop("CODEX_THREAD_ID", None)
         def invoke(argv, command=program):
@@ -43,6 +43,11 @@ def main():
             resumed = invoke(["resume", result["call_id"], "--no-parent", "resume packaged"])
             assert resumed["native_session_id"] == result["native_session_id"], resumed
             assert resumed["outcome"] == "completed", resumed
+            model = "fixture/native-model" if provider == "opencode" else "native-model"
+            selected = invoke(["run", "--agent", provider, "--no-parent", "--cwd", str(root), "--model", model, "--effort", "deep-native", "--provider-arg=selection-catalog", "selected package call"])
+            assert selected["outcome"] == "completed", selected
+            continued = invoke(["resume", selected["call_id"], "--no-parent", "selected package resume"])
+            assert continued["outcome"] == "completed" and continued["requested_selection"] == {"model": model, "effort": "deep-native"}, continued
         assert invoke(["config"])["delegate_approvals"] is True
         for provider in PROVIDERS:
             marker = root / (provider + "-approved")
@@ -58,12 +63,25 @@ def main():
         codex = invoke(["setup", "--host", "codex", "--skill-dir", str(root / "codex-skill")])
         assert list((root / "codex-skill").rglob("SKILL.md")) == [root / "codex-skill/SKILL.md"]
         assert (root / "codex-skill/references/setup.md").is_file()
+        assert (root / "codex-skill/references/models.md").is_file()
+        assert (root / "codex-skill/references/interactions.md").is_file()
         # Reinstall from the Skill's own launcher.
         invoke(["setup", "--host", "codex", "--skill-dir", str(root / "codex-skill")], command=codex["launcher"])
-        result = invoke(["run", "--agent", "codex", "--no-parent", "--cwd", str(root), "installed launcher"], command=codex["launcher"])
+        result = invoke(["run", "--agent", "codex", "--no-parent", "--cwd", str(root), "--model", "native-model", "--effort", "native-effort", "installed launcher"], command=codex["launcher"])
         assert result["outcome"] == "completed", result
+        assert result["requested_selection"] == {"model": "native-model", "effort": "native-effort"}, result
         checked = invoke(["doctor", "--agent", "opencode", "--probe", "--cwd", str(root)], command=codex["launcher"])
         assert checked["verified"], checked
+        # A copied Skill must answer native questions using its own runtime.
+        answer_file = root / "answer.json"
+        answer_file.write_text(json.dumps({"answers": {"Choose scope?": "本地"}}, ensure_ascii=False), encoding="utf-8")
+        marker = root / "native-question-answered"
+        call = invoke(["run", "--agent", "claude-code", "--no-parent", "--background", "--cwd", str(root), "question:" + str(marker)], command=codex["launcher"])
+        request = invoke(["wait", call["call_id"]], command=codex["launcher"])[0]
+        assert request["kind"] == "interaction_required" and not marker.exists(), request
+        invoke(["answer", call["call_id"], request["request_id"], "--input", str(answer_file)], command=codex["launcher"])
+        result = invoke(["wait", call["call_id"]], command=codex["launcher"])[0]
+        assert result["outcome"] == "completed" and marker.exists(), result
         # Exercise the copied runtime's messaging, not the source checkout.
         conversation = fixture.with_name("conversation.py")
         config = json.loads((home / "config.json").read_text(encoding="utf-8"))
@@ -83,7 +101,7 @@ def main():
         assert json.loads(settings.read_text(encoding="utf-8"))["hooks"]["PostToolUse"][0]["hooks"][0]["asyncRewake"]
         plugin = invoke(["setup", "--host", "opencode", "--skill-dir", str(root / "opencode-skill"), "--plugin-dir", str(root / "plugins")])
         assert "__AUTOSWARM_COMMAND__" not in Path(plugin["plugin"]).read_text(encoding="utf-8")
-    print("Distribution passed: seven providers, approval round trips, native resume, installed-launcher messaging and continuation, reinstall and bundled host integrations")
+    print("Distribution passed: eleven providers, approval and question round trips, native resume, installed-launcher messaging and continuation, reinstall and bundled host integrations")
 
 
 if __name__ == "__main__":

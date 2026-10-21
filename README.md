@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-Use Codex, Claude Code, OpenCode, Cursor, GitHub Copilot CLI, Meta Muse Code and CodeBuddy together from your current agent conversation. The main agent configures the available CLIs, delegates distinct work, handles intermediate approvals, collects results and delivers the answer.
+Use Codex, Claude Code, OpenCode, Cursor, GitHub Copilot CLI, Meta Muse Code, CodeBuddy, Hermes, Nanobot, DSH and Grok Build together from your current agent conversation. The main agent configures the available CLIs, delegates distinct work, handles intermediate approvals, collects results and delivers the answer.
 
 Give your main agent this repository and ask:
 
@@ -20,7 +20,7 @@ Windows, macOS and Linux use the same lightweight Python package. A main App nee
    autoswarm setup --host codex
    ```
 
-   Other host names: `claude-code`, `opencode`, `cursor`, `copilot`, `muse`, `codebuddy`. Without uv, use a dedicated Python 3.10+ environment and `python -m pip install .`. Keep its interpreter available. The package has no third-party Python runtime dependencies; do not reuse the archived v1 environment.
+   Other host names: `claude-code`, `opencode`, `cursor`, `copilot`, `muse`, `codebuddy`, `hermes`, `nanobot`, `dsh`, `grok`. Without uv, use a dedicated Python 3.10+ environment and `python -m pip install .`. Keep its interpreter available. The package has no third-party Python runtime dependencies; do not reuse the archived v1 environment.
 3. Read the installed `SKILL.md` at the path returned by setup. Use its exact launcher argv when the App cannot find `autoswarm` on PATH. The installed Skill includes its runtime and a [configuration/recovery guide](src/autoswarm/assets/references/setup.md); only its top-level SKILL.md is discoverable.
 4. Run `agents` in the current App's tool environment. Confirm the actual executable and version. If a working CLI is outside PATH, merge its absolute argv into `providers.<provider>.command` in the AutoSwarm home/config.json reported by `agents`. Preserve unrelated settings and reuse native authentication.
 5. Verify each requested provider in the **real project context**:
@@ -34,7 +34,7 @@ Windows, macOS and Linux use the same lightweight Python package. A main App nee
 
 `setup` merges Claude lifecycle hooks or installs the OpenCode plugin when those are the main host. Existing unrelated settings are preserved. Native reload/trust requirements still apply. `--skill-dir`, `--settings-file` and `--plugin-dir` choose explicit destinations. After upgrading, rerun setup from the updated package; updating the checkout alone does not update an installed Skill's copied runtime.
 
-Cursor, Copilot and CodeBuddy children use native ACP; Muse uses its native MSP host. The same Skill and run/wait flow work when these agents are the main host; no idle-session wake-up integration is installed for them. Reuse the environment of the working native CLI: App tool processes may not inherit shell startup exports. When necessary, configure `providers.<provider>.command` to use an existing profile-loading launcher; keep credentials in their native source. See the recovery guide before requesting login.
+Cursor, Copilot, CodeBuddy, Hermes, DSH and Grok Build children use native ACP; Muse uses its native MSP host. Nanobot uses a local bridge running its installed Python SDK, with separate native sessions and the existing configuration, workspace memory, skills and tools. Its SDK has no native interactive approval channel, so AutoSwarm sessions default to native Full Access; an explicit restricted mode is available in the recovery guide. The same Skill and run/wait flow work when these agents are the main host; no idle-session wake-up integration is installed for them. Reuse the environment of the working native CLI: App tool processes may not inherit shell startup exports. When necessary, configure `providers.<provider>.command` to use an existing profile-loading launcher; keep credentials in their native source. See the recovery guide for DSH profile reuse and Nanobot runtime discovery before requesting login.
 
 ## Handle a task in the current conversation
 
@@ -46,7 +46,7 @@ autoswarm run --agent opencode --input review.txt --cwd /path/to/project --backg
 autoswarm wait call_A call_B
 ```
 
-Retain the returned call IDs. `wait` can return intermediate approvals, messages or communication issues; handle them and wait again until required calls have final outcomes. Answer original approvals with `approve`/`deny` under the Skill's authorization rules. Check `outcome`, errors and artifacts before answering the user. `ok` describes the CLI operation, not task acceptance.
+Retain the returned call IDs. `wait` can return intermediate native questions, approvals, messages or communication issues; handle them and wait again until required calls have final outcomes. Answer original approvals with `approve`/`deny` under the Skill's authorization rules. For `interaction_required`, read its `response_help` and use `answer <call-id> <request-id> --input answer.json`; relay an actual user answer with `--by user` when required. Failed forwarding retains the request and diagnostics for the main agent to correct or recover. See [native interactions](src/autoswarm/assets/references/interactions.md). Check `outcome`, errors and artifacts before answering the user. `ok` describes the CLI operation, not task acceptance.
 
 ```bash
 autoswarm inspect call_A
@@ -56,6 +56,8 @@ autoswarm cancel call_A
 ```
 
 `resume` continues the native child session and keeps the earlier receipt. Interrupting a wait leaves the child running. Native agents retain their full histories; AutoSwarm keeps small file receipts. A missing runner is reported as interrupted and is not automatically rerun. No context, concurrency, turn or task-duration caps are added.
+
+Optionally choose each child's model and reasoning effort with `run --model <native-id> --effort <native-value>`. Omit them to keep native defaults. `resume` inherits explicit selections and accepts replacements; message handling retains them. Values follow each provider's native controls (OpenCode uses variants; Cursor uses model parameters), without a fixed model/effort list or changes to native global defaults. Unsupported selections return diagnostics to the main agent. See [model selection](src/autoswarm/assets/references/models.md).
 
 ## Communicate during delegated work
 

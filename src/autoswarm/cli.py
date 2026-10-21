@@ -40,7 +40,8 @@ def parser() -> argparse.ArgumentParser:
         item.add_argument("--input", help="UTF-8 prompt file; '-' reads stdin")
         item.add_argument("--background", action="store_true")
         item.add_argument("--notify-parent", action="store_true", help="Opt into callbacks through the original host binding; background execution alone uses wait/receive")
-        item.add_argument("--model")
+        item.add_argument("--model", help="Native model ID for this child; omitted preserves native defaults")
+        item.add_argument("--effort", help="Native reasoning effort/variant for this child; omitted preserves native defaults")
         item.add_argument("--provider-arg", action="append", default=None, help="Native argument; use --provider-arg=--flag")
         item.add_argument("--delegate-approvals", choices=["on", "off"], help="Override parent approval delegation for this child (default: config, on)")
         group = item.add_mutually_exclusive_group()
@@ -53,7 +54,7 @@ def parser() -> argparse.ArgumentParser:
         if name == "wait":
             item.add_argument("--any", action="store_true", dest="any_result")
             item.add_argument("--peek", action="store_true", help="Read without acknowledging receipt; used by native host integrations")
-            item.add_argument("--unseen", action="store_true", help="Wait for an approval not yet delivered, or the final result")
+            item.add_argument("--unseen", action="store_true", help="Wait for a native request not yet delivered, or the final result")
             item.add_argument("--call-events-only", action="store_true", help=argparse.SUPPRESS)
     for name in ("send", "reply"):
         item = commands.add_parser(name)
@@ -66,7 +67,7 @@ def parser() -> argparse.ArgumentParser:
         item = commands.add_parser(name)
         item.add_argument("call_id")
         if name == "deliver":
-            item.add_argument("--request", help="Redeliver a pending approval instead of the final result")
+            item.add_argument("--request", help="Redeliver a pending native request instead of the final result")
     item = commands.add_parser("config")
     item.add_argument("--delegate-approvals", choices=["on", "off"], help="Persist the default parent delegation setting; enabled by default")
     item = commands.add_parser("approvals")
@@ -78,6 +79,12 @@ def parser() -> argparse.ArgumentParser:
         item.add_argument("--by", choices=["parent", "user"], default="parent", dest="actor", help="user relays an explicit human decision; it is not permission to impersonate one")
         item.add_argument("--scope", choices=["once", "session"], default="once", help="Native grant scope, when supported")
         item.add_argument("--message", default="")
+    item = commands.add_parser("answer", help="Answer a child's native question, confirmation or form")
+    item.add_argument("call_id")
+    item.add_argument("request_id")
+    item.add_argument("prompt", nargs="?", help="Native response JSON; --input avoids shell quoting")
+    item.add_argument("--input", help="UTF-8 JSON response file; '-' reads stdin")
+    item.add_argument("--by", choices=["parent", "user"], default="parent", dest="actor")
     item = commands.add_parser("calls")
     item.add_argument("--pending-return", action="store_true")
     item.add_argument("--host")
@@ -108,6 +115,7 @@ def parser() -> argparse.ArgumentParser:
     item.add_argument("--session", required=True)
     item.add_argument("--message", required=True)
     item.add_argument("--request")
+    item.add_argument("--issue", help=argparse.SUPPRESS)
     return root
 
 
@@ -151,7 +159,7 @@ def dispatch(args, records: Records):
             raise SwarmError("invalid_input", "Use --notify-parent with --background, or collect the foreground result directly")
         if args.notify_parent and (not callback_parent or (callback_parent.get("mode") != "hook" and not callback_parent.get("endpoint") and callback_parent.get("host") != "command")):
             raise SwarmError("parent_endpoint_required", "--notify-parent needs a usable original host binding. Omit it and collect results with wait/receive.")
-        common = {"parent": parent, "model": args.model, "provider_args": args.provider_arg, "return_mode": "native" if args.notify_parent else "wait", "delegate_approvals": None if args.delegate_approvals is None else args.delegate_approvals == "on"}
+        common = {"parent": parent, "model": args.model, "effort": args.effort, "provider_args": args.provider_arg, "return_mode": "native" if args.notify_parent else "wait", "delegate_approvals": None if args.delegate_approvals is None else args.delegate_approvals == "on"}
         info = engine.start_call(records, args.agent, prompt, args.cwd, controller=args.controller, name=args.name, peers=args.allow_peer, rules=args.communication_rules, **common) if name == "run" else engine.resume(records, args.call_id, prompt, inherit_parent=not args.no_parent, **common)
         if args.background:
             return info
@@ -186,6 +194,12 @@ def dispatch(args, records: Records):
     if name == "approvals":
         ids = [args.call_id] if args.call_id else [task["call_id"] for _, task in records.calls()]
         return [request for call_id in ids for request in approvals.pending(records, call_id)]
+    if name == "answer":
+        try:
+            response = json.loads(prompt_from(args))
+        except ValueError as error:
+            raise SwarmError("invalid_answer", "Answer must be valid JSON: " + str(error)) from error
+        return approvals.answer(records, args.call_id, args.request_id, response, actor=args.actor)
     if name in {"approve", "deny"}:
         return approvals.decide(records, args.call_id, args.request_id, "allow" if name == "approve" else "deny", actor=args.actor, scope=args.scope, message=args.message)
     if name == "_receipt":
@@ -197,6 +211,10 @@ def dispatch(args, records: Records):
             raise SwarmError("parent_mismatch", "Native receipt does not match this call's original parent")
         if args.request:
             directory = approvals.location(records, args.call_id, args.request)
+        if args.issue:
+            value = {"diagnostic_at": args.issue, "at": now()}
+            write_json(directory / "communication-received.json", value)
+            return value
         lease = session_lease(directory / "delivery.lock")
         try:
             value = {"state": "delivered", "continued": True, "mechanism": "opencode_plugin", "message_id": args.message, "call_id": args.call_id, "at": now()}

@@ -7,11 +7,11 @@ from . import engine
 from .records import Records, SwarmError
 
 
-def probe(records: Records, provider: str, workspace: str) -> dict:
+def probe(records: Records, provider: str, workspace: str, *, model: str | None = None, effort: str | None = None) -> dict:
     token = "AUTOSWARM_CHECK_" + uuid.uuid4().hex
     report = {"provider": provider, "verified": False, "workspace": workspace}
     try:
-        initial = engine.start_call(records, provider, f"Remember the exact phrase {token}. Reply with only that phrase. Do not call tools or modify files.", workspace, parent=None, return_mode="wait")
+        initial = engine.start_call(records, provider, f"Remember the exact phrase {token}. Reply with only that phrase. Do not call tools or modify files.", workspace, parent=None, return_mode="wait", model=model, effort=effort)
         report["initial_call_id"] = initial["call_id"]
         result = engine.wait(records, [initial["call_id"]])[0]
         report["initial"] = result

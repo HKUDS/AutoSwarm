@@ -28,6 +28,7 @@ permission_event = threading.Event()
 permission_allowed = False
 cancel_barrier = False
 prompt_count = 0
+selection = {}
 
 
 def emit(value):
@@ -161,8 +162,20 @@ else:
             emit({"id": event["id"], "result": result})
         elif method in {"thread/start", "thread/resume", "session/start", "session/resume", "session/new", "session/load"}:
             result = {"thread": {"id": session}} if provider == "codex" else {"session": {"sessionId": session}} if provider == "muse" else {"sessionId": session}
+            if provider in {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok"}:
+                result["configOptions"] = [{"id": "thought_level", "category": "thought_level", "options": [{"value": "native-effort"}]}]
             emit({"id": event["id"], "result": result})
+        elif method == "session/set_model":
+            selection["model"] = params["modelId"]
+            emit({"id": event["id"], "result": {}})
+        elif method == "session/set_config_option":
+            selection["effort" if params["configId"] == "thought_level" else params["configId"]] = params["value"]
+            emit({"id": event["id"], "result": {}})
         elif method in {"turn/start", "session/prompt"}:
+            if provider == "codex" and any(key in params for key in ("model", "effort")):
+                log("selection:" + json.dumps({key: params[key] for key in ("model", "effort") if key in params}, sort_keys=True))
+            elif selection:
+                log("selection:" + json.dumps(selection, sort_keys=True))
             prompt_count += 1
             if "reject-prompt" in args or ("reject-followup" in args and prompt_count > 1):
                 emit({"id": event["id"], "error": {"code": -1, "message": "fixture prompt rejected before acceptance"}})

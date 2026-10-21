@@ -28,13 +28,14 @@ def runtime_env(records: Records) -> dict:
     return env
 
 
-def start_call(records: Records, provider: str, prompt: str, workspace: str | Path, *, parent: dict | None = None, native_session_id: str | None = None, model: str | None = None, provider_args: list[str] | None = None, previous_call: str | None = None, return_mode: str = "native", delegate_approvals: bool | None = None, controller: str | None = None, name: str | None = None, peers: list[str] | None = None, rules: str | None = None, agent_id: str | None = None, message_only: bool = False, _dispatch_locked: bool = False) -> dict:
+def start_call(records: Records, provider: str, prompt: str, workspace: str | Path, *, parent: dict | None = None, native_session_id: str | None = None, model: str | None = None, effort: str | None = None, provider_args: list[str] | None = None, previous_call: str | None = None, return_mode: str = "native", delegate_approvals: bool | None = None, controller: str | None = None, name: str | None = None, peers: list[str] | None = None, rules: str | None = None, agent_id: str | None = None, message_only: bool = False, _dispatch_locked: bool = False) -> dict:
     provider = canonical(provider)
     directory_path = Path(workspace).expanduser().resolve()
     if not directory_path.is_dir():
         raise SwarmError("workspace_not_found", f"Workspace is not a directory: {directory_path}")
     call_id = "call_" + uuid.uuid4().hex
     task = {"call_id": call_id, "provider": provider, "prompt": prompt, "workspace": str(directory_path), "parent": parent, "native_session_id": native_session_id, "model": model, "provider_args": provider_args or [], "previous_call": previous_call, "return_mode": return_mode, "created_at": now()}
+    task["effort"] = effort
     task["delegate_approvals"] = delegate_approvals
     approvals.delegated(records, task)
     # Validate and resolve the executable before accepting a background call.
@@ -75,7 +76,8 @@ def inspect_call(records: Records, call_id: str) -> dict:
         state = "running"
     else:
         state = "interrupted"
-    return {"call_id": call_id, "agent_id": task.get("agent_id", call_id), "controller_id": task.get("controller_id"), "communication": task.get("communication"), "provider": task["provider"], "state": state, "return_mode": task.get("return_mode", "native"), "native_session_id": (result or {}).get("native_session_id") or (handle or {}).get("native_session_id") or task.get("native_session_id"), "workspace": task["workspace"], "directory": str(directory), "parent": task.get("parent"), "result": result, "delivery": read_json(directory / "delivery.json"), "handle": handle, "communication_error": read_json(directory / "communication-error.json"), "delegate_approvals": approvals.delegated(records, task), "approvals": approvals.pending(records, call_id) if state == "running" else []}
+    selection = {key: task[key] for key in ("model", "effort") if task.get(key) is not None}
+    return {"call_id": call_id, "agent_id": task.get("agent_id", call_id), "controller_id": task.get("controller_id"), "communication": task.get("communication"), "provider": task["provider"], "state": state, "return_mode": task.get("return_mode", "native"), "native_session_id": (result or {}).get("native_session_id") or (handle or {}).get("native_session_id") or task.get("native_session_id"), "requested_selection": selection, "workspace": task["workspace"], "directory": str(directory), "parent": task.get("parent"), "result": result, "delivery": read_json(directory / "delivery.json"), "handle": handle, "communication_error": read_json(directory / "communication-error.json"), "delegate_approvals": approvals.delegated(records, task), "approvals": approvals.pending(records, call_id) if state == "running" else []}
 
 
 def receive(records: Records, call_ids: list[str], *, mark_received: bool = True, unseen: bool = False, controller: str | None = None, include_inbox: bool = True) -> list[dict]:
@@ -83,8 +85,11 @@ def receive(records: Records, call_ids: list[str], *, mark_received: bool = True
     for call_id in call_ids:
         directory, _ = records.require(call_id)
         info = inspect_call(records, call_id)
-        if include_inbox and info["communication_error"]:
-            output.append({"kind": "communication_issue", "call_id": call_id, "agent_id": info["agent_id"], "diagnostic": info["communication_error"], "directory": str(directory)})
+        diagnostic = info["communication_error"]
+        if diagnostic and read_json(directory / "communication-received.json", {}).get("diagnostic_at") != diagnostic.get("at"):
+            output.append({"kind": "communication_issue", "call_id": call_id, "agent_id": info["agent_id"], "diagnostic": diagnostic, "directory": str(directory)})
+            if mark_received:
+                write_json(directory / "communication-received.json", {"diagnostic_at": diagnostic.get("at"), "at": now()})
         if info["result"] is not None:
             output.append(info["result"])
             if mark_received:
@@ -121,14 +126,14 @@ def wait(records: Records, call_ids: list[str], *, any_result: bool = False, mar
         records.require(call_id)
     while True:
         values = receive(records, call_ids, mark_received=False, unseen=unseen, controller=controller, include_inbox=include_inbox)
-        events = any(value.get("kind") in {"approval_required", "agent_message", "communication_issue"} for value in values)
+        events = any(value.get("kind") in {"approval_required", "interaction_required", "agent_message", "communication_issue"} for value in values)
         complete = {value.get("call_id") for value in values if value.get("outcome")}
         if events or (call_ids and complete.issuperset(call_ids)) or (any_result and values):
             return receive(records, call_ids, mark_received=mark_received, unseen=unseen, controller=controller, include_inbox=include_inbox)
         time.sleep(0.1)
 
 
-def resume(records: Records, call_id: str, prompt: str, *, parent: dict | None = None, inherit_parent: bool = True, model: str | None = None, provider_args: list[str] | None = None, return_mode: str = "native", delegate_approvals: bool | None = None) -> dict:
+def resume(records: Records, call_id: str, prompt: str, *, parent: dict | None = None, inherit_parent: bool = True, model: str | None = None, effort: str | None = None, provider_args: list[str] | None = None, return_mode: str = "native", delegate_approvals: bool | None = None) -> dict:
     directory, task = records.require(call_id)
     info = inspect_call(records, call_id)
     if info["state"] == "running":
@@ -137,7 +142,7 @@ def resume(records: Records, call_id: str, prompt: str, *, parent: dict | None =
     if not session:
         raise SwarmError("session_unavailable", "Provider did not return a native session ID")
     # A result is retained in the old directory; continuing creates a new call.
-    return start_call(records, task["provider"], prompt, task["workspace"], parent=parent if parent is not None or not inherit_parent else task.get("parent"), native_session_id=session, model=model if model is not None else task.get("model"), provider_args=provider_args if provider_args is not None else task.get("provider_args"), previous_call=call_id, return_mode=return_mode, delegate_approvals=delegate_approvals if delegate_approvals is not None else task.get("delegate_approvals"), agent_id=task.get("agent_id", call_id))
+    return start_call(records, task["provider"], prompt, task["workspace"], parent=parent if parent is not None or not inherit_parent else task.get("parent"), native_session_id=session, model=model if model is not None else task.get("model"), effort=effort if effort is not None else task.get("effort"), provider_args=provider_args if provider_args is not None else task.get("provider_args"), previous_call=call_id, return_mode=return_mode, delegate_approvals=delegate_approvals if delegate_approvals is not None else task.get("delegate_approvals"), agent_id=task.get("agent_id", call_id))
 
 
 def cancel(records: Records, call_id: str) -> dict:

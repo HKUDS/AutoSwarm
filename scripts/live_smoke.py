@@ -16,11 +16,13 @@ def main():
     parser.add_argument("--output", required=True)
     parser.add_argument("--home", help="Existing AutoSwarm config/state; defaults to the normal home")
     parser.add_argument("--cwd", default=os.getcwd(), help="Use the same native project/config as the actual task")
+    parser.add_argument("--model", help="Optional native model selection for these calls")
+    parser.add_argument("--effort", help="Optional native reasoning effort/variant for these calls")
     args = parser.parse_args()
     records = Records(args.home)
     report = {"workspace": str(Path(args.cwd).resolve()), "providers": {}}
     for provider in args.providers:
-        entry = probe(records, provider, args.cwd)
+        entry = probe(records, provider, args.cwd, model=args.model, effort=args.effort)
         entry["passed"] = entry["verified"]
         report["providers"][provider] = entry
         write_json(Path(args.output), report)

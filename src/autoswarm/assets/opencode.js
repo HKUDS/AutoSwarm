@@ -11,7 +11,7 @@ export const AutoSwarm = async ({ client, directory }) => {
   const pending = new Map();
   const sending = new Set();
   const acknowledgements = new Map();
-  const key = item => `${item.call_id}/${item.request_id || "result"}`;
+  const key = item => `${item.call_id}/${item.request_id || item.diagnostic?.at || "result"}`;
 
   const invoke = (args, parent) => new Promise((resolve, reject) => {
     const child = spawn(runtime[0], [...runtime.slice(1), ...args], {
@@ -39,7 +39,7 @@ export const AutoSwarm = async ({ client, directory }) => {
       const results = [...pending.get(sessionID)];
       const response = await client.session.prompt({
         path: { id: sessionID },
-        body: { parts: [{ type: "text", text: "AutoSwarm child events. Continue the user's existing task. approval_required is a paused native permission request: decide if delegate_to_parent is true, otherwise ask the user here and relay their explicit answer with --by user. Do not wait for a paused child before replying. Final outcomes are separate events.\n" + JSON.stringify(results) }] },
+        body: { parts: [{ type: "text", text: "AutoSwarm child events. Continue the user's existing task. approval_required is a paused native permission request: decide if delegate_to_parent is true, otherwise ask the user here and relay their explicit answer with --by user. Do not wait for a paused child before replying. interaction_required is a native question/form: use answer with response_format; ask the user when user_required is true. communication_issue retains diagnostics for recovery. Final outcomes are separate events.\n" + JSON.stringify(results) }] },
       });
       if (response.error) throw new Error(JSON.stringify(response.error));
       const info = response.data?.info;
@@ -47,6 +47,7 @@ export const AutoSwarm = async ({ client, directory }) => {
       for (const result of results) {
         await invoke(["_receipt", result.call_id, "--session", sessionID, "--message", info.id,
           ...(result.request_id ? ["--request", result.request_id] : []),
+          ...(result.kind === "communication_issue" ? ["--issue", result.diagnostic.at] : []),
         ]);
         acknowledgements.get(key(result))?.();
         acknowledgements.delete(key(result));
@@ -70,7 +71,7 @@ export const AutoSwarm = async ({ client, directory }) => {
         pending.set(sessionID, [...(pending.get(sessionID) || []), ...value.data]);
         await flush(sessionID);
         await Promise.all(accepted);
-        if (value.data.some(item => item.kind !== "approval_required")) return;
+        if (value.data.some(item => item.outcome)) return;
       }
     })().catch(error => {
       watched.delete(callID);

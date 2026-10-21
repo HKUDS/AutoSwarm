@@ -179,9 +179,15 @@ def send(records, target, content, *, sender=None, interrupt=False, reply_to=Non
 
 
 def wake_message(records, message):
+    if message["kind"] == "communication_issue":
+        source = agent(records, message["from"])
+        if source.get("call_id"):
+            _, task = records.require(source["call_id"])
+            if task.get("return_mode", "native") == "wait":
+                return  # Pull-mode diagnostics belong to wait/receive too.
     destination = agent(records, message["to"])
     parent = destination.get("parent") or {}
-    if (not destination.get("call_id") and message["kind"] == "agent_message" and parent.get("endpoint")
+    if (not destination.get("call_id") and message["kind"] in {"agent_message", "communication_issue"} and parent.get("endpoint")
             and parent.get("host") in {"codex", "opencode"} and parent.get("mode") != "hook"):
         from .engine import runtime_argv, runtime_env
         # A one-shot return must not block the sender's own native tool.
@@ -266,7 +272,7 @@ def wake(records, target):
                 issue(records, target, message, "recipient_unavailable", "The recipient has no completed resumable call. Its assigning parent must decide how to recover.")
             return
         engine.start_call(records, task["provider"], "Handle the incoming AutoSwarm messages. The earlier assignment has already returned; do not repeat it.", task["workspace"],
-                          parent=task.get("parent"), native_session_id=result["native_session_id"], model=task.get("model"), provider_args=task.get("provider_args"),
+                          parent=task.get("parent"), native_session_id=result["native_session_id"], model=task.get("model"), effort=task.get("effort"), provider_args=task.get("provider_args"),
                           previous_call=task["call_id"], return_mode="wait", delegate_approvals=task.get("delegate_approvals"),
                           agent_id=target, message_only=True, _dispatch_locked=True)
     finally:

@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-在当前 agent 窗口中协同使用 Codex、Claude Code、OpenCode、Cursor、GitHub Copilot CLI、Meta Muse Code 和 CodeBuddy。主 agent 负责配置可用 CLI、分工、处理中途批准、收齐结果并交付答案。
+在当前 agent 窗口中协同使用 Codex、Claude Code、OpenCode、Cursor、GitHub Copilot CLI、Meta Muse Code、CodeBuddy、Hermes、Nanobot、DSH 和 Grok Build。主 agent 负责配置可用 CLI、分工、处理中途批准、收齐结果并交付答案。
 
 把本仓库交给主 agent，直接说：
 
@@ -20,7 +20,7 @@ Windows、macOS、Linux 共用轻量 Python 包。App 主宿主需要本地命�
    autoswarm setup --host codex
    ```
 
-   其他宿主名称：`claude-code`、`opencode`、`cursor`、`copilot`、`muse`、`codebuddy`。没有 uv 时，在专用 Python 3.10+ 环境执行 `python -m pip install .`，保留该解释器。核心没有第三方 Python 运行依赖，不复用归档 v1 的环境。
+   其他宿主名称：`claude-code`、`opencode`、`cursor`、`copilot`、`muse`、`codebuddy`、`hermes`、`nanobot`、`dsh`、`grok`。没有 uv 时，在专用 Python 3.10+ 环境执行 `python -m pip install .`，保留该解释器。核心没有第三方 Python 运行依赖，不复用归档 v1 的环境。
 3. 读取 setup 返回路径下的 `SKILL.md`。App 找不到 `autoswarm` 时，使用其中的完整启动参数。Skill 自带运行时及[配置排障指引](src/autoswarm/assets/references/setup.md)，只有顶层 SKILL.md 可被发现。
 4. 在当前 App 的命令环境运行 `agents`，确认实际命令和版本。已有 CLI 不在 PATH 时，将其绝对 argv 合并到 `agents` 返回的 AutoSwarm home/config.json 的 `providers.<provider>.command`；保留无关设置，沿用原生认证。
 5. 在**实际项目上下文**验证所需 agent：
@@ -34,7 +34,7 @@ Windows、macOS、Linux 共用轻量 Python 包。App 主宿主需要本地命�
 
 Claude 主宿主会合并生命周期 hooks；OpenCode 主宿主会安装插件。原有无关设置保持保留，原生信任和重载要求仍然生效。可用 `--skill-dir`、`--settings-file`、`--plugin-dir` 指定目标。升级后须从新版包重新执行 setup；只更新仓库不会更新已安装 Skill 的运行时副本。
 
-Cursor、Copilot、CodeBuddy 子端使用原生 ACP，Muse 使用原生 MSP。这些产品作为主宿主时使用同一 Skill，通过 run/wait 在当前轮收齐结果，不额外安装空闲会话唤醒集成。App 工具进程可能没有加载终端启动文件中的环境变量；应复用原生 CLI 成功运行时的环境，必要时把已有配置加载器设为 `providers.<provider>.command`，凭据仍保留在原生来源中。要求用户登录前先按排障指引核对。
+Cursor、Copilot、CodeBuddy、Hermes、DSH 和 Grok Build 子端使用原生 ACP，Muse 使用原生 MSP。Nanobot 的本地桥接运行其已安装 Python SDK，使用独立原生会话，保留现有配置、工作区记忆、Skill 和工具；该 SDK 没有原生交互式批准通道，因此 AutoSwarm 会话默认使用原生 Full Access，需要受限模式时可按排障指引显式选择。这些产品作为主宿主时使用同一 Skill，通过 run/wait 在当前轮收齐结果，不额外安装空闲会话唤醒集成。App 工具进程可能没有加载终端启动文件中的环境变量；应复用原生 CLI 成功运行时的环境，必要时把已有配置加载器设为 `providers.<provider>.command`，凭据仍保留在原生来源中。DSH 的入口配置复用及 Nanobot 解释器识别见排障指引，要求用户登录前先核对。
 
 ## 在当前窗口完成任务
 
@@ -46,7 +46,7 @@ autoswarm run --agent opencode --input review.txt --cwd /项目路径 --backgrou
 autoswarm wait call_A call_B
 ```
 
-保存实际返回的 call ID。`wait` 可能返回中间的批准、消息或通信异常；处理后继续等待，直到所需调用都有最终结果。批准按照 Skill 的授权规则，用 approve/deny 回答原请求。检查 outcome、错误和产物后再向用户交付；`ok` 只表示 CLI 操作成功。
+保存实际返回的 call ID。`wait` 可能返回中间的原生提问、批准、消息或通信异常；处理后继续等待，直到所需调用都有最终结果。批准按照 Skill 的授权规则，用 approve/deny 回答原请求。`interaction_required` 按返回的 `response_help`，用 `answer <call-id> <request-id> --input answer.json` 回答；需要用户确认时，用 `--by user` 转交其实际回答。转接失败会保留原始请求和诊断，交给主 agent 修正或恢复。详见[交互指引](src/autoswarm/assets/references/interactions.md)。检查 outcome、错误和产物后再向用户交付；`ok` 只表示 CLI 操作成功。
 
 ```bash
 autoswarm inspect call_A
@@ -56,6 +56,8 @@ autoswarm cancel call_A
 ```
 
 resume 续接原生子会话，保留之前的凭据。中断等待不会停止子任务。完整历史由原生产品保存，AutoSwarm 仅保存小型文件凭据。runner 消失时明确报告中断，不擅自重跑；不增加上下文、并发、轮次或任务时长上限。
+
+可在 run 为每个子 agent 单独指定 `--model <原生模型ID>`、`--effort <原生强度值>`；不填就沿用原生默认配置。resume 继承已有显式选择，也可传新值覆盖；消息处理同样保留选择。取值遵循各产品原生接口（OpenCode 对应 variant，Cursor 对应模型参数），不维护固定模型或强度清单，不修改原生全局默认设置。不支持的选择会带诊断交回主 agent。详见[模型选择指引](src/autoswarm/assets/references/models.md)。
 
 ## 任务中的 agent 通信
 

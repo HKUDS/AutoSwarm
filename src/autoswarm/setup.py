@@ -20,8 +20,16 @@ def install(records: Records, host: str, skill_dir: str | None = None, settings_
         "copilot": Path.home() / ".copilot/skills/autoswarm",
         "muse": Path.home() / ".agents/skills/autoswarm",
         "codebuddy": Path.home() / ".codebuddy/skills/autoswarm",
+        "hermes": Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes")) / "skills/autoswarm",
+        "nanobot": Path.home() / ".nanobot/workspace/skills/autoswarm",
+        "dsh": Path(os.environ.get("DSH_AGENTS_HOME", Path.home() / ".agents")) / "skills/autoswarm",
+        "grok": Path.home() / ".grok/skills/autoswarm",
     }
-    destination = Path(skill_dir).expanduser().resolve() if skill_dir else defaults[host]
+    if host == "nanobot" and not skill_dir:
+        from .nanobot import skill_directory
+        destination = skill_directory(records.config())
+    else:
+        destination = Path(skill_dir).expanduser().resolve() if skill_dir else defaults[host].expanduser().resolve()
     assets = Path(__file__).parent / "assets"
     destination.mkdir(parents=True, exist_ok=True)
     scripts = destination / "scripts"
