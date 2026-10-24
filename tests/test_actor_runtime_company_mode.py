@@ -167,6 +167,10 @@ class WorkItemProjectionIdentityTests(unittest.TestCase):
             "deliver",
         )
 
+    def test_projection_turn_type_accepts_verify(self) -> None:
+        self.assertEqual(canonical_work_item_turn_type_for_kind("verify"), "verify")
+        self.assertEqual(canonical_work_item_turn_type_for_kind("verify", fallback=""), "verify")
+
     def test_mark_work_item_projection_writes_new_fields_only(self) -> None:
         metadata = mark_work_item_projection({"kept": "value"}, projection_id="proj-1", turn_type="deliver")
 
