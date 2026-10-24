@@ -1,6 +1,6 @@
 # Communicate during delegated work
 
-Use the launcher from SKILL.md. The parent sets contacts and rules while delegating:
+The main host uses the launcher from SKILL.md. Children use the exact CLI argv in their injected AutoSwarm communication context, preserving its interpreter and --home; it can use Python -m autoswarm. Different supported entry points do not themselves change the operation's permissions. The parent sets contacts and rules while delegating:
 
 ```text
 run --agent codex --name implementation --allow-peer review --communication-rules "Share interface changes with review; own the implementation." --input implementation.txt --background

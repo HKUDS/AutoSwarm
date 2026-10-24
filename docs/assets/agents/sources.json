@@ -1,0 +1,46 @@
+{
+  "codex.svg": {
+    "source": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/codex-color.svg",
+    "note": "Original product/brand artwork; SVG badge background added for light/dark readability"
+  },
+  "claude-code.svg": {
+    "source": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/claudecode-color.svg",
+    "note": "Original product/brand artwork; SVG badge background added for light/dark readability"
+  },
+  "opencode.svg": {
+    "source": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/opencode.svg",
+    "note": "Original product/brand artwork; SVG badge background added for light/dark readability"
+  },
+  "cursor.svg": {
+    "source": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/cursor.svg",
+    "note": "Original product/brand artwork; SVG badge background added for light/dark readability"
+  },
+  "copilot.svg": {
+    "source": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/githubcopilot.svg",
+    "note": "Original product/brand artwork; SVG badge background added for light/dark readability"
+  },
+  "muse.svg": {
+    "source": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/meta-color.svg",
+    "note": "Meta brand mark identifying Muse Code"
+  },
+  "codebuddy.svg": {
+    "source": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/codebuddy-color.svg",
+    "note": "Original product/brand artwork; SVG badge background added for light/dark readability"
+  },
+  "hermes.svg": {
+    "source": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/hermesagent.svg",
+    "note": "Original product/brand artwork; SVG badge background added for light/dark readability"
+  },
+  "nanobot.png": {
+    "source": "https://raw.githubusercontent.com/HKUDS/nanobot/main/webui/public/brand/nanobot_icon_192.png",
+    "note": "Official Nanobot app icon, unmodified"
+  },
+  "dsh.svg": {
+    "source": "https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/master/apps/desktop/resources/icon.svg",
+    "note": "Original product/brand artwork; SVG badge background added for light/dark readability"
+  },
+  "grok.svg": {
+    "source": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/grok.svg",
+    "note": "Original product/brand artwork; SVG badge background added for light/dark readability"
+  }
+}

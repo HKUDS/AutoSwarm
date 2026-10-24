@@ -9,6 +9,16 @@ Use the installed launcher argv in SKILL.md. Keep technical investigation in the
 3. If no usable CLI exists, ask whether to install the requested provider's official CLI. With agreement, follow its current official OS-specific instructions. Do not install other providers or replace the requested agent to hide a failure.
 4. Run `doctor --agent <provider> --probe --cwd <workspace>` using the same AutoSwarm home and project as the real task. This creates a native test conversation, checks a reply and native resume, and spends model calls. Only report verification after `verified: true`; an `approval_required` probe is pending, not failed. Answer its original request, collect the result and continue verification. Normal task success is evidence too; do not run extra probes for every task.
 
+## Upgrades
+
+Update when requested; AutoSwarm has no automatic updater. Keep the work in the main agent:
+
+1. Read the installed Skill's launcher argv to retain its Python environment and AutoSwarm `--home`. Retain the actual Skill, hook settings and plugin destinations, including custom paths. Collect active delegated work before replacing its runtime.
+2. Obtain the requested revision from the user's repository or the known original source. For an existing checkout on the intended branch, `git pull --ff-only` updates it; preserve local edits and do not reset them to force an update.
+3. From the updated checkout, reinstall with the original installation method: `uv tool install --reinstall .`, or `python -m pip install --force-reinstall .` using the existing dedicated Python environment. Reinstall even if the development version label has not changed.
+4. Run the **updated package's** `autoswarm --home <existing-home> setup --host <host>` (or `python -m autoswarm` with the same arguments). Reuse custom `--skill-dir`, `--settings-file` and `--plugin-dir` values, and refresh each host installation in use. Setup copies the runtime, Skill and references and refreshes that host's integration. The old installed launcher imports its own copied runtime; invoking setup through it does not obtain the new package.
+5. Preserve `home/config.json`, task/message records and native agent configuration, credentials and histories. Reload the host as its integration requires, read the refreshed Skill's launcher argv, then verify the requested providers in the actual host/project using the Configuration probe above. Package or CLI version output alone does not verify the installed Skill's runtime. Report what was updated and any unresolved verification issue.
+
 ## Hermes, Nanobot, DSH and Grok Build
 
 Use provider names `hermes`, `nanobot`, `dsh`, `grok`; `grok-build` is a child-provider alias. They use the same run/resume, messaging and result collection commands. With these main hosts, collect work using wait in the current turn.

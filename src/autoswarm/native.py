@@ -145,6 +145,8 @@ class Native:
         self.turn_done.clear()
         self.turn_id = None
         self.ready = True
+        # A resumed session keeps its ID, so session_changed need not fire.
+        self.stage("execution")
         if self.adapter:
             self.adapter.prompt(text)
         elif self.task["provider"] == "codex":

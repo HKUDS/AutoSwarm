@@ -74,6 +74,28 @@ class RuntimeTests(unittest.TestCase):
                 self.assertNotEqual(value["call_id"], call_id)
                 self.assertEqual(read_json(self.records.call(call_id) / "result.json"), result)
 
+    def test_resumed_turn_reports_execution_before_returning(self):
+        for provider in ("codex", "claude-code"):
+            with self.subTest(provider=provider):
+                first = engine.wait(self.records, [self.start(provider)])[0]
+                marker = self.root / (provider + "-resumed")
+                continued = engine.resume(self.records, first["call_id"], "hold:" + str(marker), return_mode="wait")
+                call_id = continued["call_id"]
+                self.ids.append(call_id)
+                try:
+                    deadline = time.monotonic() + 10  # Fixture-only wait, not a task deadline.
+                    while not marker.exists() and time.monotonic() < deadline:
+                        time.sleep(0.01)
+                    self.assertTrue(marker.exists(), engine.inspect_call(self.records, call_id))
+                    info = engine.inspect_call(self.records, call_id)
+                    self.assertEqual(info["state"], "running")
+                    self.assertEqual(info["native_session_id"], first["native_session_id"])
+                    self.assertEqual(info["handle"]["phase"], "execution")
+                finally:
+                    engine.cancel(self.records, call_id)
+                    result = engine.wait(self.records, [call_id])[0]
+                    self.assertEqual(result["outcome"], "cancelled")
+
     def test_parallel_wait_any_and_cancellation(self):
         held = self.start(prompt="hold:" + str(self.root / "started"))
         ready = self.start("opencode")
@@ -268,6 +290,20 @@ class RuntimeTests(unittest.TestCase):
         write_json(self.records.call(call_id) / "task.json", {"call_id": call_id, "provider": "codex", "workspace": str(self.root)})
         result = engine.wait(self.records, [call_id])[0]
         self.assertEqual(result["outcome"], "interrupted")
+
+    def test_live_runner_remains_available_without_pid_visibility(self):
+        marker = self.root / "hidden-runner-started"
+        call_id = self.start(prompt="hold:" + str(marker))
+        while not marker.exists():
+            time.sleep(0.01)
+        with patch("autoswarm.platform.identity", return_value=None):
+            self.assertEqual(engine.inspect_call(self.records, call_id)["state"], "running")
+            self.assertEqual(engine.receive(self.records, [call_id]), [])
+            with self.assertRaises(SwarmError) as caught:
+                engine.resume(self.records, call_id, "must not duplicate running work")
+            self.assertEqual(caught.exception.code, "session_busy")
+            self.assertTrue(engine.cancel(self.records, call_id)["cancel_requested"])
+        self.assertEqual(engine.wait(self.records, [call_id])[0]["outcome"], "cancelled")
 
     def test_resume_can_explicitly_remove_original_parent(self):
         parent = {"host": "claude-code", "session_id": "parent-A", "mode": "hook"}

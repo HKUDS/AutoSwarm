@@ -17,8 +17,14 @@ from .records import Records, now, read_json, write_json
 
 
 def execute(records: Records, call_id: str) -> int:
+    directory, _ = records.require(call_id)
+    with platform.session_lease(directory / "runner.lock"):
+        return _execute(records, call_id)
+
+
+def _execute(records: Records, call_id: str) -> int:
     directory, task = records.require(call_id)
-    handle = {"pid": os.getpid(), "identity": platform.identity(os.getpid()), "started_at": now(), "native_session_id": task.get("native_session_id"), "phase": "startup"}
+    handle = {"pid": os.getpid(), "identity": platform.identity(os.getpid()), "runner_lock": str(directory / "runner.lock"), "started_at": now(), "native_session_id": task.get("native_session_id"), "phase": "startup"}
     write_json(directory / "handle.json", handle)
     result = {"call_id": call_id, "agent_id": task["agent_id"], "controller_id": task["controller_id"], "provider": task["provider"], "native_session_id": task.get("native_session_id"), "outcome": "failed", "content": "", "error": None, "artifacts": [], "finished_at": None}
     result["requested_selection"] = {key: task[key] for key in ("model", "effort") if task.get(key) is not None}

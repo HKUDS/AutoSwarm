@@ -1,111 +1,113 @@
-# AutoSwarm v2
+# AutoSwarm
+
+<!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
+https://github.com/user-attachments/assets/09e48e6b-dda2-4b1e-ac7f-d834a1ad856d
 
 [简体中文](README.zh-CN.md)
 
-Use Codex, Claude Code, OpenCode, Cursor, GitHub Copilot CLI, Meta Muse Code, CodeBuddy, Hermes, Nanobot, DSH and Grok Build together from your current agent conversation. The main agent configures the available CLIs, delegates distinct work, handles intermediate approvals, collects results and delivers the answer.
+**Let your go-to agent coordinate a team of agents.**
 
-Give your main agent this repository and ask:
+Add AutoSwarm as a lightweight plugin to the agent you already use. Your agent brings local agent products together, delegates work, handles communication and integrates results. You describe the task as usual.
 
-> Configure AutoSwarm for this agent. Reuse my installed CLIs and native configuration, verify the agents I need through a real call and native resume, then handle my tasks in this conversation.
+## When AutoSwarm helps
 
-Windows, macOS and Linux use the same lightweight Python package. A main App needs local command tools and Skill support; children need callable native CLIs. A separate wake-up interface is optional for ordinary tasks.
+- **Combine different capabilities.** Bring together agents and models with different strengths, tools and data access to complete tasks that span products.
+- **Get parallel work done sooner.** Split a 100-document reading task across agents and let the coordinator integrate their findings. Multiple instances of the same agent work too.
+- **Add an independent reviewer.** For important coding tasks, have one agent implement and another independently review and verify the work to improve delivery quality.
 
-## Instructions for the configuring agent
+## Get started
 
-1. Inspect the current host and existing Python 3.10+ / CLI installations. Reuse them and their native model, credential, proxy and project settings. Ask before installing a missing provider CLI; do not install every provider.
-2. From this checkout, install the package and Skill for the **current host**:
+Give your current agent this repository and ask:
+
+> Install or update AutoSwarm for this agent. Reuse my existing configuration and verify the availability of my locally installed agents.
+
+For everyday use, start a task with **“Use autoswarm”**:
+
+> Use autoswarm to read these 100 documents and summarize the technical approaches and key disagreements.
+
+Your agent chooses collaborators and adapts parallel and dependent work as it progresses.
+
+## Supported agents
+
+<table width="100%">
+  <tr>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/codex.svg" width="48" height="48" alt=""><br><strong>Codex</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/claude-code.svg" width="48" height="48" alt=""><br><strong>Claude Code</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/opencode.svg" width="48" height="48" alt=""><br><strong>OpenCode</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/cursor.svg" width="48" height="48" alt=""><br><strong>Cursor</strong></p></td>
+  </tr>
+  <tr>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/copilot.svg" width="48" height="48" alt=""><br><strong>GitHub Copilot CLI</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/muse.svg" width="48" height="48" alt=""><br><strong>Meta Muse Code</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/codebuddy.svg" width="48" height="48" alt=""><br><strong>CodeBuddy</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/hermes.svg" width="48" height="48" alt=""><br><strong>Hermes</strong></p></td>
+  </tr>
+  <tr>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/nanobot.png" width="48" height="48" alt=""><br><strong>Nanobot</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/dsh.svg" width="48" height="48" alt=""><br><strong>DeepSeek Harness</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/grok.svg" width="48" height="48" alt=""><br><strong>Grok Build</strong></p></td>
+    <td align="center" width="25%"><p><a href="#whats-next"><img src="docs/assets/agents/more.svg" width="48" height="48" alt=""><br><strong>More agents coming</strong></a></p></td>
+  </tr>
+</table>
+
+Works on Windows, macOS and Linux. Use it in an App, CLI or IDE extension with Skill support and local command execution; delegated agents need callable local CLIs.
+
+## News
+
+- **OpenOPC → AutoSwarm:** v2 brings the swarm into the agents you already use. The complete v1.0.0 implementation is preserved in the [archive](autoswarm-v1.0.0/ARCHIVE.md).
+
+## What's next
+
+- Support more agent products and their native capabilities.
+- Continue improving coordination, communication, reliability and setup experience.
+
+## For agents
+
+<details>
+<summary>Installation and updates — instructions for the configuring agent (click to expand)</summary>
+
+### Install
+
+1. Inspect the current host and existing Python 3.10+ / CLI installations. Reuse native models, credentials, proxy settings and project context. Ask before installing a missing provider CLI; configure only the agents needed.
+2. From this checkout, install the package and Skill for the **current host**. Example for Codex:
 
    ```bash
    uv tool install --force .
    autoswarm setup --host codex
    ```
 
-   Other host names: `claude-code`, `opencode`, `cursor`, `copilot`, `muse`, `codebuddy`, `hermes`, `nanobot`, `dsh`, `grok`. Without uv, use a dedicated Python 3.10+ environment and `python -m pip install .`. Keep its interpreter available. The package has no third-party Python runtime dependencies; do not reuse the archived v1 environment.
-3. Read the installed `SKILL.md` at the path returned by setup. Use its exact launcher argv when the App cannot find `autoswarm` on PATH. The installed Skill includes its runtime and a [configuration/recovery guide](src/autoswarm/assets/references/setup.md); only its top-level SKILL.md is discoverable.
-4. Run `agents` in the current App's tool environment. Confirm the actual executable and version. If a working CLI is outside PATH, merge its absolute argv into `providers.<provider>.command` in the AutoSwarm home/config.json reported by `agents`. Preserve unrelated settings and reuse native authentication.
-5. Verify each requested provider in the **real project context**:
+   Other host IDs: `claude-code`, `opencode`, `cursor`, `copilot`, `muse`, `codebuddy`, `hermes`, `nanobot`, `dsh`, `grok`. Without uv, use a dedicated Python 3.10+ environment and `python -m pip install .`; keep its interpreter available. Do not reuse the archived v1 environment.
+3. Read the installed `SKILL.md` at the path returned by setup. It contains the launcher argv and usage instructions. Use that exact launcher when the App cannot find `autoswarm`. Run `agents` in the actual host environment; if needed, merge an existing CLI's absolute argv into `providers.<provider>.command` in the reported AutoSwarm home/config.json. Preserve unrelated settings.
+4. Verify requested providers in the actual project, replacing the example provider and directory as appropriate:
 
    ```bash
-   autoswarm doctor --agent opencode --probe --cwd /path/to/project
+   autoswarm doctor --agent codex --probe --cwd /path/to/project
    ```
 
-   Repeat `--agent` to select several providers. This spends model calls to check a reply and native resume. `verified: true` confirms those checks in this environment. `agents` and doctor without `--probe` only discover executables; an empty native authentication list does not prove that login is required.
-6. Report which requested agents were verified, handle unresolved configuration using the recovery guide, then accept the user's task. Keep technical troubleshooting in the agent's work. Ask the user only for missing authorization, required native login or decisions they must make.
+   Repeat `--agent` for several providers. This spends model calls to check a reply and native resume; `verified: true` confirms the probe. Version checks only establish executable discovery. An empty native authentication list does not prove that login is required. Handle pending native approvals/questions under the installed Skill's rules, then finish verification.
 
-`setup` merges Claude lifecycle hooks or installs the OpenCode plugin when those are the main host. Existing unrelated settings are preserved. Native reload/trust requirements still apply. `--skill-dir`, `--settings-file` and `--plugin-dir` choose explicit destinations. After upgrading, rerun setup from the updated package; updating the checkout alone does not update an installed Skill's copied runtime.
+Setup installs the Skill, its runtime and the host's integration. Follow the returned reload/trust instructions. See [configuration and recovery](src/autoswarm/assets/references/setup.md) for native profiles, permissions and connection diagnostics.
 
-Cursor, Copilot, CodeBuddy, Hermes, DSH and Grok Build children use native ACP; Muse uses its native MSP host. Nanobot uses a local bridge running its installed Python SDK, with separate native sessions and the existing configuration, workspace memory, skills and tools. Its SDK has no native interactive approval channel, so AutoSwarm sessions default to native Full Access; an explicit restricted mode is available in the recovery guide. The same Skill and run/wait flow work when these agents are the main host; no idle-session wake-up integration is installed for them. Reuse the environment of the working native CLI: App tool processes may not inherit shell startup exports. When necessary, configure `providers.<provider>.command` to use an existing profile-loading launcher; keep credentials in their native source. See the recovery guide for DSH profile reuse and Nanobot runtime discovery before requesting login.
+### Update an existing installation
 
-## Handle a task in the current conversation
-
-Read the installed Skill. Prepare shared inputs once and give each child its distinct deliverable. Use parallel calls where useful; the main agent integrates findings, resolves disagreements and verifies the final work.
+Obtain the requested revision from the original source. For an existing Git checkout, preserve local edits, collect active delegated work, then run on the intended branch:
 
 ```bash
-autoswarm run --agent claude-code --input implementation.txt --cwd /path/to/project --background
-autoswarm run --agent opencode --input review.txt --cwd /path/to/project --background
-autoswarm wait call_A call_B
+git pull --ff-only
+uv tool install --reinstall .
+autoswarm setup --host codex
 ```
 
-Retain the returned call IDs. `wait` can return intermediate native questions, approvals, messages or communication issues; handle them and wait again until required calls have final outcomes. Answer original approvals with `approve`/`deny` under the Skill's authorization rules. For `interaction_required`, read its `response_help` and use `answer <call-id> <request-id> --input answer.json`; relay an actual user answer with `--by user` when required. Failed forwarding retains the request and diagnostics for the main agent to correct or recover. See [native interactions](src/autoswarm/assets/references/interactions.md). Check `outcome`, errors and artifacts before answering the user. `ok` describes the CLI operation, not task acceptance.
+Use the actual host, existing AutoSwarm home and original installation destinations. Put `--home <existing-home>` before `setup` when needed; retain custom `--skill-dir`, `--settings-file` and `--plugin-dir` values. Refresh each host installation in use. For pip installations, use the existing dedicated interpreter to run `python -m pip install --force-reinstall .`, then `python -m autoswarm setup --host codex` with the same options.
 
-```bash
-autoswarm inspect call_A
-autoswarm resume call_A --input followup.txt
-autoswarm receive call_B
-autoswarm cancel call_A
-```
+Run setup **from the updated package**: the installed Skill has its own runtime copy, so updating the checkout or package alone is insufficient. The old Skill launcher cannot fetch a new version. Keep configuration, records and native authentication, reload the host as required, read the refreshed Skill and verify the requested providers. There is no automatic updater. See [upgrade details](src/autoswarm/assets/references/setup.md#upgrades).
 
-`resume` continues the native child session and keeps the earlier receipt. Interrupting a wait leaves the child running. Native agents retain their full histories; AutoSwarm keeps small file receipts. A missing runner is reported as interrupted and is not automatically rerun. No context, concurrency, turn or task-duration caps are added.
+### Use and recover
 
-Optionally choose each child's model and reasoning effort with `run --model <native-id> --effort <native-value>`. Omit them to keep native defaults. `resume` inherits explicit selections and accepts replacements; message handling retains them. Values follow each provider's native controls (OpenCode uses variants; Cursor uses model parameters), without a fixed model/effort list or changes to native global defaults. Unsupported selections return diagnostics to the main agent. See [model selection](src/autoswarm/assets/references/models.md).
+Follow the installed Skill to select agents, delegate ready work, collect results with `wait --any`, handle intermediate questions/approvals and verify deliverables before answering. Ordinary tasks use the current conversation; native wake-up is optional and needs a supported host binding.
 
-## Communicate during delegated work
+Read only the relevant references: [capabilities and data scope](src/autoswarm/assets/references/agent-capabilities.md), [communication](src/autoswarm/assets/references/communication.md), [native interactions](src/autoswarm/assets/references/interactions.md), [model selection](src/autoswarm/assets/references/models.md). Diagnose retained calls and logs before retrying uncertain operations.
 
-The assigning parent uses `--name`, repeatable `--allow-peer` and concise `--communication-rules` on run to name conversations, grant useful peer contacts and define responsibilities. Children receive the rules and CLI instructions automatically. They can contact their parent and reply to received messages; the parent controls other peer contacts.
+</details>
 
-```bash
-autoswarm run --agent codex --name implementation --allow-peer review --communication-rules "Share interface changes with review; own implementation." --input implementation.txt --background
-autoswarm run --agent cursor --name review --allow-peer implementation --communication-rules "Ask implementation about interfaces; own review." --input review.txt --background
-autoswarm send review --input question.txt
-autoswarm send implementation --interrupt --input urgent-question.txt
-autoswarm reply msg_ID --input answer.txt
-autoswarm wait --message msg_ID
-```
-
-Both send modes prefer live native input. Ordinary messages never force interruption and otherwise arrive at the next native turn boundary. Urgent messages request prompt replies and otherwise use native cancellation followed by continuation of the same conversation. After replying, continue unfinished assigned work. Waiting for a reply also yields incoming questions and approvals; handle those before waiting again so peers do not block each other.
-
-Retain the stable `agent_id` across resumes. Hosts without a native session identity retain the first run's `controller_id` and pass `--controller <id>` before subsequent main-agent subcommands. Inspect delivery with `inspect msg_ID`. A communication issue retains the original message and tells the assigning parent to diagnose, resume or use `deliver msg_ID` after recovery. Completed idle conversations resume to handle mail; cancelled, failed or lost conversations require the parent's recovery decision. See the [communication guide](src/autoswarm/assets/references/communication.md).
-
-## Recover without making the user debug
-
-Use `inspect` and the call's result diagnostics, handle phase, stdout.log and stderr.log. Distinguish a missing CLI, startup failure, protocol mismatch, local control authentication, remote model access and notification failure. Reuse working paths/configuration; do not respond to every error with reinstall/login. Local loopback requests bypass external proxies while native model requests keep their own network settings.
-
-OpenCode uses an owned loopback service and verifies its health/API before creating a native session. Startup banner wording and stdout/stderr placement do not control readiness. Startup progress remains inspectable and cancellable; definite failures return diagnostics. Task execution and unanswered approvals have no AutoSwarm deadline.
-
-Read [configuration and troubleshooting](src/autoswarm/assets/references/setup.md) when needed. Results saved despite notification failure remain available through wait/receive. Inspect uncertain execution before retrying; do not duplicate work to recover a lost notification.
-
-## Optional original-session callbacks and approvals
-
-`--background` starts parallel work for explicit collection. Add `--notify-parent` only when the original host binding supports callbacks. Codex needs its existing app-server endpoint; Claude uses installed lifecycle hooks; OpenCode uses its installed native plugin. Normal tasks can finish through wait/receive without configuring wake-up.
-
-```bash
-autoswarm run --agent claude-code --input task.txt --background --notify-parent --parent parent.json
-autoswarm config --delegate-approvals off
-autoswarm approvals call_A
-autoswarm approve call_A approval_ID --by user
-```
-
-Parent approval delegation defaults to on and is configurable globally or per child. A parent decides within the user's task and host authorization; `--by user` relays an actual explicit user answer. Native restrictions remain effective. Follow the installed Skill; details of binding, permission transports and return guarantees are in [the architecture](docs/architecture.zh-CN.md).
-
-## Develop and verify
-
-```bash
-python -m unittest discover -s tests -v
-node --test tests/test_opencode_plugin.mjs
-python scripts/check_distribution.py -- autoswarm
-python scripts/live_smoke.py --providers opencode --cwd /path/to/project --output report.json
-```
-
-The first checks use controlled peers and local connections; the live check spends model calls and reuses the normal AutoSwarm configuration. CI checks package behavior on Linux, macOS and Windows. Local success verifies only the current platform; App sidebar visibility and wake-up require the actual host interface.
-
-The complete v1 implementation is frozen in [autoswarm-v1.0.0/](autoswarm-v1.0.0/ARCHIVE.md). See [CONTRIBUTING.md](CONTRIBUTING.md) and [MIT](LICENSE).
+[Architecture](docs/architecture.zh-CN.md) · [Contributing and validation](CONTRIBUTING.md) · [MIT License](LICENSE)

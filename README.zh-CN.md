@@ -1,111 +1,113 @@
-# AutoSwarm v2
+# AutoSwarm
+
+<!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
+https://github.com/user-attachments/assets/09e48e6b-dda2-4b1e-ac7f-d834a1ad856d
 
 [English](README.md)
 
-在当前 agent 窗口中协同使用 Codex、Claude Code、OpenCode、Cursor、GitHub Copilot CLI、Meta Muse Code、CodeBuddy、Hermes、Nanobot、DSH 和 Grok Build。主 agent 负责配置可用 CLI、分工、处理中途批准、收齐结果并交付答案。
+**让你常用的 agent，带领多个 agent 协作。**
 
-把本仓库交给主 agent，直接说：
+将 AutoSwarm 作为轻量插件接入正在使用的 agent，由它按需组织本地多个 agent 产品协作，负责分工、沟通与结果整合。你只需像往常一样提出任务。
 
-> 请为当前 agent 配置 AutoSwarm，复用我已有的 CLI 和原生配置，验证所需 agent 的真实调用及原生续接，然后在当前窗口处理我的任务。
+## 三个适合 AutoSwarm 的场景
 
-Windows、macOS、Linux 共用轻量 Python 包。App 主宿主需要本地命令工具和 Skill 支持；子 agent 需要可调用的原生 CLI。普通任务无需额外的主会话唤醒接口。
+- **跨产品能力互补**：任务需要不同 agent 或模型的优势、工具与数据入口时，组织合适的 agent 协作完成。
+- **大量任务并行处理**：例如快速阅读 100 份资料，让多个 agent 并行提炼，再由主 agent 统一汇总；也支持同时调用多个同款 agent。
+- **重要任务一做一审**：例如关键代码开发，由一个 agent 实现，另一个独立审查与验证，提高交付质量。
 
-## 给负责配置的主 agent
+## 开始使用
 
-1. 确认当前宿主及已有 Python 3.10+、CLI 路径，复用原生模型、认证、代理和项目配置。确实缺少所需 CLI 才询问是否安装，不安装所有产品。
-2. 在仓库中安装 AutoSwarm，并为**当前宿主**安装 Skill：
+把本仓库地址发给你正在使用的 agent，直接说：
+
+> 请为当前 agent 安装或更新 AutoSwarm，复用已有配置，验证本地已有 agent 的可用性。
+
+日常需要 swarm 时，在任务前加上 **“使用 autoswarm”**，例如：
+
+> 使用 autoswarm，阅读这 100 份资料，归纳技术路线与主要分歧。
+
+由主 agent 自行选择协作者、灵活安排串并行。
+
+## 支持的 agent
+
+<table width="100%">
+  <tr>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/codex.svg" width="48" height="48" alt=""><br><strong>Codex</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/claude-code.svg" width="48" height="48" alt=""><br><strong>Claude Code</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/opencode.svg" width="48" height="48" alt=""><br><strong>OpenCode</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/cursor.svg" width="48" height="48" alt=""><br><strong>Cursor</strong></p></td>
+  </tr>
+  <tr>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/copilot.svg" width="48" height="48" alt=""><br><strong>GitHub Copilot CLI</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/muse.svg" width="48" height="48" alt=""><br><strong>Meta Muse Code</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/codebuddy.svg" width="48" height="48" alt=""><br><strong>CodeBuddy</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/hermes.svg" width="48" height="48" alt=""><br><strong>Hermes</strong></p></td>
+  </tr>
+  <tr>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/nanobot.png" width="48" height="48" alt=""><br><strong>Nanobot</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/dsh.svg" width="48" height="48" alt=""><br><strong>DeepSeek Harness</strong></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/grok.svg" width="48" height="48" alt=""><br><strong>Grok Build</strong></p></td>
+    <td align="center" width="25%"><p><a href="#后续计划"><img src="docs/assets/agents/more.svg" width="48" height="48" alt=""><br><strong>更多 agent，持续接入</strong></a></p></td>
+  </tr>
+</table>
+
+支持 Windows、macOS、Linux。可在支持 Skill 和本地命令执行的 App、CLI 或 IDE 扩展中使用；被调用的 agent 需有可用的本地 CLI。
+
+## News
+
+- **OpenOPC → AutoSwarm**：v2 将 swarm 能力带入用户已有的 agent。旧版完整实现保留在 [v1.0.0 归档](autoswarm-v1.0.0/ARCHIVE.md)中。
+
+## 后续计划
+
+- 接入更多 agent 产品及原生能力。
+- 持续完善协作、通信、可靠性与安装使用体验。
+
+## 给 agent 的说明
+
+<details>
+<summary>安装与更新指南——供负责配置的 agent 阅读（点击展开）</summary>
+
+### 安装
+
+1. 确认当前宿主及已有 Python 3.10+、CLI 安装，复用原生模型、认证、代理和项目上下文。确实缺少所需 CLI 才询问是否安装，只配置需要的 agent。
+2. 在仓库中安装包，并为**当前宿主**安装 Skill。以 Codex 为例：
 
    ```bash
    uv tool install --force .
    autoswarm setup --host codex
    ```
 
-   其他宿主名称：`claude-code`、`opencode`、`cursor`、`copilot`、`muse`、`codebuddy`、`hermes`、`nanobot`、`dsh`、`grok`。没有 uv 时，在专用 Python 3.10+ 环境执行 `python -m pip install .`，保留该解释器。核心没有第三方 Python 运行依赖，不复用归档 v1 的环境。
-3. 读取 setup 返回路径下的 `SKILL.md`。App 找不到 `autoswarm` 时，使用其中的完整启动参数。Skill 自带运行时及[配置排障指引](src/autoswarm/assets/references/setup.md)，只有顶层 SKILL.md 可被发现。
-4. 在当前 App 的命令环境运行 `agents`，确认实际命令和版本。已有 CLI 不在 PATH 时，将其绝对 argv 合并到 `agents` 返回的 AutoSwarm home/config.json 的 `providers.<provider>.command`；保留无关设置，沿用原生认证。
-5. 在**实际项目上下文**验证所需 agent：
+   其他宿主标识：`claude-code`、`opencode`、`cursor`、`copilot`、`muse`、`codebuddy`、`hermes`、`nanobot`、`dsh`、`grok`。没有 uv 时，在专用 Python 3.10+ 环境执行 `python -m pip install .`，保留该解释器，不复用归档 v1 环境。
+3. 读取 setup 返回路径下的 `SKILL.md`，其中包含完整启动参数与使用方法。App 找不到 `autoswarm` 时使用该启动器。在实际宿主环境运行 `agents`；已有 CLI 不在 PATH 时，将其绝对 argv 合并到返回的 AutoSwarm home/config.json 的 `providers.<provider>.command`，保留无关配置。
+4. 在实际项目中验证所需 agent，按实际情况替换示例产品与目录：
 
    ```bash
-   autoswarm doctor --agent opencode --probe --cwd /项目路径
+   autoswarm doctor --agent codex --probe --cwd /项目路径
    ```
 
-   可重复 `--agent` 选择多个产品。该操作消耗模型调用，验证回复及原生会话续接；`verified: true` 才表示本次环境验证通过。`agents` 和不带 `--probe` 的 doctor 仅发现可执行文件；原生认证列表为空不代表必须登录。
-6. 告知用户哪些所需 agent 已验证可用；遇到配置问题按排障指引处理，然后直接接受任务。技术排障由主 agent 完成，仅在缺少授权、必须由用户原生登录或需要用户决策时询问。
+   可重复 `--agent` 选择多个产品。该操作消耗模型调用，检查回复和原生续接；`verified: true` 才确认本次验证通过。版本检查仅发现可执行文件，原生认证列表为空不代表必须登录。遇到原生批准或提问，按已安装 Skill 的规则处理后完成验证。
 
-Claude 主宿主会合并生命周期 hooks；OpenCode 主宿主会安装插件。原有无关设置保持保留，原生信任和重载要求仍然生效。可用 `--skill-dir`、`--settings-file`、`--plugin-dir` 指定目标。升级后须从新版包重新执行 setup；只更新仓库不会更新已安装 Skill 的运行时副本。
+Setup 安装 Skill、运行时与宿主集成；按返回说明完成重载和信任操作。原生配置、权限及连接排障见[配置与恢复指引](src/autoswarm/assets/references/setup.md)。
 
-Cursor、Copilot、CodeBuddy、Hermes、DSH 和 Grok Build 子端使用原生 ACP，Muse 使用原生 MSP。Nanobot 的本地桥接运行其已安装 Python SDK，使用独立原生会话，保留现有配置、工作区记忆、Skill 和工具；该 SDK 没有原生交互式批准通道，因此 AutoSwarm 会话默认使用原生 Full Access，需要受限模式时可按排障指引显式选择。这些产品作为主宿主时使用同一 Skill，通过 run/wait 在当前轮收齐结果，不额外安装空闲会话唤醒集成。App 工具进程可能没有加载终端启动文件中的环境变量；应复用原生 CLI 成功运行时的环境，必要时把已有配置加载器设为 `providers.<provider>.command`，凭据仍保留在原生来源中。DSH 的入口配置复用及 Nanobot 解释器识别见排障指引，要求用户登录前先核对。
+### 更新已有安装
 
-## 在当前窗口完成任务
-
-读取已安装 Skill。公共输入准备一次，给每个子 agent 明确其独有交付物；有价值的独立复核可以重复检查。主 agent 负责整合、分歧处理和最终核验。
+从原来源获取所需版本。使用 Git 仓库时，先保留本地修改、收齐正在执行的子任务，再在目标分支执行：
 
 ```bash
-autoswarm run --agent claude-code --input implementation.txt --cwd /项目路径 --background
-autoswarm run --agent opencode --input review.txt --cwd /项目路径 --background
-autoswarm wait call_A call_B
+git pull --ff-only
+uv tool install --reinstall .
+autoswarm setup --host codex
 ```
 
-保存实际返回的 call ID。`wait` 可能返回中间的原生提问、批准、消息或通信异常；处理后继续等待，直到所需调用都有最终结果。批准按照 Skill 的授权规则，用 approve/deny 回答原请求。`interaction_required` 按返回的 `response_help`，用 `answer <call-id> <request-id> --input answer.json` 回答；需要用户确认时，用 `--by user` 转交其实际回答。转接失败会保留原始请求和诊断，交给主 agent 修正或恢复。详见[交互指引](src/autoswarm/assets/references/interactions.md)。检查 outcome、错误和产物后再向用户交付；`ok` 只表示 CLI 操作成功。
+替换为实际宿主，沿用原 AutoSwarm home 和安装位置。需要时在 `setup` 前保留 `--home <原home>`，并保留自定义 `--skill-dir`、`--settings-file`、`--plugin-dir`；分别刷新使用中的宿主安装。使用 pip 时，在原专用环境执行 `python -m pip install --force-reinstall .`，再用 `python -m autoswarm setup --host codex` 携带相同选项更新。
 
-```bash
-autoswarm inspect call_A
-autoswarm resume call_A --input followup.txt
-autoswarm receive call_B
-autoswarm cancel call_A
-```
+必须**从新版包运行 setup**：已安装 Skill 自带运行时副本，只更新仓库或 Python 包不会刷新它；旧 Skill 启动器不能自行获取新版。保留配置、记录和原生认证，按宿主要求重载，读取新版 Skill 并验证所需 agent。当前不自动更新。详见[更新指引](src/autoswarm/assets/references/setup.md#upgrades)。
 
-resume 续接原生子会话，保留之前的凭据。中断等待不会停止子任务。完整历史由原生产品保存，AutoSwarm 仅保存小型文件凭据。runner 消失时明确报告中断，不擅自重跑；不增加上下文、并发、轮次或任务时长上限。
+### 使用与恢复
 
-可在 run 为每个子 agent 单独指定 `--model <原生模型ID>`、`--effort <原生强度值>`；不填就沿用原生默认配置。resume 继承已有显式选择，也可传新值覆盖；消息处理同样保留选择。取值遵循各产品原生接口（OpenCode 对应 variant，Cursor 对应模型参数），不维护固定模型或强度清单，不修改原生全局默认设置。不支持的选择会带诊断交回主 agent。详见[模型选择指引](src/autoswarm/assets/references/models.md)。
+按已安装 Skill 选择 agent、分派已就绪的工作、用 `wait --any` 收集结果，处理中途提问与批准，并在交付前核验产物。普通任务在当前会话收齐结果即可；原生唤醒是可选能力，需要对应宿主接口。
 
-## 任务中的 agent 通信
+按需读取[能力与数据范围](src/autoswarm/assets/references/agent-capabilities.md)、[通信](src/autoswarm/assets/references/communication.md)、[原生交互](src/autoswarm/assets/references/interactions.md)、[模型选择](src/autoswarm/assets/references/models.md)。遇到不确定的执行结果，先检查保留的调用记录与日志，再决定如何恢复。
 
-主 agent 分派时用 `--name` 命名会话、用可重复的 `--allow-peer` 指定同伴，并用 `--communication-rules` 说明沟通职责。子 agent 自动获得对应规则和调用说明；默认可联系父 agent、回复收到的消息，同伴联系由父 agent 授予。
+</details>
 
-```bash
-autoswarm run --agent codex --name implementation --allow-peer review --communication-rules "接口变化告知 review，负责实现" --input implementation.txt --background
-autoswarm run --agent cursor --name review --allow-peer implementation --communication-rules "向 implementation 确认接口，负责复核" --input review.txt --background
-autoswarm send review --input question.txt
-autoswarm send implementation --interrupt --input urgent-question.txt
-autoswarm reply msg_ID --input answer.txt
-autoswarm wait --message msg_ID
-```
-
-普通消息不强制中断；紧急消息要求优先答复。两者都优先使用原生运行中输入；不支持时，普通消息在下一轮边界交付，紧急消息通过原生取消当前轮并续接同一会话处理。回复后继续未完成的原任务。等待消息时也会返回收到的提问和批准，先处理再继续等，避免相互等待。
-
-保存稳定的 `agent_id`，续接后仍可使用。没有原生宿主身份时，保存首个 run 返回的 `controller_id`，后续主 agent 命令在子命令前加 `--controller <id>`。`inspect msg_ID` 查看投递事实；异常会保留原消息并通知分派的父 agent，由其排障、续接或 `deliver msg_ID` 重投。已完成的空闲会话可自动续接收信；失败、取消或丢失的会话由父 agent 决定恢复方式。详见 [通信指引](src/autoswarm/assets/references/communication.md)。
-
-## 主 agent 自行排障
-
-先看 inspect、结果 diagnostics、handle.phase、stdout.log 和 stderr.log。区分缺少 CLI、启动失败、协议不匹配、本地服务认证、远端模型访问和通知失败；复用已有可用配置，不把所有错误都当成需要重装或登录。本机控制请求绕过外网代理，原生模型请求继续沿用其网络设置。
-
-OpenCode 使用本次调用自有的本机服务，先验证健康状态和接口，再创建原生会话；启动文字变化或日志发往 stderr 不影响就绪判断。启动进度可检查、可取消；明确失败返回诊断。任务执行和未回答批准不增加 AutoSwarm 截止时间。
-
-需要时读取[配置与排障指引](src/autoswarm/assets/references/setup.md)。通知失败但已保存的结果可直接 wait/receive；不确定操作是否执行时先检查，不能为了恢复通知重复执行任务。
-
-## 可选的原会话回传与批准
-
-`--background` 仅表示并行执行，由主 agent 主动收取；原宿主绑定支持回调时才额外使用 `--notify-parent`。Codex 需要其现有 app-server 接口，Claude 使用已安装 hooks，OpenCode 使用原生插件。普通任务可以直接等待完成，无需配置唤醒。
-
-```bash
-autoswarm run --agent claude-code --input task.txt --background --notify-parent --parent parent.json
-autoswarm config --delegate-approvals off
-autoswarm approvals call_A
-autoswarm approve call_A approval_ID --by user
-```
-
-主 agent 代批准默认开启，可全局配置或按子调用覆盖；决定须符合用户任务和宿主授权。`--by user` 仅转交实际的明确用户回答，原生限制继续生效。操作以安装后的 Skill 为准；绑定、批准传输和回传保证见[实现架构](docs/architecture.zh-CN.md)。
-
-## 开发验证
-
-```bash
-python -m unittest discover -s tests -v
-node --test tests/test_opencode_plugin.mjs
-python scripts/check_distribution.py -- autoswarm
-python scripts/live_smoke.py --providers opencode --cwd /项目路径 --output report.json
-```
-
-前几项使用受控程序和本地连接；真实联调消耗模型调用，复用正常 AutoSwarm 配置。CI 验证 Linux、macOS、Windows 包行为；本机通过只证明当前平台，App 侧边栏和唤醒仍取决于实际宿主接口。
-
-旧版完整实现冻结在 [autoswarm-v1.0.0/](autoswarm-v1.0.0/ARCHIVE.md)。参见 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [MIT](LICENSE)。
+[实现架构](docs/architecture.zh-CN.md) · [贡献与验证](CONTRIBUTING.md) · [MIT 许可证](LICENSE)

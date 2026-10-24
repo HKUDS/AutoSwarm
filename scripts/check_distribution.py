@@ -65,6 +65,7 @@ def main():
         assert (root / "codex-skill/references/setup.md").is_file()
         assert (root / "codex-skill/references/models.md").is_file()
         assert (root / "codex-skill/references/interactions.md").is_file()
+        assert (root / "codex-skill/references/agent-capabilities.md").is_file()
         # Reinstall from the Skill's own launcher.
         invoke(["setup", "--host", "codex", "--skill-dir", str(root / "codex-skill")], command=codex["launcher"])
         result = invoke(["run", "--agent", "codex", "--no-parent", "--cwd", str(root), "--model", "native-model", "--effort", "native-effort", "installed launcher"], command=codex["launcher"])

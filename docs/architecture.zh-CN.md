@@ -88,7 +88,7 @@ OpenCode 插件从 tool context 取得 session ID。后台 watcher 只读取结�
 
 ## 状态保持最少
 
-调用状态由事实推导：runner 的实际进程身份仍存在时为 running；已有结果时为 returned；没有结果且 runner 消失时为 interrupted。结果 outcome 为 completed、failed、cancelled；异常中断可通过收取接口报告 interrupted。
+调用状态由事实推导：已有结果时为 returned；runner 持有每次调用的 `runner.lock` 系统文件锁时为 running，不依赖检查者能否看到其 PID。执行结束或进程退出会释放锁，进程身份检查保留用于退出收尾和兼容旧调用；没有结果且锁与进程均不再表明存活时才为 interrupted。结果 outcome 为 completed、failed、cancelled；异常中断可通过收取接口报告 interrupted。不增加心跳或存活超时。
 
 交付凭据描述独立事实：pull 表示可主动收取，pending 表示尚未交付，submitted 表示宿主已接受唤醒通知，delivered 表示相应原生机制已返回交付凭据。continued 表示该机制是否确认启动/追加了继续执行；不表示工作已经正确完成。不同宿主的凭据强度在 mechanism 中保留。
 

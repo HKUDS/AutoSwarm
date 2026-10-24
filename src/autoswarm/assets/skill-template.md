@@ -1,13 +1,33 @@
 ---
 name: autoswarm
-description: Delegate to local coding agents, exchange messages, handle questions and approvals and collect results here. Guide CLI setup when a requested agent is unavailable.
+description: Coordinate local agents for complex tasks, independent subtasks or independent verification. Select suitable available agents, arrange parallel and dependent work, handle child interactions and collect results here. Guide CLI setup when needed.
 ---
 
-Use the installed launcher argv below. For initial configuration or failures, read [setup and troubleshooting](references/setup.md).
+The main host uses the installed launcher argv below. Children use the exact CLI argv supplied in their AutoSwarm communication context, including its interpreter and --home; an injected Python -m autoswarm entry point is valid. For configuration, upgrades or failures, read [setup and troubleshooting](references/setup.md).
 
 Reuse native configuration, models and authentication. Configure only requested providers; ask before installing a missing CLI. An empty authentication list does not establish that login is needed. Confirm setup with `doctor --agent <provider> --probe --cwd <workspace>`, which spends model calls through AutoSwarm and verifies native resume. A version check alone is discovery.
 
-Share existing common inputs and assign distinct deliverables; request overlapping work when independent verification is useful. Delegate with `run --agent <provider> --input <UTF-8-file> --cwd <workspace>`. Use `--background` for parallel calls, retain each `call_id`, then `wait <call-id> ...` in this turn. Handle intermediate questions and approvals and wait again until required results are final. Integrate findings, resolve disagreements and verify artifacts before answering the user.
+Honor user choices; otherwise match the task to available agents and their working native tools, configuration and data access. The table suggests candidates, not fixed roles or an exhaustive capability list. Coding/image preferences and the Opus video preference are user experience, not benchmark rankings. Preserve user-selected models and native defaults; a model condition is not permission to change them.
+
+| Agent | Distinctive task fit | Other tools and entry points |
+| --- | --- | --- |
+| codex | Coding; high-quality image generation | GitHub, workspace connectors, Meta, CloudBase |
+| claude-code | Coding; programmatic video with Opus 5.5+ (experience preference) | Office skills, workspace connectors, Runway, Postiz, MCP tool serving |
+| opencode | General execution in an existing setup | GitHub Actions, comment/event triggers |
+| cursor | Native images; cloud execution and automations | X, workspace/IM plugins, Meta, Buffer, CloudBase |
+| copilot | GitHub tools; M365 information tasks | Built-in GitHub MCP, Work IQ, native remote control |
+| muse | Native images/editing; audio-file transcription | Blender tools, native memory |
+| codebuddy | Model-generated video; Tencent ecosystem | Tencent Docs, CloudBase, messaging, daemon schedules |
+| hermes | X; connected channels; multimedia; browser/desktop automation | Workspace/Office tools, gateway events, optional calls/payments |
+| nanobot | Messaging/email-driven assistants and automations | Gateway, image tool, workspace/video/deployment presets |
+| dsh | Execution in an existing project/profile | CloudBase, QQ/DingTalk connectors, profile-specific tools |
+| grok | General execution; specialty tools need verification | X/research/image/video candidates, browser/deployment/SMS plugins |
+
+For external platforms, plugins, experimental tools or needs not covered above, read the relevant agent and platform sections in [capabilities and data scope](references/agent-capabilities.md). It retains platform resources and conditions; a messaging channel does not imply access to the user's account data. Verify only what the assignment relies on in the actual child transport/profile. App/cloud/interactive-only features are separate entry points. Reuse working shared tools instead of adding a child just to access them; inspect or recover through the parent when a needed capability fails. Unlisted or untested tools remain candidates when local configuration and evidence support them.
+
+Proactively delegate clearly independent work to multiple children without asking the user to choose a count or sequence; children may use the same provider. Choose the split and concurrency to suit the task. Start ready work and launch dependent work when the needed information arrives, including intermediate messages before an upstream assignment finishes. Reassess delegation after results, questions or blockers, and continue useful work yourself while children run.
+
+Share existing common inputs and assign distinct deliverables and editing responsibilities; request overlapping work when independent verification is useful. Delegate with `run --agent <provider> --input <UTF-8-file> --cwd <workspace>` and use `--background` for concurrent work. Retain each `call_id`; when waiting, prefer `wait --any <pending-call-id> ...` in this turn, process arrivals and adjust delegation. Remove calls with final outcomes from subsequent waits and add IDs from new runs or resumes. Handle intermediate questions and approvals and wait again until required results are final. Integrate findings, resolve disagreements and verify artifacts before answering the user.
 
 Omit `--model` and `--effort` to reuse native defaults. When the user selects them, pass native values on `run` or `resume`; resumes and message handling retain prior choices unless explicitly changed. Check [model selection](references/models.md) for provider differences. Diagnose rejected selections without silently substituting a model or effort; `requested_selection` records the request, not a measurement of backend reasoning.
 

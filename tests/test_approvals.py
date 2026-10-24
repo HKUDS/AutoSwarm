@@ -88,6 +88,16 @@ class ApprovalTests(unittest.TestCase):
                 self.assertIn("denied", result["content"])
                 self.assertFalse(marker.exists())
 
+    def test_approval_stays_answerable_without_runner_pid_visibility(self):
+        call_id, marker = self.start()
+        request = engine.wait(self.records, [call_id])[0]
+        with patch("autoswarm.platform.identity", return_value=None):
+            self.assertEqual(approvals.pending(self.records, call_id)[0]["request_id"], request["request_id"])
+            approvals.decide(self.records, call_id, request["request_id"], "allow")
+            result = engine.wait(self.records, [call_id])[0]
+        self.assertEqual(result["outcome"], "completed")
+        self.assertTrue(marker.exists())
+
     def test_disabled_delegation_requires_explicit_user_actor(self):
         approvals.configure(self.records, False)
         call_id, marker = self.start("claude-code")

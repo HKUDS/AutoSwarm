@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ctypes
+import errno
 import os
 import signal
 import subprocess
@@ -76,6 +77,18 @@ def identity(pid: int) -> str | None:
 
 
 def running(handle: dict | None) -> bool:
+    if handle and handle.get("runner_lock"):
+        # The shared OS lease is visible across PID namespaces. A missing PID
+        # in an inspector's sandbox does not establish that the runner exited.
+        try:
+            with session_lease(Path(handle["runner_lock"])):
+                pass
+        except SwarmError as error:
+            if error.code != "session_busy":
+                raise
+            return True
+        # A runner can release its lease just before its process exits; keep
+        # visible process identity checks for that gap and for legacy handles.
     return bool(handle and handle.get("identity") and identity(handle["pid"]) == handle["identity"])
 
 
@@ -110,4 +123,6 @@ def session_lease(path: Path):
         return stream
     except OSError as error:
         stream.close()
+        if error.errno not in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
+            raise
         raise SwarmError("session_busy", "Another AutoSwarm call owns this native session") from error
