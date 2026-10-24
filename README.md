@@ -1,4 +1,4 @@
-# AutoSwarm
+# AutoSwarm: Automating Agent Swarms
 
 <!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
 https://github.com/user-attachments/assets/09e48e6b-dda2-4b1e-ac7f-d834a1ad856d
@@ -9,13 +9,13 @@ https://github.com/user-attachments/assets/09e48e6b-dda2-4b1e-ac7f-d834a1ad856d
 
 Add AutoSwarm as a lightweight plugin to the agent you already use. Your agent brings local agent products together, delegates work, handles communication and integrates results. You describe the task as usual.
 
-## When AutoSwarm helps
+## ✨ When AutoSwarm helps
 
-- **Combine different capabilities.** Bring together agents and models with different strengths, tools and data access to complete tasks that span products.
-- **Get parallel work done sooner.** Split a 100-document reading task across agents and let the coordinator integrate their findings. Multiple instances of the same agent work too.
-- **Add an independent reviewer.** For important coding tasks, have one agent implement and another independently review and verify the work to improve delivery quality.
+- **🧩 Combine different capabilities.** Bring together agents and models with different strengths, tools and data access to complete tasks that span products.
+- **⚡ Get parallel work done sooner.** Split a 100-document reading task across agents and let the coordinator integrate their findings. Multiple instances of the same agent work too.
+- **🔍 Add an independent reviewer.** For important coding tasks, have one agent implement and another independently review and verify the work to improve delivery quality.
 
-## Get started
+## 🚀 Get started
 
 Give your current agent this repository and ask:
 
@@ -27,7 +27,7 @@ For everyday use, start a task with **“Use autoswarm”**:
 
 Your agent chooses collaborators and adapts parallel and dependent work as it progresses.
 
-## Supported agents
+## 🤖 Supported agents
 
 <table width="100%">
   <tr>
@@ -52,7 +52,7 @@ Your agent chooses collaborators and adapts parallel and dependent work as it pr
 
 Works on Windows, macOS and Linux. Use it in an App, CLI or IDE extension with Skill support and local command execution; delegated agents need callable local CLIs.
 
-## News
+## 📰 News
 
 - **OpenOPC → AutoSwarm:** v2 brings the swarm into the agents you already use. The complete v1.0.0 implementation is preserved in the [archive](autoswarm-v1.0.0/ARCHIVE.md).
 

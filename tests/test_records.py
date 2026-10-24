@@ -1,4 +1,3 @@
-import os
 import json
 import threading
 import tempfile
@@ -6,13 +5,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from autoswarm.records import _open_record, read_json, write_json
+from autoswarm.records import _open_record, _replace_record, read_json, write_json
 
 
 class AtomicRecordTests(unittest.TestCase):
     def test_open_reader_keeps_snapshot_without_blocking_atomic_publication(self):
         with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "result.json"
+            path = Path(temporary) / "结果🐝.json"
             write_json(path, {"content": "previous"})
             failures = []
             def publish():
@@ -52,7 +51,6 @@ class AtomicRecordTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "result.json"
             write_json(path, {"content": "previous"})
-            replace = os.replace
             attempts = []
             def conflict_once(source, destination):
                 attempts.append(source)
@@ -61,8 +59,8 @@ class AtomicRecordTests(unittest.TestCase):
                     error = PermissionError("Windows sharing violation")
                     error.winerror = 32
                     raise error
-                return replace(source, destination)
-            with patch("autoswarm.records.os.replace", side_effect=conflict_once):
+                return _replace_record(source, destination)
+            with patch("autoswarm.records._replace_record", side_effect=conflict_once):
                 write_json(path, {"content": "完整结果🐝"})
             self.assertEqual(read_json(path), {"content": "完整结果🐝"})
             self.assertEqual(len(attempts), 2)
@@ -74,7 +72,7 @@ class AtomicRecordTests(unittest.TestCase):
             write_json(path, {"content": "previous"})
             error = PermissionError("Access denied")
             error.winerror = 5
-            with patch("autoswarm.records.os.replace", side_effect=error) as replace:
+            with patch("autoswarm.records._replace_record", side_effect=error) as replace:
                 with self.assertRaises(PermissionError):
                     write_json(path, {"content": "new"})
                 self.assertEqual(replace.call_count, 1)

@@ -11,8 +11,11 @@ import tempfile
 import threading
 import time
 import unittest
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
+from unittest.mock import patch
+
+from fixtures.http_peer import LocalHTTPServer
 
 from autoswarm.hosts import deliver, detect_parent
 from autoswarm import messages
@@ -91,6 +94,11 @@ class HTTPPeer(BaseHTTPRequestHandler):
 
 
 class ReturnTests(unittest.TestCase):
+    def test_loopback_peer_does_not_depend_on_reverse_dns(self):
+        with patch("socket.getfqdn", side_effect=AssertionError("Loopback fixture attempted reverse DNS")):
+            server = LocalHTTPServer(("127.0.0.1", 0), HTTPPeer)
+            server.server_close()
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.records = Records(Path(self.temporary.name))
@@ -151,7 +159,7 @@ class ReturnTests(unittest.TestCase):
         self.assertIn("question from child 中文", steer["params"]["input"][0]["text"])
 
     def test_child_message_uses_original_opencode_host_without_blocking_sender(self):
-        server = ThreadingHTTPServer(("127.0.0.1", 0), HTTPPeer)
+        server = LocalHTTPServer(("127.0.0.1", 0), HTTPPeer)
         server.requests = []
         threading.Thread(target=server.serve_forever, daemon=True).start()
         self.servers.append(server)
@@ -213,7 +221,7 @@ class ReturnTests(unittest.TestCase):
         self.assertEqual(read_json(self.records.call(call_id) / "result.json")["content"], "actual child output")
 
     def test_opencode_observes_native_assistant_receipt(self):
-        server = ThreadingHTTPServer(("127.0.0.1", 0), HTTPPeer)
+        server = LocalHTTPServer(("127.0.0.1", 0), HTTPPeer)
         server.requests = []
         threading.Thread(target=server.serve_forever, daemon=True).start()
         self.servers.append(server)

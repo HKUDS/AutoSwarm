@@ -7,8 +7,9 @@ import base64
 import sys
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
+from http_peer import LocalHTTPServer
 
 provider, *args = sys.argv[1:]
 sys.stdin.reconfigure(encoding="utf-8")
@@ -181,7 +182,7 @@ if provider == "opencode":
     if "hold-startup" in args:
         while True:
             time.sleep(.1)
-    server = ThreadingHTTPServer(("127.0.0.1", int(args[args.index("--port") + 1])), HTTP)
+    server = LocalHTTPServer(("127.0.0.1", int(args[args.index("--port") + 1])), HTTP)
     server.daemon_threads = True
     print("Native service ready (changed banner)", file=sys.stderr, flush=True)
     server.serve_forever()

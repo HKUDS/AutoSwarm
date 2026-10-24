@@ -12,6 +12,23 @@ from unittest.mock import patch
 from autoswarm import platform
 
 
+class DirectoryLinkTests(unittest.TestCase):
+    def test_link_reuses_native_storage_and_unlink_preserves_it(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            native = root / "native space & % !"
+            native.mkdir()
+            link = root / "link space & % !"
+            platform.link_directory(link, native)
+            try:
+                (link / "session.txt").write_text("native session")
+                self.assertEqual((native / "session.txt").read_text(), "native session")
+            finally:
+                platform.unlink_directory(link)
+            self.assertFalse(link.exists())
+            self.assertEqual((native / "session.txt").read_text(), "native session")
+
+
 class RunnerLeaseTests(unittest.TestCase):
     def test_shared_lease_survives_hidden_pid_and_releases_on_process_death(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -257,12 +257,9 @@ def dispatch(args, records: Records):
     raise SwarmError("unknown_command", str(name))
 
 
-def main() -> None:
-    for stream in (sys.stdin, sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8")
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     root = parser()
-    args, remaining = root.parse_known_args()
+    args, remaining = root.parse_known_args(argv)
     # Python 3.10 argparse can leave an optional trailing positional behind
     # when flags occur after the required call ID. Preserve the same CLI
     # ordering accepted by newer Python versions without accepting extra flags.
@@ -270,8 +267,16 @@ def main() -> None:
         args.prompt = remaining.pop()
     if remaining:
         root.error("unrecognized arguments: " + " ".join(remaining))
+    return args
+
+
+def main() -> None:
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+    args = parse_args()
     if args.command is None:
-        root.print_help()
+        parser().print_help()
         return
     records = Records(args.home)
     if args.command == "_runner":

@@ -55,6 +55,14 @@ class ProviderLaunchTests(unittest.TestCase):
             with self.assertRaises(SwarmError):
                 bridge_command([sys.executable],{'providers':{'nanobot':{'python':bad}}})
 
+    def test_nanobot_quoted_native_python_path_preserves_spaces(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            native=Path(temporary)/'native python'
+            native.touch()
+            cli=Path(temporary)/'nanobot'
+            cli.write_text('#!"'+str(native)+'" -u\n')
+            self.assertEqual(bridge_command([str(cli)],{})[:2],[str(native),'-u'])
+
     def test_nanobot_env_shebang_resolves_native_python(self):
         with tempfile.TemporaryDirectory() as temp:
             cli=Path(temp)/'nanobot'
@@ -66,7 +74,7 @@ class ProviderLaunchTests(unittest.TestCase):
 class NanobotBridgeTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory()
-        self.root=Path(self.tmp.name)
+        self.root=Path(self.tmp.name).resolve()
         self.native=self.root/'native-workspace';self.native.mkdir()
         self.config=self.root/'native-config.json'
         self.config.write_text(json.dumps({'workspace':str(self.native),'model':'native-default','effort':'native-default-effort','restricted':True}))

@@ -1,5 +1,6 @@
 """Resolve the installed nanobot Python runtime without adding dependencies."""
 from pathlib import Path
+import os
 import shlex
 import shutil
 import json
@@ -26,7 +27,9 @@ def bridge_command(command, config):
             with cli.open("rb") as stream:
                 first = stream.readline(4096).decode("utf-8", errors="replace").strip()
             if first.startswith("#!"):
-                argv = shlex.split(first[2:])
+                argv = shlex.split(first[2:], posix=os.name != "nt")
+                if os.name == "nt":
+                    argv = [value[1:-1] if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'" else value for value in argv]
                 if argv and Path(argv[0]).name == "env":
                     argv = argv[1:]
                     if argv and argv[0] == "-S":

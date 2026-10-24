@@ -5,8 +5,9 @@ import sys
 import threading
 import time
 import uuid
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
+from http_peer import LocalHTTPServer
 
 from autoswarm import messages
 from autoswarm.records import Records, read_json, write_json
@@ -152,7 +153,7 @@ if provider == "opencode":
                 self.send({"info": {"role": "assistant", "sessionID": session, "finish": "stop"}, "parts": [{"type": "text", "text": "assignment complete"}]})
         def log_message(self, *args):
             pass
-    ThreadingHTTPServer(("127.0.0.1", int(args[args.index("--port") + 1])), HTTP).serve_forever()
+    LocalHTTPServer(("127.0.0.1", int(args[args.index("--port") + 1])), HTTP).serve_forever()
 else:
     for raw in sys.stdin:
         event = json.loads(raw)

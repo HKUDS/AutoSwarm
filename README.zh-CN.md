@@ -1,4 +1,4 @@
-# AutoSwarm
+# AutoSwarm: Automating Agent Swarms
 
 <!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
 https://github.com/user-attachments/assets/09e48e6b-dda2-4b1e-ac7f-d834a1ad856d
@@ -9,13 +9,13 @@ https://github.com/user-attachments/assets/09e48e6b-dda2-4b1e-ac7f-d834a1ad856d
 
 将 AutoSwarm 作为轻量插件接入正在使用的 agent，由它按需组织本地多个 agent 产品协作，负责分工、沟通与结果整合。你只需像往常一样提出任务。
 
-## 三个适合 AutoSwarm 的场景
+## ✨ 三个适合 AutoSwarm 的场景
 
-- **跨产品能力互补**：任务需要不同 agent 或模型的优势、工具与数据入口时，组织合适的 agent 协作完成。
-- **大量任务并行处理**：例如快速阅读 100 份资料，让多个 agent 并行提炼，再由主 agent 统一汇总；也支持同时调用多个同款 agent。
-- **重要任务一做一审**：例如关键代码开发，由一个 agent 实现，另一个独立审查与验证，提高交付质量。
+- **🧩 跨产品能力互补**：任务需要不同 agent 或模型的优势、工具与数据入口时，组织合适的 agent 协作完成。
+- **⚡ 大量任务并行处理**：例如快速阅读 100 份资料，让多个 agent 并行提炼，再由主 agent 统一汇总；也支持同时调用多个同款 agent。
+- **🔍 重要任务一做一审**：例如关键代码开发，由一个 agent 实现，另一个独立审查与验证，提高交付质量。
 
-## 开始使用
+## 🚀 开始使用
 
 把本仓库地址发给你正在使用的 agent，直接说：
 
@@ -27,7 +27,7 @@ https://github.com/user-attachments/assets/09e48e6b-dda2-4b1e-ac7f-d834a1ad856d
 
 由主 agent 自行选择协作者、灵活安排串并行。
 
-## 支持的 agent
+## 🤖 支持的 agent
 
 <table width="100%">
   <tr>
@@ -52,7 +52,7 @@ https://github.com/user-attachments/assets/09e48e6b-dda2-4b1e-ac7f-d834a1ad856d
 
 支持 Windows、macOS、Linux。可在支持 Skill 和本地命令执行的 App、CLI 或 IDE 扩展中使用；被调用的 agent 需有可用的本地 CLI。
 
-## News
+## 📰 News
 
 - **OpenOPC → AutoSwarm**：v2 将 swarm 能力带入用户已有的 agent。旧版完整实现保留在 [v1.0.0 归档](autoswarm-v1.0.0/ARCHIVE.md)中。
 

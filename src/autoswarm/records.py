@@ -46,7 +46,7 @@ def write_json(path: Path, value: Any) -> None:
             os.fsync(stream.fileno())
         while True:
             try:
-                os.replace(name, path)
+                _replace_record(name, path)
                 break
             except PermissionError as error:
                 # Windows can briefly deny replacement while a reader or
@@ -68,7 +68,43 @@ def _windows_files():
     kernel.CreateFileW.restype = wintypes.HANDLE
     kernel.CloseHandle.argtypes = [wintypes.HANDLE]
     kernel.CloseHandle.restype = wintypes.BOOL
+    kernel.SetFileInformationByHandle.argtypes = [wintypes.HANDLE, wintypes.INT, wintypes.LPVOID, wintypes.DWORD]
+    kernel.SetFileInformationByHandle.restype = wintypes.BOOL
     return kernel
+
+
+def _replace_record(source: str, destination: Path) -> None:
+    if os.name != "nt":
+        os.replace(source, destination)
+        return
+    import ctypes
+    from ctypes import wintypes
+    kernel = _windows_files()
+    # POSIX rename semantics atomically replace open destinations while their
+    # existing readers keep a snapshot. MoveFileEx (os.replace) can deny this.
+    class RenameInfo(ctypes.Structure):
+        _fields_ = [("flags", wintypes.DWORD), ("root", wintypes.HANDLE), ("length", wintypes.DWORD), ("name", wintypes.WCHAR * 1)]
+    encoded = os.path.abspath(destination).encode("utf-16-le")
+    buffer = ctypes.create_string_buffer(ctypes.sizeof(RenameInfo) + len(encoded))
+    info = RenameInfo.from_buffer(buffer)
+    info.flags = 0x1 | 0x2  # REPLACE_IF_EXISTS | POSIX_SEMANTICS
+    info.length = len(encoded)
+    ctypes.memmove(ctypes.addressof(buffer) + RenameInfo.name.offset, encoded, len(encoded))
+    handle = kernel.CreateFileW(source, 0x10000, 0x1 | 0x2 | 0x4, None, 3, 0x80, None)
+    if handle == ctypes.c_void_p(-1).value:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        if not kernel.SetFileInformationByHandle(handle, 22, buffer, len(buffer)):  # FileRenameInfoEx
+            error = ctypes.get_last_error()
+            if error in {50, 87}:  # Filesystem/OS has no extended rename support.
+                kernel.CloseHandle(handle)
+                handle = None
+                os.replace(source, destination)
+            else:
+                raise ctypes.WinError(error)
+    finally:
+        if handle is not None:
+            kernel.CloseHandle(handle)
 
 
 def _open_record(path: Path):

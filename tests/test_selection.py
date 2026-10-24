@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from autoswarm import engine, platform
-from autoswarm.cli import parser
+from autoswarm.cli import parse_args
 from autoswarm.providers import BINARIES, invocation
 from autoswarm.native import Native, Output
 from autoswarm.records import Records, SwarmError, read_json, write_json
@@ -225,9 +225,10 @@ class SelectionTests(unittest.TestCase):
 
     def test_cli_run_and_resume_accept_native_values_without_common_enum(self):
         for command in (["run", "--agent", "codex"], ["resume", "call_" + "a" * 32]):
-            parsed = parser().parse_args([*command, "--model", "provider/arbitrary-model", "--effort", "provider-native-level", "hello"])
+            parsed = parse_args([*command, "--model", "provider/arbitrary-model", "--effort", "provider-native-level", "hello"])
             self.assertEqual(parsed.model, "provider/arbitrary-model")
             self.assertEqual(parsed.effort, "provider-native-level")
+            self.assertEqual(parsed.prompt, "hello")
 
 
 class NativeSelectionHelpersTests(unittest.TestCase):
