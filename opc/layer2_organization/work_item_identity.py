@@ -23,6 +23,7 @@ CANONICAL_WORK_ITEM_TURN_TYPES: frozenset[str] = frozenset(
         "setup",
         "execute",
         "review",
+        "verify",
         "report",
         "followup",
         "monitor",
