@@ -42,13 +42,22 @@ def start_call(records: Records, provider: str, prompt: str, workspace: str | Pa
     task["command"] = invocation(task, records.config())
     task["message_only"] = message_only
     value = messages.prepare(records, task, controller=controller, name=name, peers=peers, rules=rules, agent_id=agent_id)
-    lease = None if _dispatch_locked else platform.session_lease(messages.agent_path(records, task["agent_id"]) / "dispatch.lock")
+    lease = None
+    if not _dispatch_locked:
+        while True:
+            try:
+                lease = platform.session_lease(messages.agent_path(records, task["agent_id"]) / "dispatch.lock")
+                break
+            except SwarmError as error:
+                if error.code != "session_busy":
+                    raise
+                time.sleep(0.01)  # Serialize short dispatch/finish bookkeeping.
     directory = records.call(call_id)
     try:
         if agent_id:
             latest = messages.agent(records, agent_id)
             latest_directory, _ = records.require(latest["call_id"])
-            if not latest.get("idle") and platform.running(read_json(latest_directory / "handle.json")):
+            if not latest.get("idle") and read_json(latest_directory / "result.json") is None and platform.running(read_json(latest_directory / "handle.json")):
                 raise SwarmError("session_busy", "This conversation is handling work or messages; send to its stable agent_id or wait before resuming")
         directory.mkdir(parents=True, exist_ok=False, mode=0o700)
         write_json(directory / "task.json", task)

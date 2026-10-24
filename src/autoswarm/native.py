@@ -73,8 +73,11 @@ class Native:
             if not self.process.stdin.closed:
                 try:
                     self.process.stdin.close()
-                except BrokenPipeError:
-                    pass  # An exited native peer must not hide saved results.
+                except OSError as error:
+                    # Windows may use EINVAL rather than EPIPE after a peer
+                    # exits. Closing its pipe must not hide the final receipt.
+                    if not isinstance(error, BrokenPipeError) and self.process.poll() is None:
+                        raise
 
     def request(self, method, params, callback, on_error=None):
         with self.request_lock:

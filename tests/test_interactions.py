@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import errno
 import contextlib
 import json
 import os
@@ -55,6 +56,28 @@ class InteractionTests(unittest.TestCase):
 
     def wire(self, n):
         return [json.loads(v) for v in n.process.stdin.getvalue().splitlines()]
+
+    def test_closing_an_exited_peer_accepts_windows_pipe_einval(self):
+        n = self.native("codex")
+        class Pipe:
+            closed = False
+            def close(self):
+                self.closed = True
+                raise OSError(errno.EINVAL, "Native peer exited while closing stdin")
+        n.process = SimpleNamespace(stdin=Pipe(), poll=lambda: 0)
+        n.close()
+        self.assertTrue(n.broker.closed.is_set())
+
+    def test_live_peer_close_errors_remain_visible(self):
+        n = self.native("codex")
+        class Pipe:
+            closed = False
+            def close(self):
+                self.closed = True
+                raise OSError(errno.EIO, "Live native stdin failed")
+        n.process = SimpleNamespace(stdin=Pipe(), poll=lambda: None)
+        with self.assertRaises(OSError):
+            n.end_input()
 
     def feed(self, n, method, params, request_id="native-request"):
         event = {"method": method, "params": params}

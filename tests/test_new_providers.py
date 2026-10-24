@@ -162,7 +162,7 @@ class NanobotBridgeTests(unittest.TestCase):
         call=self.start('gate:'+str(self.root/'gate'))
         self.assertTrue(engine.cancel(self.records,call['call_id'])['cancel_requested'])
         result=self.final(call)
-        self.assertEqual(result['outcome'],'cancelled',result)
+        self.assertEqual(result['outcome'],'cancelled',{'result':result,'runner_log':(self.records.call(call['call_id'])/'runner.log').read_text(errors='replace')})
 
 
 if __name__=='__main__':unittest.main()

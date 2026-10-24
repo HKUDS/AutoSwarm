@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from autoswarm import engine, platform
+from autoswarm import engine, messages, platform
 from autoswarm.hooks import handle_hook, submit
 from autoswarm.providers import ACP_PROVIDERS, BINARIES, discover
 from autoswarm.records import Records, SwarmError, read_json, write_json
@@ -96,6 +96,33 @@ class RuntimeTests(unittest.TestCase):
                     result = engine.wait(self.records, [call_id])[0]
                     self.assertEqual(result["outcome"], "cancelled")
 
+    def test_resume_tolerates_dispatch_bookkeeping_contention(self):
+        original = engine.wait(self.records, [self.start()])[0]
+        acquire = platform.session_lease
+        contested = False
+        def bookkeeping(path):
+            nonlocal contested
+            if path.name == "dispatch.lock" and not contested:
+                contested = True
+                raise SwarmError("session_busy", "Previous runner is completing dispatch bookkeeping")
+            return acquire(path)
+        with patch("autoswarm.platform.session_lease", side_effect=bookkeeping):
+            continued = engine.resume(self.records, original["call_id"], "continue after bookkeeping", return_mode="wait")
+        self.ids.append(continued["call_id"])
+        result = engine.wait(self.records, [continued["call_id"]])[0]
+        self.assertEqual(result["outcome"], "completed", result)
+        self.assertEqual(result["native_session_id"], original["native_session_id"])
+
+    def test_resume_after_final_receipt_does_not_wait_for_runner_bookkeeping(self):
+        original = engine.wait(self.records, [self.start()])[0]
+        finishing = {**messages.agent(self.records, original["agent_id"]), "idle": False}
+        with patch("autoswarm.messages.agent", return_value=finishing), patch("autoswarm.platform.running", return_value=True):
+            continued = engine.resume(self.records, original["call_id"], "continue from the final receipt", return_mode="wait")
+        self.ids.append(continued["call_id"])
+        result = engine.wait(self.records, [continued["call_id"]])[0]
+        self.assertEqual(result["outcome"], "completed", result)
+        self.assertEqual(result["native_session_id"], original["native_session_id"])
+
     def test_parallel_wait_any_and_cancellation(self):
         held = self.start(prompt="hold:" + str(self.root / "started"))
         ready = self.start("opencode")
@@ -147,7 +174,8 @@ class RuntimeTests(unittest.TestCase):
                 self.assertIn(result["finish_reason"], {"refusal", "failed"})
                 held = self.start(provider, "hold:" + str(self.root / (provider + "-held")))
                 engine.cancel(self.records, held)
-                self.assertEqual(engine.wait(self.records, [held])[0]["outcome"], "cancelled")
+                result = engine.wait(self.records, [held])[0]
+                self.assertEqual(result["outcome"], "cancelled", {"result": result, "runner_log": (self.records.call(held) / "runner.log").read_text(errors="replace")})
 
     def test_acp_final_content_excludes_commentary_before_tools(self):
         for provider in sorted(ACP_PROVIDERS):
