@@ -1,4 +1,4 @@
-# AutoSwarm: Automating Agent Swarms
+## AutoSwarm: All Your Agents. One AI Swarm
 
 <!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
 https://github.com/user-attachments/assets/09e48e6b-dda2-4b1e-ac7f-d834a1ad856d
