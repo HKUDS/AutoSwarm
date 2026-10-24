@@ -291,6 +291,20 @@ class RuntimeTests(unittest.TestCase):
         result = engine.wait(self.records, [call_id])[0]
         self.assertEqual(result["outcome"], "interrupted")
 
+    def test_result_published_during_liveness_check_is_not_interrupted(self):
+        call_id = "call_" + "b" * 32
+        directory = self.records.call(call_id)
+        write_json(directory / "task.json", {"call_id": call_id, "provider": "codex", "workspace": str(self.root)})
+        result = {"call_id": call_id, "outcome": "cancelled", "content": "retained native result"}
+        def finishes_during_probe(handle):
+            write_json(directory / "result.json", result)
+            return False
+        with patch("autoswarm.platform.running", side_effect=finishes_during_probe):
+            info = engine.inspect_call(self.records, call_id)
+        self.assertEqual(info["state"], "returned")
+        self.assertEqual(info["result"], result)
+        self.assertEqual(engine.receive(self.records, [call_id], include_inbox=False), [result])
+
     def test_live_runner_remains_available_without_pid_visibility(self):
         marker = self.root / "hidden-runner-started"
         call_id = self.start(prompt="hold:" + str(marker))

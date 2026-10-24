@@ -75,7 +75,10 @@ def inspect_call(records: Records, call_id: str) -> dict:
     elif platform.running(handle):
         state = "running"
     else:
-        state = "interrupted"
+        # The runner can publish and exit between our first read and its
+        # liveness probe. Confirm the final receipt before reporting a loss.
+        result = read_json(directory / "result.json")
+        state = "returned" if result is not None else "interrupted"
     selection = {key: task[key] for key in ("model", "effort") if task.get(key) is not None}
     return {"call_id": call_id, "agent_id": task.get("agent_id", call_id), "controller_id": task.get("controller_id"), "communication": task.get("communication"), "provider": task["provider"], "state": state, "return_mode": task.get("return_mode", "native"), "native_session_id": (result or {}).get("native_session_id") or (handle or {}).get("native_session_id") or task.get("native_session_id"), "requested_selection": selection, "workspace": task["workspace"], "directory": str(directory), "parent": task.get("parent"), "result": result, "delivery": read_json(directory / "delivery.json"), "handle": handle, "communication_error": read_json(directory / "communication-error.json"), "delegate_approvals": approvals.delegated(records, task), "approvals": approvals.pending(records, call_id) if state == "running" else []}
 
