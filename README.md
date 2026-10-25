@@ -67,7 +67,7 @@ Give AutoSwarm a task once. It unifies all your agents into one coordinated team
 
 </div>
 
-Works across Windows, macOS, and Linux. Use AutoSwarm through:
+AutoSwarm works across Windows, macOS, and Linux. Use AutoSwarm through:
 - **Desktop apps**
 - **Command-line interfaces (CLI)**
 - **IDE extensions**
