@@ -6,7 +6,7 @@
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/autoswarm/autoswarm-icon-on-light.svg">
     <img src="docs/assets/autoswarm/autoswarm-icon-on-light.svg" width="48" height="48" align="absmiddle" alt="">
   </picture>
-  AutoSwarm: All Your Agents. One AI Swarm
+  AutoSwarm: All Your Agents, Working as One
 </h1>
 
 [简体中文](README.zh-CN.md)
