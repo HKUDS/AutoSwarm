@@ -65,7 +65,19 @@ Give AutoSwarm a task once. It unifies all your agents into one coordinated team
   </tr>
 </table>
 
-Works on Windows, macOS and Linux. Use it in an App, CLI or IDE extension with Skill support and local command execution; delegated agents need callable local CLIs.
+</div>
+
+Works across Windows, macOS, and Linux. Use AutoSwarm through:
+- **Desktop apps**
+- **Command-line interfaces (CLI)**
+- **IDE extensions**
+- **Skill-enabled agent environments**
+
+AutoSwarm supports local command execution.
+
+## 🤖 AutoSwarm in Action
+
+<div align="center">
 
 <!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
 https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
