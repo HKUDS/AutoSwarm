@@ -18,12 +18,8 @@
 </div>
 
 ## Why AutoSwarm?
-
-<div align="center">
   
-**No single agent can do it all. You don’t need another agent—you need all your agents working as one.**
-
-</div>
+**No single agent can do everything. You don’t need another agent—you need all your agents working as one.**
 
 Different agents come with different:
 - 🛠️ **Capabilities** — coding, research, browsing, office work, writing, computer use, and social networking;
@@ -43,6 +39,8 @@ Give AutoSwarm a task once. It unifies all your agents into one coordinated team
 - **Runs tasks in parallel** for faster execution;
 - **Coordinates agent collaboration** and keeps everyone aligned;
 - **Verifies and synthesizes results** into one coherent answer.
+
+<div align="center">
 
 ## 🤖 Supported Agents
 
@@ -71,6 +69,8 @@ Works on Windows, macOS and Linux. Use it in an App, CLI or IDE extension with S
 
 <!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
 https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
+
+</div>
 
 ## 🚀 Get started
 
