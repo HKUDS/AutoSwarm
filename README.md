@@ -24,23 +24,6 @@ Add AutoSwarm as a lightweight plugin to the agent you already use. Your agent b
 - **⚡ Get parallel work done sooner.** Split a 100-document reading task across agents and let the coordinator integrate their findings. Multiple instances of the same agent work too.
 - **🔍 Add an independent reviewer.** For important coding tasks, have one agent implement and another independently review and verify the work to improve delivery quality.
 
-<!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
-https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
-
-</div>
-
-## 🚀 Get started
-
-Give your current agent this repository and ask:
-
-> Install or update AutoSwarm for this agent. Reuse my existing configuration and verify the availability of my locally installed agents.
-
-For everyday use, start a task with **“Use autoswarm”**:
-
-> Use autoswarm to read these 100 documents and summarize the technical approaches and key disagreements.
-
-Your agent chooses collaborators and adapts parallel and dependent work as it progresses.
-
 ## 🤖 Supported agents
 
 <table width="100%">
@@ -65,6 +48,23 @@ Your agent chooses collaborators and adapts parallel and dependent work as it pr
 </table>
 
 Works on Windows, macOS and Linux. Use it in an App, CLI or IDE extension with Skill support and local command execution; delegated agents need callable local CLIs.
+
+<!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
+https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
+
+</div>
+
+## 🚀 Get started
+
+Give your current agent this repository and ask:
+
+> Install or update AutoSwarm for this agent. Reuse my existing configuration and verify the availability of my locally installed agents.
+
+For everyday use, start a task with **“Use autoswarm”**:
+
+> Use autoswarm to read these 100 documents and summarize the technical approaches and key disagreements.
+
+Your agent chooses collaborators and adapts parallel and dependent work as it progresses.
 
 ## 📰 News
 
