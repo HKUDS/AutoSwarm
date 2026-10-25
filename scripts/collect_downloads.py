@@ -187,7 +187,8 @@ def main(argv=None) -> int:
     try:
         token = os.environ.get("TRAFFIC_TOKEN")
         if not token:
-            raise ValueError("Set TRAFFIC_TOKEN to a dedicated token with Administration: read and Contents: read")
+            raise ValueError("Set TRAFFIC_TOKEN to a dedicated token with Administration: read and Contents: read. "
+                             "In GitHub Actions, configure repository secret AUTOSWARM_TRAFFIC_TOKEN or TRAFFIC_TOKEN")
         path = args.output / "history.json"
         history = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
         snapshot = fetch_snapshot(args.repository, token)
@@ -196,7 +197,10 @@ def main(argv=None) -> int:
         print(json.dumps({"repository": args.repository, "since": merged["since"], **totals(merged)}, ensure_ascii=False))
         return 0
     except (OSError, ValueError, KeyError, TypeError, RuntimeError) as error:
-        parser.exit(1, f"Download statistics: {error}\n")
+        message = f"Download statistics: {error}"
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            message = "::error::" + message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        parser.exit(1, message + "\n")
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ import os
 import tempfile
 import unittest
 import urllib.error
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -155,6 +156,60 @@ class DownloadStatisticsTests(unittest.TestCase):
                 stats.request_json("/repos/HKUDS/AutoSwarm/traffic/clones", token)
             request.assert_not_called()
             self.assertNotIn(token, str(caught.exception))
+
+    def test_missing_actions_secret_has_an_actionable_run_annotation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            stderr = io.StringIO()
+            with patch.dict(os.environ, {"TRAFFIC_TOKEN": "", "GITHUB_ACTIONS": "true"}), \
+                    patch.object(stats, "fetch_snapshot") as fetch, \
+                    contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as caught:
+                stats.main(["--repository", "HKUDS/AutoSwarm", "--output", temporary])
+            self.assertEqual(caught.exception.code, 1)
+            self.assertTrue(stderr.getvalue().startswith("::error::Download statistics:"))
+            self.assertIn("AUTOSWARM_TRAFFIC_TOKEN or TRAFFIC_TOKEN", stderr.getvalue())
+            self.assertEqual(list(Path(temporary).iterdir()), [])
+            fetch.assert_not_called()
+
+    def test_actions_annotations_escape_control_characters_and_keep_history(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            stats.write_outputs(stats.merge_history(None, snapshot()), directory)
+            before = {p.name: p.read_bytes() for p in directory.iterdir()}
+            stderr = io.StringIO()
+            with patch.dict(os.environ, {"TRAFFIC_TOKEN": "test-only-token", "GITHUB_ACTIONS": "true"}), \
+                    patch.object(stats, "fetch_snapshot", side_effect=RuntimeError("API 100% unavailable\r\nretry later")), \
+                    contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit):
+                stats.main(["--repository", "HKUDS/AutoSwarm", "--output", temporary])
+            self.assertIn("100%25 unavailable%0D%0Aretry later", stderr.getvalue())
+            self.assertEqual(len(stderr.getvalue().splitlines()), 1)
+            self.assertNotIn("test-only-token", stderr.getvalue())
+            self.assertEqual({p.name: p.read_bytes() for p in directory.iterdir()}, before)
+
+    def test_weekly_windows_keep_historical_days_without_double_counting(self):
+        start = date(2026, 10, 10)
+        rows = [((start + timedelta(days=n)).isoformat(), n + 1, 1) for n in range(14)]
+        history = stats.merge_history(None, snapshot("2026-10-24", rows), start.isoformat())
+        later = snapshot("2026-10-31", [((start + timedelta(days=n)).isoformat(), n + 1, 1) for n in range(7, 21)])
+        history = stats.merge_history(history, later)
+        self.assertEqual(stats.totals(history)["clones"], 231)
+        self.assertEqual(len(history["clones"]), 21)
+        self.assertEqual(stats.totals(stats.merge_history(history, later))["clones"], 231)
+
+    def test_cli_preserves_backfilled_start_without_a_since_override(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            history = stats.merge_history(None, snapshot("2026-10-24", [("2026-10-10", 100, 2), ("2026-10-23", 10, 1)]), "2026-10-10")
+            stats.write_outputs(history, directory)
+            later = snapshot("2026-10-25", [("2026-10-23", 12, 1), ("2026-10-24", 3, 1)])
+            for _ in range(2):
+                with patch.dict(os.environ, {"TRAFFIC_TOKEN": "test-only-token"}), \
+                        patch.object(stats, "fetch_snapshot", return_value=later), \
+                        contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(stats.main(["--repository", "HKUDS/AutoSwarm", "--output", str(directory)]), 0)
+                saved = json.loads((directory / "history.json").read_text(encoding="utf-8"))
+                self.assertEqual(saved["since"], "2026-10-10")
+                self.assertEqual(saved["started_at"], history["started_at"])
+                self.assertEqual(stats.totals(saved)["clones"], 115)
 
 
 if __name__ == "__main__":
