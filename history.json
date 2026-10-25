@@ -1,0 +1,66 @@
+{
+  "clones": {
+    "2026-10-10": {
+      "count": 38,
+      "uniques": 27
+    },
+    "2026-10-11": {
+      "count": 64,
+      "uniques": 25
+    },
+    "2026-10-12": {
+      "count": 29,
+      "uniques": 21
+    },
+    "2026-10-13": {
+      "count": 53,
+      "uniques": 32
+    },
+    "2026-10-14": {
+      "count": 199,
+      "uniques": 44
+    },
+    "2026-10-15": {
+      "count": 212,
+      "uniques": 121
+    },
+    "2026-10-16": {
+      "count": 36,
+      "uniques": 32
+    },
+    "2026-10-17": {
+      "count": 145,
+      "uniques": 91
+    },
+    "2026-10-18": {
+      "count": 139,
+      "uniques": 78
+    },
+    "2026-10-19": {
+      "count": 133,
+      "uniques": 69
+    },
+    "2026-10-20": {
+      "count": 55,
+      "uniques": 40
+    },
+    "2026-10-21": {
+      "count": 37,
+      "uniques": 25
+    },
+    "2026-10-22": {
+      "count": 28,
+      "uniques": 25
+    },
+    "2026-10-23": {
+      "count": 52,
+      "uniques": 36
+    }
+  },
+  "last_collected_at": "2026-10-25T02:02:20.303992+00:00",
+  "release_assets": {},
+  "repository": "HKUDS/AutoSwarm",
+  "schema_version": 1,
+  "since": "2026-10-24",
+  "started_at": "2026-10-24T15:08:06.193656+00:00"
+}
