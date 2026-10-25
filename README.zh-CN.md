@@ -1,13 +1,27 @@
-# AutoSwarm: Automating Agent Swarms
+<div align="center">
+
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/autoswarm/autoswarm-icon.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/autoswarm/autoswarm-icon-on-light.svg">
+    <img src="docs/assets/autoswarm/autoswarm-icon-on-light.svg" width="48" height="48" align="absmiddle" alt="">
+  </picture>
+  AutoSwarm: All Your Agents. One AI Swarm
+</h1>
 
 <!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
-https://github.com/user-attachments/assets/09e48e6b-dda2-4b1e-ac7f-d834a1ad856d
+https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
 
 [English](README.md)
+
+[![自 2026-10-24 起的克隆次数](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHKUDS%2FAutoSwarm%2Fdownload-stats%2Fclones-badge.json)](https://github.com/HKUDS/AutoSwarm/tree/download-stats)
+[![自 2026-10-24 起的发行附件下载次数](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHKUDS%2FAutoSwarm%2Fdownload-stats%2Frelease-downloads-badge.json)](https://github.com/HKUDS/AutoSwarm/tree/download-stats)
 
 **让你常用的 agent，带领多个 agent 协作。**
 
 将 AutoSwarm 作为轻量插件接入正在使用的 agent，由它按需组织本地多个 agent 产品协作，负责分工、沟通与结果整合。你只需像往常一样提出任务。
+
+</div>
 
 ## ✨ 三个适合 AutoSwarm 的场景
 

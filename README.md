@@ -1,15 +1,27 @@
 <div align="center">
 
-# AutoSwarm: All Your Agents. One AI Swarm
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/autoswarm/autoswarm-icon.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/autoswarm/autoswarm-icon-on-light.svg">
+    <img src="docs/assets/autoswarm/autoswarm-icon-on-light.svg" width="48" height="48" align="absmiddle" alt="">
+  </picture>
+  AutoSwarm: All Your Agents. One AI Swarm
+</h1>
 
 <!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
-https://github.com/user-attachments/assets/09e48e6b-dda2-4b1e-ac7f-d834a1ad856d
+https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
 
 [简体中文](README.zh-CN.md)
+
+[![Clones since 2026-10-24](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHKUDS%2FAutoSwarm%2Fdownload-stats%2Fclones-badge.json)](https://github.com/HKUDS/AutoSwarm/tree/download-stats)
+[![Release downloads since 2026-10-24](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHKUDS%2FAutoSwarm%2Fdownload-stats%2Frelease-downloads-badge.json)](https://github.com/HKUDS/AutoSwarm/tree/download-stats)
 
 **Let your go-to agent coordinate a team of agents.**
 
 Add AutoSwarm as a lightweight plugin to the agent you already use. Your agent brings local agent products together, delegates work, handles communication and integrates results. You describe the task as usual.
+
+</div>
 
 ## ✨ When AutoSwarm helps
 

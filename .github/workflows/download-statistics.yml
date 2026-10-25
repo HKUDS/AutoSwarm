@@ -1,0 +1,61 @@
+name: Download statistics
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: download-statistics
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    if: github.repository == 'HKUDS/AutoSwarm'
+    runs-on: ubuntu-latest
+    env:
+      STATS_BRANCH: download-stats
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Load durable history or the original baseline
+        shell: bash
+        run: |
+          STATS_DIRECTORY="$RUNNER_TEMP/autoswarm-download-stats"
+          printf 'STATS_DIRECTORY=%s\n' "$STATS_DIRECTORY" >> "$GITHUB_ENV"
+          mkdir -p "$STATS_DIRECTORY"
+          status=0
+          git ls-remote --exit-code --heads origin "$STATS_BRANCH" > "$RUNNER_TEMP/stats-ref" || status=$?
+          case "$status" in
+            0)
+              git fetch --no-tags --depth=1 origin "refs/heads/$STATS_BRANCH:refs/remotes/origin/$STATS_BRANCH"
+              git show "origin/$STATS_BRANCH:history.json" > "$STATS_DIRECTORY/history.json"
+              ;;
+            2) cp docs/download-statistics-baseline.json "$STATS_DIRECTORY/history.json" ;;
+            *) exit "$status" ;;
+          esac
+      - name: Collect GitHub counters
+        env:
+          TRAFFIC_TOKEN: ${{ secrets.TRAFFIC_TOKEN }}
+        run: python scripts/collect_downloads.py --repository "$GITHUB_REPOSITORY" --since 2026-10-24 --output "$STATS_DIRECTORY"
+      - name: Retain counts on the statistics branch
+        shell: bash
+        run: |
+          if git show-ref --verify --quiet "refs/remotes/origin/$STATS_BRANCH"; then
+            git switch --create "$STATS_BRANCH" "origin/$STATS_BRANCH"
+          else
+            git switch --orphan "$STATS_BRANCH"
+          fi
+          cp "$STATS_DIRECTORY/history.json" "$STATS_DIRECTORY/README.md" "$STATS_DIRECTORY/clones-badge.json" "$STATS_DIRECTORY/release-downloads-badge.json" .
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add history.json README.md clones-badge.json release-downloads-badge.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update download statistics'
+            git push origin "HEAD:refs/heads/$STATS_BRANCH"
+          fi
