@@ -9,9 +9,6 @@
   AutoSwarm: All Your Agents. One AI Swarm
 </h1>
 
-<!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
-https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
-
 [简体中文](README.zh-CN.md)
 
 [![Clones since 2026-10-10](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHKUDS%2FAutoSwarm%2Fdownload-stats%2Fclones-badge.json)](https://github.com/HKUDS/AutoSwarm/tree/download-stats)
@@ -21,13 +18,16 @@ https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
 
 Add AutoSwarm as a lightweight plugin to the agent you already use. Your agent brings local agent products together, delegates work, handles communication and integrates results. You describe the task as usual.
 
-</div>
-
 ## ✨ When AutoSwarm helps
 
 - **🧩 Combine different capabilities.** Bring together agents and models with different strengths, tools and data access to complete tasks that span products.
 - **⚡ Get parallel work done sooner.** Split a 100-document reading task across agents and let the coordinator integrate their findings. Multiple instances of the same agent work too.
 - **🔍 Add an independent reviewer.** For important coding tasks, have one agent implement and another independently review and verify the work to improve delivery quality.
+
+<!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
+https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
+
+</div>
 
 ## 🚀 Get started
 
