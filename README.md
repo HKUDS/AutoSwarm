@@ -42,7 +42,7 @@ Give AutoSwarm a task once. It unifies all your agents into one coordinated team
 
 <div align="center">
 
-## 🤖 Supported Agents
+## 🤖 Agents AutoSwarm Can Call
 
 <table width="100%">
   <tr>
