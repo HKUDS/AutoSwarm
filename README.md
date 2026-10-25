@@ -108,10 +108,11 @@ https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
 
 - **AutoSwarm is live!**: Full technical details and multi-agent coordination algorithms are available in the [archive](autoswarm-v1.0.0/ARCHIVE.md).
 
-## What's next
+## 🗺️ Roadmap
 
-- Support more agent products and their native capabilities.
-- Continue improving coordination, communication, reliability and setup experience.
+-🔌 **Expand Integrations** — Support more agent products, models, tools, and native capabilities.
+-🤝 **Improve Coordination** — Strengthen context sharing, communication, task routing, and parallel execution.
+-🛡️ **Enhance Reliability** — Improve setup, monitoring, error recovery, verification, and overall user experience.
 
 ## For agents
 
