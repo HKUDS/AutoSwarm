@@ -17,7 +17,7 @@
 
 </div>
 
-### Why AutoSwarm?
+## Why AutoSwarm?
 
 <div align="center">
   
