@@ -93,7 +93,7 @@ Then start any task with:
 Use AutoSwarm to read these 100 documents and summarize the key approaches and disagreements.
 ```
 
-AutoSwarm automatically selects the right agents, shares relevant context, and coordinates parallel or dependent work as the task progresses.
+AutoSwarm selects, connects, and coordinates the right agents for every task.
 
 ## 🤖 AutoSwarm in Action
 
@@ -106,7 +106,7 @@ https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
 
 ## 📰 News
 
-- **OpenOPC → AutoSwarm:** v2 brings the swarm into the agents you already use. The complete v1.0.0 implementation is preserved in the [archive](autoswarm-v1.0.0/ARCHIVE.md).
+- **AutoSwarm is live!**: Full technical details and multi-agent coordination algorithms are available in the [archive](autoswarm-v1.0.0/ARCHIVE.md).
 
 ## What's next
 
