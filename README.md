@@ -25,7 +25,7 @@ Different agents come with different:
 - **Capabilities** — coding, research, browsing, office work, writing, computer use, and social networking;
 - **Context and Memory** — each agent maintains its own context, with little or no sharing across agents;
 - **Tools and Workflows** — each agent follows its own interaction patterns and execution process;
-- **Data and Application Ecosystems** — agents are connected to different platforms, services, files, and data sources.
+- **Data and Application Ecosystems** — agents are connected to different platforms, services, files, and data.
 
 Today, you are forced to switch interfaces, repeat information, coordinate subtasks, and manually combine results.
 
