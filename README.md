@@ -114,7 +114,7 @@ https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
 -🤝 **Improve Coordination** — Strengthen context sharing, communication, task routing, and parallel execution.<br>
 -🛡️ **Enhance Reliability** — Improve setup, monitoring, error recovery, verification, and overall user experience.
 
-## For agents
+## For agents: How to use AutoSwarm
 
 <details>
 <summary>Installation and updates — instructions for the configuring agent (click to expand)</summary>
