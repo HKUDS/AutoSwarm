@@ -15,8 +15,12 @@
 
 [![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat)](./COMMUNICATION.md) [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
 
+</div>
+
 ### Why AutoSwarm
 
+<div align="center">
+  
 **No single agent can do it all. You don’t need another agent—you need all your agents working as one.**
 
 </div>
