@@ -13,8 +13,6 @@
 
 **Unify your agents. Unify your context. Work as One**
 
-[![Clones since 2026-10-10](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHKUDS%2FAutoSwarm%2Fdownload-stats%2Fclones-badge.json)](https://github.com/HKUDS/AutoSwarm/tree/download-stats)
-[![Release downloads since 2026-10-10](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHKUDS%2FAutoSwarm%2Fdownload-stats%2Frelease-downloads-badge.json)](https://github.com/HKUDS/AutoSwarm/tree/download-stats)
 [![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat)](./COMMUNICATION.md) [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
 
 ### Why AutoSwarm
@@ -99,9 +97,11 @@ Your agent chooses collaborators and adapts parallel and dependent work as it pr
 ### Install
 
 1. Inspect the current host and existing Python 3.10+ / CLI installations. Reuse native models, credentials, proxy settings and project context. Ask before installing a missing provider CLI; configure only the agents needed.
-2. From this checkout, install the package and Skill for the **current host**. Example for Codex:
+2. For a first installation, use `git clone` to obtain the official repository, then install the package and Skill for the **current host**. Reuse an existing checkout when available. Example for Codex:
 
    ```bash
+   git clone https://github.com/HKUDS/AutoSwarm.git
+   cd AutoSwarm
    uv tool install --force .
    autoswarm setup --host codex
    ```

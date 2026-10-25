@@ -14,9 +14,6 @@ https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
 
 [English](README.md)
 
-[![自 2026-10-10 起的克隆次数](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHKUDS%2FAutoSwarm%2Fdownload-stats%2Fclones-badge.json)](https://github.com/HKUDS/AutoSwarm/tree/download-stats)
-[![自 2026-10-10 起的发行附件下载次数](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHKUDS%2FAutoSwarm%2Fdownload-stats%2Frelease-downloads-badge.json)](https://github.com/HKUDS/AutoSwarm/tree/download-stats)
-
 **让你常用的 agent，带领多个 agent 协作。**
 
 将 AutoSwarm 作为轻量插件接入正在使用的 agent，由它按需组织本地多个 agent 产品协作，负责分工、沟通与结果整合。你只需像往常一样提出任务。
@@ -83,9 +80,11 @@ https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
 ### 安装
 
 1. 确认当前宿主及已有 Python 3.10+、CLI 安装，复用原生模型、认证、代理和项目上下文。确实缺少所需 CLI 才询问是否安装，只配置需要的 agent。
-2. 在仓库中安装包，并为**当前宿主**安装 Skill。以 Codex 为例：
+2. 首次安装使用 `git clone` 获取官方仓库，再安装包并为**当前宿主**安装 Skill；已有仓库时直接复用。以 Codex 为例：
 
    ```bash
+   git clone https://github.com/HKUDS/AutoSwarm.git
+   cd AutoSwarm
    uv tool install --force .
    autoswarm setup --host codex
    ```
