@@ -1,11 +1,7 @@
 <div align="center">
 
 <h1>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/autoswarm/autoswarm-icon.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/autoswarm/autoswarm-icon-on-light.svg">
-    <img src="docs/assets/autoswarm/autoswarm-icon-on-light.svg" width="48" height="48" align="absmiddle" alt="">
-  </picture>
+  <img src="docs/assets/autoswarm/AutoSwarm-logo.png" width="48" height="48" align="absmiddle" alt="AutoSwarm logo">
   AutoSwarm: All Your Agents, Working as One
 </h1>
 
@@ -100,7 +96,7 @@ AutoSwarm selects, connects, and coordinates the right agents for every task.
 <div align="center">
 
 <!-- GitHub-native video attachment, hosted in https://github.com/HKUDS/AutoSwarm/issues/67. -->
-https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
+https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
 
 </div>
 
