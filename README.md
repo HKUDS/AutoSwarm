@@ -26,23 +26,23 @@
 </div>
 
 Different agents come with different:
-- 🛠️**Capabilities** — coding, research, browsing, office work, writing, computer use, and social networking;
-- 🧠**Context and Memory** — each agent maintains its own context, with little or no sharing across agents;
-- ⚙️**Tools and Workflows** — each agent follows its own interaction patterns and execution process;
-- 🌐**Data and Application Ecosystems** — agents are connected to different platforms, services, files, and data.
+- 🛠️ **Capabilities** — coding, research, browsing, office work, writing, computer use, and social networking;
+- 🧠 **Context and Memory** — each agent maintains its own context, with little or no sharing across agents;
+- ⚙️ **Tools and Workflows** — each agent follows its own interaction patterns and execution process;
+- 🌐 **Data and Application Ecosystems** — agents are connected to different platforms, services, files, and data.
 
 Today, you are forced to switch interfaces, repeat information, coordinate subtasks, and manually combine results.
 
 **AutoSwarm turns fragmented agents into one coordinated team.**
 
 Give AutoSwarm a task once. It unifies all your agents into one coordinated team:
--**Selects the right agents** based on their capabilities;
--**Shares context and memory** across agents;
--**Connects complementary tools** and workflows;
--**Bridges data** and application ecosystems;
--**Runs tasks in parallel** for faster execution;
--**Coordinates agent collaboration** and keeps everyone aligned;
--**Verifies and synthesizes results** into one coherent answer.
+- **Selects the right agents** based on their capabilities;
+- **Shares context and memory** across agents;
+- **Connects complementary tools** and workflows;
+- **Bridges data** and application ecosystems;
+- **Runs tasks in parallel** for faster execution;
+- **Coordinates agent collaboration** and keeps everyone aligned;
+- **Verifies and synthesizes results** into one coherent answer.
 
 ## 🤖 Supported Agents
 
