@@ -75,6 +75,26 @@ Works across Windows, macOS, and Linux. Use AutoSwarm through:
 
 AutoSwarm supports local command execution.
 
+## 🚀 Easy to use
+
+One Lightweight Plug-in. Any Agent as Your Entry Point. All Your Agent at Work.
+
+### How to Use AutoSwarm
+
+Give AutoSwarm to any agent you already use and ask:
+
+```bash
+Install or update AutoSwarm for this agent. Reuse my existing configuration and verify which locally installed agents are available.
+```
+
+Then start any task with:
+
+```bash
+Use AutoSwarm to read these 100 documents and summarize the key approaches and disagreements.
+```
+
+AutoSwarm automatically selects the right agents, shares relevant context, and coordinates parallel or dependent work as the task progresses.
+
 ## 🤖 AutoSwarm in Action
 
 <div align="center">
@@ -83,18 +103,6 @@ AutoSwarm supports local command execution.
 https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
 
 </div>
-
-## 🚀 Get started
-
-Give your current agent this repository and ask:
-
-> Install or update AutoSwarm for this agent. Reuse my existing configuration and verify the availability of my locally installed agents.
-
-For everyday use, start a task with **“Use autoswarm”**:
-
-> Use autoswarm to read these 100 documents and summarize the technical approaches and key disagreements.
-
-Your agent chooses collaborators and adapts parallel and dependent work as it progresses.
 
 ## 📰 News
 
