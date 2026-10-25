@@ -110,8 +110,8 @@ https://github.com/user-attachments/assets/4f6ee896-5f25-4c49-bce2-d5351f78521d
 
 ## 🗺️ Roadmap
 
--🔌 **Expand Integrations** — Support more agent products, models, tools, and native capabilities.
--🤝 **Improve Coordination** — Strengthen context sharing, communication, task routing, and parallel execution.
+-🔌 **Expand Integrations** — Support more agent products, models, tools, and native capabilities.<br>
+-🤝 **Improve Coordination** — Strengthen context sharing, communication, task routing, and parallel execution.<br>
 -🛡️ **Enhance Reliability** — Improve setup, monitoring, error recovery, verification, and overall user experience.
 
 ## For agents
