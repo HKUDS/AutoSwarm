@@ -11,21 +11,36 @@
 
 [简体中文](README.zh-CN.md)
 
+**Unify your agents. Unify your context. Work as One**
+
 [![Clones since 2026-10-10](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHKUDS%2FAutoSwarm%2Fdownload-stats%2Fclones-badge.json)](https://github.com/HKUDS/AutoSwarm/tree/download-stats)
 [![Release downloads since 2026-10-10](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHKUDS%2FAutoSwarm%2Fdownload-stats%2Frelease-downloads-badge.json)](https://github.com/HKUDS/AutoSwarm/tree/download-stats)
 [![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat)](./COMMUNICATION.md) [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
 
-**Let your go-to agent coordinate a team of agents.**
+### Why AutoSwarm
 
-Add AutoSwarm as a lightweight plugin to the agent you already use. Your agent brings local agent products together, delegates work, handles communication and integrates results. You describe the task as usual.
+**No single agent can do it all. You don’t need another agent—you need all your agents working as one.**
 
-## ✨ When AutoSwarm helps
+Different agents come with different:
+- **Capabilities** — coding, research, browsing, office work, writing, computer use, and social networking;
+- **Context and Memory** — each agent maintains its own context, with little or no sharing across agents;
+- **Tools and Workflows** — each agent follows its own interaction patterns and execution process;
+- **Data and Application Ecosystems** — agents are connected to different platforms, services, files, and data sources.
 
-- **🧩 Combine different capabilities.** Bring together agents and models with different strengths, tools and data access to complete tasks that span products.
-- **⚡ Get parallel work done sooner.** Split a 100-document reading task across agents and let the coordinator integrate their findings. Multiple instances of the same agent work too.
-- **🔍 Add an independent reviewer.** For important coding tasks, have one agent implement and another independently review and verify the work to improve delivery quality.
+Today, you are forced to switch interfaces, repeat information, coordinate subtasks, and manually combine results.
 
-## 🤖 Supported agents
+**AutoSwarm turns fragmented agents into one coordinated team.**
+
+Give AutoSwarm a task once. It unifies all your agents into one coordinated team:
+-**Selects the right agents** based on their capabilities;
+-**Shares context and memory** across agents;
+-**Connects complementary tools** and workflows;
+-**Bridges data** and application ecosystems;
+-**Runs tasks in parallel** for faster execution;
+-**Coordinates agent collaboration** and keeps everyone aligned;
+-**Verifies and synthesizes results** into one coherent answer.
+
+## 🤖 Supported Agents
 
 <table width="100%">
   <tr>
