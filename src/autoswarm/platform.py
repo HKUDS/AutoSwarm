@@ -96,11 +96,10 @@ def running(handle: dict | None) -> bool:
 
 
 def stop_child(process: subprocess.Popen) -> None:
-    if process.poll() is not None:
-        return
     if os.name == "nt":
-        subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"], capture_output=True)
-    else:
+        from ._winprocess import stop_tree
+        stop_tree(process)
+    elif process.poll() is None:
         try:
             os.killpg(process.pid, signal.SIGTERM)
         except ProcessLookupError:

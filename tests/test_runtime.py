@@ -19,6 +19,11 @@ from autoswarm.records import Records, SwarmError, read_json, write_json
 from autoswarm.setup import install
 from autoswarm.doctor import probe
 
+if __package__:
+    from .autoswarm_test_support import cleanup_temporary
+else:
+    from autoswarm_test_support import cleanup_temporary
+
 
 FIXTURE = Path(__file__).parent / "fixtures/provider.py"
 
@@ -35,23 +40,11 @@ class RuntimeTests(unittest.TestCase):
         for call_id in self.ids:
             engine.cancel(self.records, call_id)
         deadline = time.monotonic() + 10  # Test harness deadline, not product policy.
-        # Result publication and runner exit are separate events. Wait for
-        # the actual log owner before deleting a fixture directory on Windows.
+        # Result publication, runner exit and launcher log release are
+        # separate events on Windows.
         while any(platform.running(read_json(self.records.call(value) / "handle.json")) for value in self.ids) and time.monotonic() < deadline:
             time.sleep(0.01)
-        while True:
-            try:
-                self.temporary.cleanup()
-                break
-            except OSError as error:
-                # Python 3.10 tempfile can wrap a sharing violation in
-                # NotADirectoryError while trying its permission recovery.
-                sharing = error
-                while sharing and getattr(sharing, "winerror", None) not in {32, 33}:
-                    sharing = sharing.__context__
-                if sharing is None or time.monotonic() >= deadline:
-                    raise
-                time.sleep(0.01)
+        cleanup_temporary(self.temporary, deadline)
 
     def start(self, provider="codex", prompt="hello", **kwargs):
         call = engine.start_call(self.records, provider, prompt, self.root, **kwargs)

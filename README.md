@@ -9,7 +9,7 @@
 
 **Unify your agents. Unify your context. Work as One**
 
-[![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat)](./COMMUNICATION.md) [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
+[![Paper](https://img.shields.io/badge/Paper-arXiv-B31B1B?style=flat&logo=arxiv&logoColor=white)](https://arxiv.org/abs/2610.33048) [![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat)](./COMMUNICATION.md) [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
 
 </div>
 
@@ -109,6 +109,19 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
 -🔌 **Expand Integrations** — Support more agent products, models, tools, and native capabilities.<br>
 -🤝 **Improve Coordination** — Strengthen context sharing, communication, task routing, and parallel execution.<br>
 -🛡️ **Enhance Reliability** — Improve setup, monitoring, error recovery, verification, and overall user experience.
+
+## 🌟 Citation
+
+If you find this work helpful to your research, please kindly consider citing our paper.
+
+```bibtex
+@misc{li2026autoswarm,
+      title={AutoSwarm: Automating Agent Swarms},
+      author={Zhonghang Li and Zongwei Li and Chao Huang},
+      year={2026},
+      eprint={2610.33048}
+}
+```
 
 ## For agents: How to use AutoSwarm
 

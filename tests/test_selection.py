@@ -17,6 +17,11 @@ from autoswarm.native import Native, Output
 from autoswarm.records import Records, SwarmError, read_json, write_json
 from autoswarm.selection import configure_acp, cursor_parameters, native_environment, validate_opencode_effort
 
+if __package__:
+    from .autoswarm_test_support import cleanup_temporary
+else:
+    from autoswarm_test_support import cleanup_temporary
+
 FIXTURE = Path(__file__).parent / "fixtures/provider.py"
 
 
@@ -38,8 +43,10 @@ class SelectionTests(unittest.TestCase):
             if time.monotonic() > deadline:
                 self.fail("Fixture runner did not exit")
             time.sleep(.02)
-        self.tmp.cleanup()
-        self.environment.stop()
+        try:
+            cleanup_temporary(self.tmp, deadline)
+        finally:
+            self.environment.stop()
 
     def run_child(self, provider, **kwargs):
         trace = self.root / (provider + ".jsonl")

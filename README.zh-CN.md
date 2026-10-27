@@ -14,6 +14,8 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
 
 将 AutoSwarm 作为轻量插件接入正在使用的 agent，由它按需组织本地多个 agent 产品协作，负责分工、沟通与结果整合。你只需像往常一样提出任务。
 
+[![Paper](https://img.shields.io/badge/Paper-arXiv-B31B1B?style=flat&logo=arxiv&logoColor=white)](https://arxiv.org/abs/2610.33048) [![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat)](./COMMUNICATION.md) [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
+
 </div>
 
 ## ✨ 三个适合 AutoSwarm 的场景
@@ -67,6 +69,19 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
 
 - 接入更多 agent 产品及原生能力。
 - 持续完善协作、通信、可靠性与安装使用体验。
+
+## 🌟 Citation
+
+If you find this work helpful to your research, please kindly consider citing our paper.
+
+```bibtex
+@misc{li2026autoswarm,
+      title={AutoSwarm: Automating Agent Swarms},
+      author={Zhonghang Li and Zongwei Li and Chao Huang},
+      year={2026},
+      eprint={2610.33048}
+}
+```
 
 ## 给 agent 的说明
 

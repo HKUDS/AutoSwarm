@@ -15,6 +15,11 @@ from autoswarm.providers import canonical, invocation
 from autoswarm.records import Records, SwarmError, read_json, write_json
 from autoswarm.selection import dsh_model_value
 
+if __package__:
+    from .autoswarm_test_support import cleanup_temporary
+else:
+    from autoswarm_test_support import cleanup_temporary
+
 
 class ProviderLaunchTests(unittest.TestCase):
     def test_new_native_launchers_preserve_default_permissions(self):
@@ -95,7 +100,7 @@ class NanobotBridgeTests(unittest.TestCase):
             time.sleep(.01)
         self.assertEqual(self.config.read_bytes(),self.original)
         self.env.stop()
-        self.tmp.cleanup()
+        cleanup_temporary(self.tmp,end)
 
     def start(self,text,**options):
         call=engine.start_call(self.records,'nanobot',text,self.root,return_mode='wait',**options)

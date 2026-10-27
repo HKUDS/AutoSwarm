@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -8,13 +9,71 @@ import time
 import unittest
 import uuid
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from autoswarm import approvals, engine, messages, platform
 from autoswarm.providers import BINARIES
 from autoswarm.records import Records, SwarmError, read_json, write_json
 
+if __package__:
+    from .autoswarm_test_support import cleanup_temporary
+else:
+    from autoswarm_test_support import cleanup_temporary
+
+
 FIXTURE = Path(__file__).parent / "fixtures/conversation.py"
+
+
+class MessageCleanupTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt", "Windows file-sharing contract")
+    def test_cleanup_retries_a_real_open_runner_log(self):
+        temporary = tempfile.TemporaryDirectory()
+        root = Path(temporary.name)
+        stream = (root / "runner.log").open("w")
+        original = temporary.cleanup
+        calls = []
+        def cleanup():
+            calls.append(True)
+            try:
+                original()
+            except OSError:
+                stream.close()  # Simulate the launcher releasing its log.
+                raise
+        try:
+            with patch.object(temporary, "cleanup", side_effect=cleanup):
+                cleanup_temporary(temporary, time.monotonic() + 3)
+            self.assertEqual(len(calls), 2)
+            self.assertFalse(root.exists())
+        finally:
+            stream.close()
+            original()
+
+    def test_cleanup_does_not_retry_real_access_denial(self):
+        denied = PermissionError("real access denial")
+        denied.winerror = 5
+        temporary = SimpleNamespace(cleanup=Mock(side_effect=denied))
+        with self.assertRaises(PermissionError) as error:
+            cleanup_temporary(temporary, time.monotonic() + 3)
+        self.assertIs(error.exception, denied)
+        temporary.cleanup.assert_called_once()
+
+    def test_cleanup_keeps_the_existing_deadline(self):
+        sharing = PermissionError("sharing conflict")
+        sharing.winerror = 32
+        temporary = SimpleNamespace(cleanup=Mock(side_effect=sharing))
+        with self.assertRaises(PermissionError):
+            cleanup_temporary(temporary, time.monotonic() - 1)
+        temporary.cleanup.assert_called_once()
+
+    def test_cleanup_recognizes_wrapped_windows_sharing_errors(self):
+        sharing = PermissionError("sharing conflict")
+        sharing.winerror = 32
+        wrapped = NotADirectoryError("temporary-directory cleanup wrapper")
+        wrapped.__context__ = sharing
+        temporary = SimpleNamespace(cleanup=Mock(side_effect=[wrapped, None]))
+        cleanup_temporary(temporary, time.monotonic() + 3)
+        self.assertEqual(temporary.cleanup.call_count, 2)
 
 
 class MessageTests(unittest.TestCase):
@@ -39,8 +98,9 @@ class MessageTests(unittest.TestCase):
     def tearDown(self):
         for path, task in self.records.calls():
             engine.cancel(self.records, task["call_id"])
+        deadline = time.monotonic() + 15  # Existing test cleanup budget.
         self.eventually(lambda: all(not platform.running(read_json(path / "handle.json")) for path, _ in self.records.calls()))
-        self.tmp.cleanup()
+        cleanup_temporary(self.tmp, deadline)
 
     def start(self, provider="codex", name=None, peers=None, approval=False, **selection):
         key = uuid.uuid4().hex

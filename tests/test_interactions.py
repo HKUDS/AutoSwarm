@@ -225,6 +225,10 @@ class InteractionTests(unittest.TestCase):
         self.assertIn("Native schema changed", retry["reply_error"]["error"])
         self.assertEqual(n.broker.errors, [])
         self.assertFalse(n.turn_done.is_set())
+        # Reopening the request and publishing its diagnostic are separate
+        # worker steps. Wait for the event without consuming its receipt.
+        self.until(lambda: any(v.get("kind") == "communication_issue" for v in
+                               engine.receive(self.records, [request["call_id"]], mark_received=False, controller=self.parent)))
         events = engine.receive(self.records, [request["call_id"]], controller=self.parent)
         self.assertTrue(any(v["kind"] == "communication_issue" for v in events))
         self.answer(n, {"action": "cancel"})

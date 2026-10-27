@@ -163,8 +163,13 @@ class Records:
     def config(self) -> dict:
         return read_json(self.home / "config.json", {})
 
-    def calls(self, parent: dict | None = None):
+    def calls(self, parent: dict | None = None, *, skip_unreadable: bool = False):
         for path in sorted((self.home / "calls").glob("call_*")):
-            task = read_json(path / "task.json")
+            try:
+                task = read_json(path / "task.json")
+            except PermissionError:
+                if not skip_unreadable:
+                    raise
+                continue
             if task and (parent is None or task.get("parent") == parent):
                 yield path, task

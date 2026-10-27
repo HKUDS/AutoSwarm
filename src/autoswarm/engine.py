@@ -124,7 +124,10 @@ def receive(records: Records, call_ids: list[str], *, mark_received: bool = True
         output.extend(messages.receive(records, caller, mark=mark_received))
         # Mail can resume an idle child into a new call. Its native approvals
         # still belong to this parent even when it waits on older call IDs.
-        for _, task in records.calls():
+        # Older private records can belong to another Windows security context.
+        # They must not block collection of the explicitly requested calls;
+        # direct access to an unreadable call still reports the permission error.
+        for _, task in records.calls(skip_unreadable=True):
             if task.get("controller_id") == caller and task["call_id"] not in call_ids:
                 for request in approvals.pending(records, task["call_id"], unseen=unseen):
                     output.append(request)
