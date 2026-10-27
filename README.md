@@ -13,6 +13,8 @@
 
 </div>
 
+<a href="https://trendshift.io/repositories/82651?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-82651" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/82651" alt="HKUDS%2FAutoSwarm | Trendshift" width="250" height="55"/></a>
+
 ## Why AutoSwarm?
   
 **No single agent can do everything. You don’t need another agent—you need all your agents working as one.**
