@@ -30,6 +30,8 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
 
 > 请为当前 agent 安装或更新 AutoSwarm，复用已有配置，验证本地已有 agent 的可用性。
 
+配置完成后，主 agent 会告诉你哪些助手已经可以协作。想加入其他助手，直接告诉它名称，它会负责配置和验证。
+
 日常需要 swarm 时，在任务前加上 **“使用 autoswarm”**，例如：
 
 > 使用 autoswarm，阅读这 100 份资料，归纳技术路线与主要分歧。
@@ -110,7 +112,7 @@ If you find this work helpful to your research, please kindly consider citing ou
 
    可重复 `--agent` 选择多个产品。该操作消耗模型调用，检查回复和原生续接；`verified: true` 才确认本次验证通过。版本检查仅发现可执行文件，原生认证列表为空不代表必须登录。遇到原生批准或提问，按已安装 Skill 的规则处理后完成验证。
 
-Setup 安装 Skill、运行时与宿主集成；按返回说明完成重载和信任操作。原生配置、权限及连接排障见[配置与恢复指引](src/autoswarm/assets/references/setup.md)。
+Setup 安装 Skill、运行时与宿主集成；按返回说明完成重载和信任操作，再简要列出已验证可协作的助手，并说明用户可以直接提出想接入的助手名称。如果暂时没有可用协作者，提出合适的接入建议；补齐必要安装授权后，由主 agent 配置并验证。原生配置、权限及连接排障见[配置与恢复指引](src/autoswarm/assets/references/setup.md)。
 
 ### 更新已有安装
 
@@ -124,7 +126,7 @@ autoswarm setup --host codex
 
 替换为实际宿主，沿用原 AutoSwarm home 和安装位置。需要时在 `setup` 前保留 `--home <原home>`，并保留自定义 `--skill-dir`、`--settings-file`、`--plugin-dir`；分别刷新使用中的宿主安装。使用 pip 时，在原专用环境执行 `python -m pip install --force-reinstall .`，再用 `python -m autoswarm setup --host codex` 携带相同选项更新。
 
-必须**从新版包运行 setup**：已安装 Skill 自带运行时副本，只更新仓库或 Python 包不会刷新它；旧 Skill 启动器不能自行获取新版。保留配置、记录和原生认证，按宿主要求重载，读取新版 Skill 并验证所需 agent。当前不自动更新。详见[更新指引](src/autoswarm/assets/references/setup.md#upgrades)。
+必须**从新版包运行 setup**：已安装 Skill 自带运行时副本，只更新仓库或 Python 包不会刷新它；旧 Skill 启动器不能自行获取新版。保留配置、记录和原生认证，按宿主要求重载，读取新版 Skill 并验证所需 agent，最后提供与首次安装相同的简短协作者说明。当前不自动更新。详见[更新指引](src/autoswarm/assets/references/setup.md#upgrades)。
 
 ### 使用与恢复
 

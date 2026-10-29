@@ -71,7 +71,7 @@ AutoSwarm works across Windows, macOS, and Linux. Use AutoSwarm through:
 - **IDE extensions**
 - **Skill-enabled agent environments**
 
-AutoSwarm supports local command execution.
+The main host needs Skill support and local command execution. Collaborators need compatible local CLIs; your assistant can help connect missing ones.
 
 ## 🚀 Easy to use
 
@@ -84,6 +84,8 @@ Give AutoSwarm to any agent you already use and ask:
 ```bash
 Install or update AutoSwarm for this agent. Reuse my existing configuration and verify which locally installed agents are available.
 ```
+
+Your assistant will report which collaborators are ready. To add another, tell it the agent's name; it will handle setup and verification.
 
 Then start any task with:
 
@@ -152,7 +154,7 @@ If you find this work helpful to your research, please kindly consider citing ou
 
    Repeat `--agent` for several providers. This spends model calls to check a reply and native resume; `verified: true` confirms the probe. Version checks only establish executable discovery. An empty native authentication list does not prove that login is required. Handle pending native approvals/questions under the installed Skill's rules, then finish verification.
 
-Setup installs the Skill, its runtime and the host's integration. Follow the returned reload/trust instructions. See [configuration and recovery](src/autoswarm/assets/references/setup.md) for native profiles, permissions and connection diagnostics.
+Setup installs the Skill, its runtime and the host's integration. Follow the returned reload/trust instructions, then briefly name the verified collaborators and explain that the user can request others by name. If none are ready, propose connecting a suitable agent; obtain any missing installation authorization and handle configuration and verification. See [configuration and recovery](src/autoswarm/assets/references/setup.md) for native profiles, permissions and connection diagnostics.
 
 ### Update an existing installation
 
@@ -166,7 +168,7 @@ autoswarm setup --host codex
 
 Use the actual host, existing AutoSwarm home and original installation destinations. Put `--home <existing-home>` before `setup` when needed; retain custom `--skill-dir`, `--settings-file` and `--plugin-dir` values. Refresh each host installation in use. For pip installations, use the existing dedicated interpreter to run `python -m pip install --force-reinstall .`, then `python -m autoswarm setup --host codex` with the same options.
 
-Run setup **from the updated package**: the installed Skill has its own runtime copy, so updating the checkout or package alone is insufficient. The old Skill launcher cannot fetch a new version. Keep configuration, records and native authentication, reload the host as required, read the refreshed Skill and verify the requested providers. There is no automatic updater. See [upgrade details](src/autoswarm/assets/references/setup.md#upgrades).
+Run setup **from the updated package**: the installed Skill has its own runtime copy, so updating the checkout or package alone is insufficient. The old Skill launcher cannot fetch a new version. Keep configuration, records and native authentication, reload the host as required, read the refreshed Skill and verify the needed providers. Finish with the same brief collaborator summary as installation. There is no automatic updater. See [upgrade details](src/autoswarm/assets/references/setup.md#upgrades).
 
 ### Use and recover
 
