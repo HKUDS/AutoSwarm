@@ -59,9 +59,37 @@
     "2026-10-24": {
       "count": 145,
       "uniques": 81
+    },
+    "2026-10-25": {
+      "count": 521,
+      "uniques": 191
+    },
+    "2026-10-26": {
+      "count": 269,
+      "uniques": 136
+    },
+    "2026-10-27": {
+      "count": 213,
+      "uniques": 143
+    },
+    "2026-10-28": {
+      "count": 730,
+      "uniques": 397
+    },
+    "2026-10-29": {
+      "count": 183,
+      "uniques": 117
+    },
+    "2026-10-30": {
+      "count": 126,
+      "uniques": 83
+    },
+    "2026-10-31": {
+      "count": 186,
+      "uniques": 85
     }
   },
-  "last_collected_at": "2026-10-25T08:26:35.876275+00:00",
+  "last_collected_at": "2026-11-01T10:29:38.124997+00:00",
   "release_assets": {},
   "repository": "HKUDS/AutoSwarm",
   "schema_version": 1,

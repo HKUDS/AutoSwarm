@@ -2,12 +2,12 @@
 
 Repository: [HKUDS/AutoSwarm](https://github.com/HKUDS/AutoSwarm)  
 Counting from: **2026-10-10 (UTC)**  
-Last collected: 2026-10-25T08:26:35.876275+00:00  
-Latest clone date returned by GitHub: 2026-10-24
+Last collected: 2026-11-01T10:29:38.124997+00:00  
+Latest clone date returned by GitHub: 2026-10-31
 
 | Metric | Recorded count |
 | --- | ---: |
-| Full repository clones since 2026-10-10 | 1,365 |
+| Full repository clones since 2026-10-10 | 3,593 |
 | Release asset downloads since the baseline | 0 |
 
 Daily clone records are merged by UTC date, including later corrections. Dates not returned by GitHub are not filled with zero; data after the latest reported date is pending. Daily unique cloners remain separate and are never summed into lifetime users.
