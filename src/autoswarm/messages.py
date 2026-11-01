@@ -87,7 +87,20 @@ def resolve(records, target, sender):
     if target == "parent":
         target = source.get("owner_id")
     if re.fullmatch(r"call_[a-f0-9]{32}", target or ""):
-        _, task = records.require(target)
+        # If the target belongs to a remote peer, trust the local agent.json stub
+        # without requiring the matching call record on this machine.
+        local_agent = read_json(records.home / "agents" / target / "agent.json", {})
+        if local_agent.get("remote_peer"):
+            return local_agent["agent_id"]
+        try:
+            _, task = records.require(target)
+        except SwarmError:
+            # Allow a remote peer stub to be addressed even if the call record
+            # is missing, by falling back to the agent.json identity.
+            local_agent = read_json(records.home / "agents" / target / "agent.json", {})
+            if local_agent.get("agent_id"):
+                return local_agent["agent_id"]
+            raise
         return task.get("agent_id", target)
     if re.fullmatch(r"main_[a-f0-9]{32}", target or ""):
         agent(records, target)
@@ -150,6 +163,19 @@ def receive(records, target, *, mark=True):
     return values
 
 
+def _is_remote(records, target):
+    """Return the configured remote peer name if the target lives on another host."""
+    from .remote import get_transport
+    transport = get_transport(records)
+    if not transport:
+        return None
+    value = agent(records, target)
+    peer_name = value.get("remote_peer")
+    if peer_name and peer_name in transport._peers:
+        return peer_name
+    return None
+
+
 def send(records, target, content, *, sender=None, interrupt=False, reply_to=None, kind="agent_message", internal=False):
     sender = sender or identity(records)
     target = resolve(records, target, sender)
@@ -171,6 +197,21 @@ def send(records, target, content, *, sender=None, interrupt=False, reply_to=Non
                "interrupt": interrupt, "reply_to": reply_to, "created_at": now()}
     path = agent_path(records, target) / "messages" / message_id
     write_json(path / "message.json", message)
+    remote_peer = _is_remote(records, target)
+    if remote_peer:
+        try:
+            from .remote import get_transport
+            transport = get_transport(records)
+            if transport:
+                response = transport.send_to_peer(remote_peer, "mail", message)
+                if response.get("ok"):
+                    write_json(path / "delivery.json", {"state": "submitted", "mechanism": "remote_peer", "at": now()})
+                    return {**message, "delivery": read_json(path / "delivery.json", {"state": "queued"})}
+                else:
+                    raise SwarmError("remote_delivery_failed", response.get("error", {}).get("message", "Remote peer rejected the message"))
+        except Exception as error:
+            issue(records, target, message, "remote_delivery_failed", str(error))
+        return {**message, "delivery": read_json(path / "delivery.json", {"state": "queued"})}
     try:
         wake_message(records, message)
     except Exception as error:
