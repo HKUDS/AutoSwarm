@@ -13,13 +13,16 @@ ALIASES = {
     "github-copilot": "copilot", "muse-code": "muse", "meta-muse-code": "muse", "codebuddy-code": "codebuddy",
     "hermes-agent": "hermes", "nanobot-ai": "nanobot", "deepseek-harness": "dsh",
     "grok-build": "grok", "grok_build": "grok",
+    "gemini-cli": "gemini", "google-gemini": "gemini",
 }
 BINARIES = {
     "codex": "codex", "claude-code": "claude", "opencode": "opencode",
     "cursor": "cursor-agent", "copilot": "copilot", "muse": "muse", "codebuddy": "codebuddy",
     "hermes": "hermes", "nanobot": "nanobot", "dsh": "dsh", "grok": "grok",
+    "gemini": "gemini",
 }
-ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok"}
+# Gemini CLI speaks ACP natively via `gemini --acp`.
+ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "gemini"}
 OWNED_SERVERS = ACP_PROVIDERS | {"opencode", "muse"}
 
 

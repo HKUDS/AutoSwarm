@@ -24,6 +24,7 @@ def install(records: Records, host: str, skill_dir: str | None = None, settings_
         "nanobot": Path.home() / ".nanobot/workspace/skills/autoswarm",
         "dsh": Path(os.environ.get("DSH_AGENTS_HOME", Path.home() / ".agents")) / "skills/autoswarm",
         "grok": Path.home() / ".grok/skills/autoswarm",
+        "gemini": Path.home() / ".gemini/skills/autoswarm",
     }
     if host == "nanobot" and not skill_dir:
         from .nanobot import skill_directory

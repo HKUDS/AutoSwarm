@@ -17,6 +17,7 @@ Use the installed CLI's current model catalog/configuration. Reuse native creden
 | Nanobot | Native SDK's explicit-model override | Native preset/default `reasoning_effort`, changed only in this process |
 | DSH | Advertised `provider/model` route or exact native ACP option value | Advertised ACP `reasoning_effort` values |
 | Grok Build (`grok`) | Native `--model` | Native `--reasoning-effort` |
+| Gemini CLI (`gemini`) | Native `--model`; ACP selection when advertised | Only if its installed ACP version advertises a control; otherwise retain native defaults |
 
 For example, with an accessible Codex model:
 
