@@ -59,7 +59,7 @@ Give AutoSwarm a task once. It unifies all your agents into one coordinated team
     <td align="center" width="25%"><p><img src="docs/assets/agents/nanobot.png" width="48" height="48" alt=""><br><strong>Nanobot</strong></p></td>
     <td align="center" width="25%"><p><img src="docs/assets/agents/dsh.svg" width="48" height="48" alt=""><br><strong>DeepSeek Harness</strong></p></td>
     <td align="center" width="25%"><p><img src="docs/assets/agents/grok.svg" width="48" height="48" alt=""><br><strong>Grok Build</strong></p></td>
-    <td align="center" width="25%"><p><a href="#whats-next"><img src="docs/assets/agents/more.svg" width="48" height="48" alt=""><br><strong>More agents coming</strong></a></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/kimi.png" width="48" height="48" alt="Kimi Code logo"><br><strong>Kimi Code</strong></p></td>
   </tr>
 </table>
 
@@ -144,7 +144,7 @@ If you find this work helpful to your research, please kindly consider citing ou
    autoswarm setup --host codex
    ```
 
-   Other host IDs: `claude-code`, `opencode`, `cursor`, `copilot`, `muse`, `codebuddy`, `hermes`, `nanobot`, `dsh`, `grok`. Without uv, use a dedicated Python 3.10+ environment and `python -m pip install .`; keep its interpreter available. Do not reuse the archived v1 environment.
+   Other host IDs: `claude-code`, `opencode`, `cursor`, `copilot`, `muse`, `codebuddy`, `hermes`, `nanobot`, `dsh`, `grok`, `kimi`. Without uv, use a dedicated Python 3.10+ environment and `python -m pip install .`; keep its interpreter available. Do not reuse the archived v1 environment.
 3. Read the installed `SKILL.md` at the path returned by setup. It contains the launcher argv and usage instructions. Use that exact launcher when the App cannot find `autoswarm`. Run `agents` in the actual host environment; if needed, merge an existing CLI's absolute argv into `providers.<provider>.command` in the reported AutoSwarm home/config.json. Preserve unrelated settings.
 4. Verify requested providers in the actual project, replacing the example provider and directory as appropriate:
 

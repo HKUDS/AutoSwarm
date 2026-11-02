@@ -1,6 +1,6 @@
 # AutoSwarm v2 实现架构
 
-AutoSwarm 将一次委派变成原生 CLI 调用，将返回值送回发起它的主会话。主 agent 负责分工、选择 agent、管理工作区、判断结果及后续动作。主子角色属于当前调用；支持 Codex、Claude Code、OpenCode、Cursor、GitHub Copilot CLI、Meta Muse Code、CodeBuddy、Hermes、Nanobot、DSH 和 Grok Build。
+AutoSwarm 将一次委派变成原生 CLI 调用，将返回值送回发起它的主会话。主 agent 负责分工、选择 agent、管理工作区、判断结果及后续动作。主子角色属于当前调用；支持 Codex、Claude Code、OpenCode、Cursor、GitHub Copilot CLI、Meta Muse Code、CodeBuddy、Hermes、Nanobot、DSH、Grok Build 和 Kimi Code。
 
 ## 层级与文件
 
@@ -44,7 +44,7 @@ CLI 的 --background 仅控制工具是否立即返回，默认 return_mode=wait
 
 ## 原生批准交接
 
-Cursor、Copilot、CodeBuddy、Hermes、DSH 和 Grok Build 共用 stdio ACP 客户端：initialize 协商，session/new 后发起 session/prompt；续接按原生能力选择 session/load 或 session/resume，以 prompt 响应的 stopReason 判断最终状态，旧历史回放不混入新结果。session/request_permission 复用同一个批准 Broker，按原生 optionId 回答。allow_always 可能持久化，不能冒充会话级授权；当前只转交一次性批准。
+Cursor、Copilot、CodeBuddy、Hermes、DSH、Grok Build 和 Kimi Code 共用 stdio ACP 客户端：initialize 协商，session/new 后发起 session/prompt；续接按原生能力选择 session/load 或 session/resume，以 prompt 响应的 stopReason 判断最终状态，旧历史回放不混入新结果。session/request_permission 复用同一个批准 Broker，按原生 optionId 回答。allow_always 可能持久化，不能冒充会话级授权；当前只转交一次性批准。Kimi 使用 `kimi acp`，保留原生 config.toml、权限、Skill 和 MCP；模型与思考选择使用原生 ACP 控件。原生 AskUserQuestion 按工具调用 ID 关联后走表单回复，允许授权范围内的主 agent 回答；未关联的表单及 URL 授权仍需用户回答。
 
 Nanobot 没有原生 ACP 入口，由其 CLI 所属 Python 运行本地 `nanobot_bridge.py`，把同一 ACP 通道映射到原生 SDK 的 run_streamed、sessions 和取消接口。独立原生 session key 避免 HTTP 服务共用会话；原生配置负责模型、记忆、Skill 和工具，项目目录通过原生 workspace_scope 元数据传入，不替换 agent 的记忆工作区。因 SDK 无原生交互式批准通道，AutoSwarm 在新建及续接会话时默认写入 access_mode: full，使用原生 Full Access；可通过 Nanobot provider 参数 --access-mode restricted 显式选择受限模式。访问模式保存在会话元数据中，模型/强度覆盖仅在进程内生效。桥接没有增加第三方依赖或修改原生全局配置；错误沿原有诊断交给主 agent。DSH 保留原生 ACP profile 及配置叠加方式；Grok 使用独占 agent 入口，取消不会把工作留给共享 leader。
 

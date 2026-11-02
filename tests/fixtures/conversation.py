@@ -163,7 +163,7 @@ else:
             emit({"id": event["id"], "result": result})
         elif method in {"thread/start", "thread/resume", "session/start", "session/resume", "session/new", "session/load"}:
             result = {"thread": {"id": session}} if provider == "codex" else {"session": {"sessionId": session}} if provider == "muse" else {"sessionId": session}
-            if provider in {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok"}:
+            if provider in {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi"}:
                 result["configOptions"] = [{"id": "thought_level", "category": "thought_level", "options": [{"value": "native-effort"}]}]
             emit({"id": event["id"], "result": result})
         elif method == "session/set_model":

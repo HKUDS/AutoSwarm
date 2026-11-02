@@ -79,7 +79,7 @@ def _execute(records: Records, call_id: str) -> int:
                                 stdout_log.write(raw)
                                 stdout_log.flush()
                             native.feed(raw.decode("utf-8", errors="replace"))
-                        if task["provider"] != "opencode" and not output.terminal:
+                        if task["provider"] != "opencode" and not (output.terminal or output.cancelled):
                             failure.append("Native output closed before a final result; inspect stderr.log")
                     except BaseException as error:
                         output.error_code = getattr(error, "code", "native_protocol_error")
@@ -92,7 +92,25 @@ def _execute(records: Records, call_id: str) -> int:
                 while process.poll() is None:
                     if (directory / "cancel.json").exists() and not cancelled:
                         cancelled = True
-                        platform.stop_child(process)
+                        if task["provider"] == "kimi" and native.ready and not native.turn_done.is_set():
+                            # Kimi launches shells in independent process groups.
+                            # Cancel the turn, then close its native session before
+                            # killing ACP; background tools otherwise outlive it.
+                            progress("cancelling")
+                            try:
+                                native.interrupt(lambda error: failure.append(str(error)))
+                            except Exception as error:
+                                failure.append(str(error))
+                        else:
+                            platform.stop_child(process)
+                    if cancelled and native.turn_done.is_set():
+                        if task["provider"] == "kimi":
+                            if not closing:
+                                closing = True
+                                native.request("session/close", {"sessionId": output.session_id},
+                                               lambda _: platform.stop_child(process))
+                        else:
+                            platform.stop_child(process)
                     if failure or native.broker.errors:
                         failure.extend(native.broker.errors)
                         platform.stop_child(process)

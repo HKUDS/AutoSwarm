@@ -14,6 +14,7 @@ from autoswarm.nanobot import bridge_command, skill_directory
 from autoswarm.providers import canonical, invocation
 from autoswarm.records import Records, SwarmError, read_json, write_json
 from autoswarm.selection import dsh_model_value
+from autoswarm.setup import install
 
 if __package__:
     from .autoswarm_test_support import cleanup_temporary
@@ -22,14 +23,27 @@ else:
 
 
 class ProviderLaunchTests(unittest.TestCase):
+    def test_kimi_skill_respects_native_home_and_defaults(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            records = Records(root / 'state')
+            for env, expected in (({'KIMI_CODE_HOME': str(root / 'custom')}, root / 'custom/skills/autoswarm'),
+                                  ({}, root / '.kimi-code/skills/autoswarm')):
+                with patch.dict(os.environ, env, clear=True), patch('autoswarm.setup.Path.home', return_value=root), patch('autoswarm.setup.discover', return_value=[]):
+                    result = install(records, 'kimi')
+                self.assertEqual(result['skill'], str(expected))
+                self.assertEqual(result['native_return'], 'wait')
+                self.assertTrue((expected / 'SKILL.md').is_file())
+                self.assertFalse(any((expected / 'runtime').rglob('SKILL.md')))
+
     def test_new_native_launchers_preserve_default_permissions(self):
-        for provider, expected in [('hermes',['acp']),('dsh',['--profile','acp']),('grok',['agent','--no-leader','stdio'])]:
+        for provider, expected in [('hermes',['acp']),('dsh',['--profile','acp']),('grok',['agent','--no-leader','stdio']),('kimi',['acp'])]:
             task={'provider':provider}
             result=invocation(task,{'providers':{provider:{'command':[sys.executable]}}})
             self.assertEqual(result[1:],expected)
             self.assertFalse(task['native_options'])
             self.assertFalse({'--always-approve','--yolo','--ignore-rules'}.intersection(result))
-        for name,provider in [('grok-build','grok'),('deepseek-harness','dsh'),('hermes-agent','hermes'),('nanobot-ai','nanobot')]:
+        for name,provider in [('grok-build','grok'),('deepseek-harness','dsh'),('hermes-agent','hermes'),('nanobot-ai','nanobot'),('kimi-code','kimi'),('kimi-cli','kimi')]:
             self.assertEqual(canonical(name),provider)
 
     def test_dsh_selection_uses_advertised_full_route(self):

@@ -57,7 +57,7 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
     <td align="center" width="25%"><p><img src="docs/assets/agents/nanobot.png" width="48" height="48" alt=""><br><strong>Nanobot</strong></p></td>
     <td align="center" width="25%"><p><img src="docs/assets/agents/dsh.svg" width="48" height="48" alt=""><br><strong>DeepSeek Harness</strong></p></td>
     <td align="center" width="25%"><p><img src="docs/assets/agents/grok.svg" width="48" height="48" alt=""><br><strong>Grok Build</strong></p></td>
-    <td align="center" width="25%"><p><a href="#后续计划"><img src="docs/assets/agents/more.svg" width="48" height="48" alt=""><br><strong>更多 agent，持续接入</strong></a></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/kimi.png" width="48" height="48" alt="Kimi Code logo"><br><strong>Kimi Code</strong></p></td>
   </tr>
 </table>
 
@@ -102,7 +102,7 @@ If you find this work helpful to your research, please kindly consider citing ou
    autoswarm setup --host codex
    ```
 
-   其他宿主标识：`claude-code`、`opencode`、`cursor`、`copilot`、`muse`、`codebuddy`、`hermes`、`nanobot`、`dsh`、`grok`。没有 uv 时，在专用 Python 3.10+ 环境执行 `python -m pip install .`，保留该解释器，不复用归档 v1 环境。
+   其他宿主标识：`claude-code`、`opencode`、`cursor`、`copilot`、`muse`、`codebuddy`、`hermes`、`nanobot`、`dsh`、`grok`、`kimi`。没有 uv 时，在专用 Python 3.10+ 环境执行 `python -m pip install .`，保留该解释器，不复用归档 v1 环境。
 3. 读取 setup 返回路径下的 `SKILL.md`，其中包含完整启动参数与使用方法。App 找不到 `autoswarm` 时使用该启动器。在实际宿主环境运行 `agents`；已有 CLI 不在 PATH 时，将其绝对 argv 合并到返回的 AutoSwarm home/config.json 的 `providers.<provider>.command`，保留无关配置。
 4. 在实际项目中验证所需 agent，按实际情况替换示例产品与目录：
 

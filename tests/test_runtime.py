@@ -170,6 +170,29 @@ class RuntimeTests(unittest.TestCase):
                 result = engine.wait(self.records, [held])[0]
                 self.assertEqual(result["outcome"], "cancelled", {"result": result, "runner_log": (self.records.call(held) / "runner.log").read_text(errors="replace")})
 
+    def test_kimi_cancellation_stops_detached_native_tool_before_server_exit(self):
+        marker = self.root / "detached-kimi-tool"
+        call_id = self.start("kimi", "detached-tool:" + str(marker))
+        end = time.monotonic() + 10  # Fixture startup only.
+        while not marker.exists() and time.monotonic() < end:
+            time.sleep(.01)
+        self.assertTrue(marker.exists())
+        pid = int(marker.read_text())
+        identity = platform.identity(pid)
+        self.assertIsNotNone(identity)
+        def cleanup():
+            if platform.identity(pid) == identity:
+                import signal
+                os.kill(pid, signal.SIGTERM)
+        self.addCleanup(cleanup)
+        engine.cancel(self.records, call_id)
+        result = engine.wait(self.records, [call_id])[0]
+        self.assertEqual(result["outcome"], "cancelled", result)
+        self.assertIsNone(result["error"])
+        self.assertTrue(Path(str(marker) + ".cancelled").exists())
+        self.assertTrue(Path(str(marker) + ".closed").exists())
+        self.assertNotEqual(platform.identity(pid), identity)
+
     def test_acp_final_content_excludes_commentary_before_tools(self):
         for provider in sorted(ACP_PROVIDERS):
             with self.subTest(provider=provider):

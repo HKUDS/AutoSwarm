@@ -259,6 +259,74 @@ class InteractionTests(unittest.TestCase):
                 self.answer(n, {"action": "accept", "content": {"project": "本地"}}, actor="user")
                 self.resolved(n, request)
 
+    def test_kimi_native_form_is_delegated_and_validates_titled_choices(self):
+        n = self.native("kimi")
+        self.feed(n, "session/update", {"sessionId": "native-session", "update": {
+            "sessionUpdate": "tool_call", "toolCallId": "0:ask", "title": "AskUserQuestion"}}, None)
+        schema = {"type": "object", "required": ["q0", "q1"], "properties": {
+            "q0": {"type": "string", "oneOf": [{"const": "Alpha"}, {"const": "Beta"}]},
+            "q1": {"type": "array", "minItems": 1, "items": {"anyOf": [{"const": "中文"}, {"const": "🐝"}]}}}}
+        self.feed(n, "elicitation/create", {"sessionId": "native-session", "toolCallId": "0:ask",
+                                           "mode": "form", "requestedSchema": schema})
+        request = self.request(n)
+        self.assertFalse(request["user_required"])
+        for content in ({"q0": "invented", "q1": ["中文"]}, {"q0": "Alpha", "q1": []},
+                        {"q0": "Alpha", "q1": ["invented"]}):
+            with self.assertRaises(SwarmError):
+                self.answer(n, {"action": "accept", "content": content})
+            self.assertEqual(self.request(n)["request_id"], request["request_id"])
+        response = {"action": "accept", "content": {"q0": "Beta", "q1": ["中文", "🐝"]}}
+        self.answer(n, response)
+        self.resolved(n, request)
+        self.assertEqual(self.wire(n)[-1]["result"], response)
+
+    def test_kimi_unrelated_forms_urls_and_non_delegated_questions_still_require_user(self):
+        for mode, tool_id, delegated in (("form", "unrelated", True), ("url", "0:ask", True),
+                                         ("form", "0:ask", False)):
+            with self.subTest(mode=mode, tool_id=tool_id, delegated=delegated):
+                n = self.native("kimi", delegate_approvals=delegated)
+                self.feed(n, "session/update", {"sessionId": "native-session", "update": {
+                    "sessionUpdate": "tool_call", "toolCallId": "0:ask", "title": "AskUserQuestion"}}, None)
+                params = {"sessionId": "native-session", "mode": mode, "toolCallId": tool_id,
+                          "requestedSchema": {"type": "object"}, "url": "https://example.test/authorize"}
+                self.feed(n, "elicitation/create", params)
+                with self.assertRaises(SwarmError) as error:
+                    self.answer(n, {"action": "accept", **({"content": {}} if mode == "form" else {})})
+                self.assertEqual(error.exception.code, "user_answer_required")
+                request = self.answer(n, {"action": "cancel"}, actor="user")
+                self.resolved(n, request)
+
+    def test_kimi_fallback_permission_options_are_question_answers(self):
+        n = self.native("kimi")
+        self.feed(n, "session/request_permission", {"sessionId": "native-session",
+                  "toolCall": {"toolCallId": "ask", "title": "AskUserQuestion"}, "options": [
+                      {"optionId": "q0_opt_0", "kind": "allow_once", "name": "Alpha"},
+                      {"optionId": "q0_opt_1", "kind": "allow_once", "name": "Beta"},
+                      {"optionId": "q0_skip", "kind": "reject_once", "name": "Skip"}]})
+        request = self.request(n)
+        self.assertEqual(request["kind"], "interaction_required")
+        with self.assertRaises(SwarmError):
+            approvals.decide(self.records, n.task["call_id"], request["request_id"], "allow")
+        with self.assertRaises(SwarmError):
+            self.answer(n, {"optionId": "invented"})
+        self.answer(n, {"optionId": "q0_opt_1"})
+        self.resolved(n, request)
+        self.assertEqual(self.wire(n)[-1]["result"], {"outcome": {"outcome": "selected", "optionId": "q0_opt_1"}})
+
+    def test_kimi_interrupt_withdraws_native_question_and_stale_correlation(self):
+        n = self.native("kimi")
+        self.feed(n, "session/update", {"sessionId": "native-session", "update": {
+            "sessionUpdate": "tool_call", "toolCallId": "0:ask", "title": "AskUserQuestion"}}, None)
+        params = {"sessionId": "native-session", "toolCallId": "0:ask", "mode": "form",
+                  "requestedSchema": {"type": "object"}}
+        self.feed(n, "elicitation/create", params)
+        request = self.request(n)
+        n.adapter.interrupt()
+        self.assertEqual(self.resolved(n, request)["state"], "interrupted_for_message")
+        self.assertEqual(self.wire(n)[-1]["result"], {"action": "cancel"})
+        self.feed(n, "elicitation/create", params, "new-request")
+        self.assertTrue(self.request(n)["user_required"])
+
     def test_url_completion_withdraws_pending_consent_without_opening_url(self):
         n = self.native("copilot")
         self.feed(n, "elicitation/create", {"mode": "url", "message": "Log in", "url": "https://example.test/authorize", "elicitationId": "auth"})

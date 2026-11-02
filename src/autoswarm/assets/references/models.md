@@ -14,6 +14,7 @@ Use the installed CLI's current model catalog/configuration. Reuse native creden
 | CodeBuddy | Native ACP model ID | Advertised ACP `thought_level`/reasoning-effort control |
 | Muse | Native model ID via MSP session selection | Native MSP `session/setReasoningEffort` |
 | Hermes | Advertised ACP model ID via `session/set_model` | Only if its installed ACP version advertises a control; otherwise retain native defaults and report an explicit override as unsupported |
+| Kimi Code | Native configured model alias via ACP `model` selection | Advertised ACP `thinking` control; use its offered values, including model-specific effort levels when available |
 | Nanobot | Native SDK's explicit-model override | Native preset/default `reasoning_effort`, changed only in this process |
 | DSH | Advertised `provider/model` route or exact native ACP option value | Advertised ACP `reasoning_effort` values |
 | Grok Build (`grok`) | Native `--model` | Native `--reasoning-effort` |

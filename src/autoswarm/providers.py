@@ -13,13 +13,14 @@ ALIASES = {
     "github-copilot": "copilot", "muse-code": "muse", "meta-muse-code": "muse", "codebuddy-code": "codebuddy",
     "hermes-agent": "hermes", "nanobot-ai": "nanobot", "deepseek-harness": "dsh",
     "grok-build": "grok", "grok_build": "grok",
+    "kimi-code": "kimi", "kimi-cli": "kimi",
 }
 BINARIES = {
     "codex": "codex", "claude-code": "claude", "opencode": "opencode",
     "cursor": "cursor-agent", "copilot": "copilot", "muse": "muse", "codebuddy": "codebuddy",
-    "hermes": "hermes", "nanobot": "nanobot", "dsh": "dsh", "grok": "grok",
+    "hermes": "hermes", "nanobot": "nanobot", "dsh": "dsh", "grok": "grok", "kimi": "kimi",
 }
-ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok"}
+ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi"}
 OWNED_SERVERS = ACP_PROVIDERS | {"opencode", "muse"}
 
 
@@ -98,7 +99,7 @@ def invocation(task: dict, config: dict) -> list[str]:
         return [*bridge_command(command, config), *native_args,
                 *(["--model", options["model"]] if options.get("model") else []),
                 *(["--effort", options["effort"]] if options.get("effort") else [])]
-    elif name == "hermes":
+    elif name in {"hermes", "kimi"}:
         return [*command, "acp", *native_args]
     elif name == "dsh":
         return [*command, "--profile", "acp", *native_args]

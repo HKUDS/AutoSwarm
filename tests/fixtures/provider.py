@@ -7,6 +7,7 @@ import base64
 import sys
 import threading
 import time
+import subprocess
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from http_peer import LocalHTTPServer
@@ -44,6 +45,8 @@ def prepare(prompt):
             time.sleep(0.01)
     if prompt.startswith("hold:"):
         Path(prompt[5:]).write_text("started")
+        if provider == "kimi":
+            return prompt  # Remain responsive to the native cancellation RPC.
         while True:
             time.sleep(0.01)
     return prompt
@@ -54,7 +57,7 @@ def finished(prompt):
     if provider == "codex":
         emit({"method": "item/completed", "params": {"threadId": session, "item": {"type": "agentMessage", "text": text}}})
         emit({"method": "turn/completed", "params": {"threadId": session, "turn": {"id": "native-turn", "status": "failed" if prompt == "fail" else "completed"}}})
-    elif provider in {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok"}:
+    elif provider in {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi"}:
         if prompt == "with-tools":
             emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "INTERIM COMMENTARY"}}}})
             emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "tool_call", "toolCallId": "tool-1", "title": "fixture tool"}}})
@@ -186,10 +189,11 @@ if provider == "opencode":
     server.daemon_threads = True
     print("Native service ready (changed banner)", file=sys.stderr, flush=True)
     server.serve_forever()
-elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot", "dsh", "grok"}:
+elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot", "dsh", "grok", "kimi"}:
     marker = None
     prompt_id = None
     unsupported_replied = False
+    detached_tool = None
     for raw in sys.stdin:
         value = json.loads(raw)
         trace(value)
@@ -224,6 +228,16 @@ elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot",
                 assert uuid.UUID(params["commandId"]).version == 7
                 emit({"id": value["id"], "result": {}})
             prompt = prepare(params["input" if provider == "muse" else "prompt"][0]["text"])
+            if provider == "kimi" and prompt.startswith("hold:"):
+                marker = prompt[5:]
+                continue
+            if provider == "kimi" and prompt.startswith("detached-tool:"):
+                marker = prompt[len("detached-tool:"):]
+                detached_tool = subprocess.Popen([sys.executable, "-c",
+                    "import os,sys,time;from pathlib import Path;Path(sys.argv[1]).write_text(str(os.getpid()));time.sleep(60)", marker],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    **({"start_new_session": True} if os.name != "nt" else {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}))
+                continue
             if prompt.startswith("approval:"):
                 marker = prompt[9:]
                 if provider == "muse":
@@ -232,6 +246,17 @@ elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot",
                     emit({"id": "native-approval", "method": "session/request_permission", "params": {"sessionId": session, "toolCall": {"toolCallId": "tool-1", "title": "test-command", "kind": "execute", "rawInput": {"marker": marker}}, "options": [{"optionId": "yes", "kind": "allow_once", "name": "Allow once"}, {"optionId": "always", "kind": "allow_always", "name": "Allow always"}, {"optionId": "no", "kind": "reject_once", "name": "Reject once"}]}})
             else:
                 finished(prompt)
+        elif method == "session/cancel" and provider == "kimi":
+            if marker:
+                Path(marker + ".cancelled").write_text("native turn stopped")
+            emit({"id": prompt_id, "result": {"stopReason": "cancelled"}})
+        elif method == "session/close" and provider == "kimi":
+            if detached_tool:
+                detached_tool.terminate()
+                detached_tool.wait()
+            if marker:
+                Path(marker + ".closed").write_text("native background tools stopped")
+            emit({"id": value["id"], "result": {}})
         elif method == "approval/decide" or (value.get("id") == "native-approval" and "result" in value and provider != "muse"):
             allowed = params.get("choiceId") == "yes" if provider == "muse" else value["result"]["outcome"].get("optionId") == "yes"
             if method:

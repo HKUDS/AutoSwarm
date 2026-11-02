@@ -18,6 +18,12 @@ def validate(request, response):
         fail("Answer must be a JSON object; follow response_format in the request")
     kind = request["response_format"]
     params = request["native_request"]
+    if kind == "acp-question":
+        if response == {"action": "cancel"}:
+            return
+        if set(response) != {"optionId"} or response.get("optionId") not in {item.get("optionId") for item in params.get("options", [])}:
+            fail("Choose one advertised native optionId or use action cancel")
+        return
     if kind == "elicitation":
         if response.get("action") not in {"accept", "decline", "cancel"}:
             fail("Use action accept, decline or cancel")
@@ -145,6 +151,19 @@ def check_schema(value, schema):
         fail("Form content does not match native type " + expected)
     if "enum" in schema and value not in schema["enum"]:
         fail("Form value is outside the native enum")
+    if "const" in schema and value != schema["const"]:
+        fail("Form value does not match the native constant")
+    for keyword in ("oneOf", "anyOf"):
+        if keyword in schema:
+            matches = 0
+            for option in schema[keyword]:
+                try:
+                    check_schema(value, option)
+                    matches += 1
+                except SwarmError:
+                    pass
+            if matches == 0 or (keyword == "oneOf" and matches != 1):
+                fail("Form value does not match native " + keyword + " choices")
     if isinstance(value, dict):
         if not set(schema.get("required", [])) <= set(value):
             fail("Form is missing required fields")
@@ -155,6 +174,8 @@ def check_schema(value, schema):
             if key in props:
                 check_schema(item, props[key])
     elif isinstance(value, list) and isinstance(schema.get("items"), dict):
+        if len(value) < schema.get("minItems", 0) or ("maxItems" in schema and len(value) > schema["maxItems"]):
+            fail("Form selection does not meet the native item bounds")
         for item in value:
             check_schema(item, schema["items"])
 
@@ -170,4 +191,5 @@ def contract(kind):
         "opencode-question": '{"answers":[["label or text"], ["next question answer"]]}; or {"action":"cancel"}',
         "muse-question": '{"action":"answer","answers":[{"questionId":"id","selectedLabel":"label"}]}; use selectedLabels for multiple, freeText for text; action cancel or clarify also supported',
         "elicitation": '{"action":"accept","content":{...native requestedSchema...}}; or {"action":"decline"|"cancel"}. URL accept carries no content and requires actual user consent.',
+        "acp-question": '{"optionId":"exact native option ID"}; or {"action":"cancel"}. These options answer a question, not a tool permission.',
     }[kind]

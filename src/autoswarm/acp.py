@@ -12,6 +12,7 @@ class ACP:
         self.permissions = set()
         self.interactions = {}
         self.codebuddy_questions = {}
+        self.kimi_questions = set()
         self.permission_keys = {}
         self.permission_lock = threading.RLock()
         self.interrupted_for_message = False
@@ -76,6 +77,7 @@ class ACP:
                 self.n.broker.withdraw(native_id, "interrupted_for_message")
                 self.n.send({"id": request, "result": response})
             self.interactions.clear()
+            self.kimi_questions.clear()
             for request in list(self.permissions):
                 self.permissions.remove(request)
                 self.n.broker.withdraw(self.permission_keys.pop(request, request), "interrupted_for_message")
@@ -103,6 +105,7 @@ class ACP:
             self.interactions.clear()
             self.permission_keys.clear()
             self.codebuddy_questions.clear()
+            self.kimi_questions.clear()
         self.n.output.finish_reason = reason
         self.n.output.terminal = reason == "end_turn"
         self.n.output.cancelled = reason == "cancelled"
@@ -151,6 +154,9 @@ class ACP:
                 return
             update = params.get("update", {})
             meta = update.get("_meta", {})
+            if (self.n.task["provider"] == "kimi" and update.get("sessionUpdate") in {"tool_call", "tool_call_update"}
+                    and update.get("title") == "AskUserQuestion" and update.get("toolCallId")):
+                self.kimi_questions.add(update["toolCallId"])
             if self.n.task["provider"] == "codebuddy":
                 interruption = meta.get("codebuddy.ai/interruptionRequest")
                 if isinstance(interruption, dict) and interruption.get("toolName") == "AskUserQuestion":
@@ -205,14 +211,37 @@ class ACP:
                             {"outcome": {"outcome": "cancelled"}} if method == "_codebuddy.ai/question" else {"outcome": "cancelled"})
             with self.permission_lock:
                 self.interactions[event["id"]] = (native_id, cancellation)
+                # Kimi's native AskUserQuestion shares the elicitation form
+                # wire format. Only a correlated native question is eligible
+                # for parent delegation; MCP forms and URL consent stay user-only.
+                native_question = (self.n.task["provider"] == "kimi" and method == "elicitation/create"
+                                   and params.get("mode", "form") == "form"
+                                   and params.get("toolCallId") in self.kimi_questions)
                 self.n.broker.request(native_id, self.n.output.session_id, params, answer,
-                                      interaction=kind, user_required=kind == "elicitation")
+                                      interaction=kind, user_required=kind == "elicitation" and not native_question)
         elif method == "session/request_permission":
             if params.get("sessionId") != self.n.output.session_id:
                 self.n.unknown(event)
                 return
             tool = params.get("toolCall", {})
             tool_name = tool.get("_meta", {}).get("codebuddy.ai/toolName")
+            if self.n.task["provider"] == "kimi" and tool.get("title") == "AskUserQuestion":
+                # Native fallback when the form RPC is unavailable. These
+                # options are answers, never executable-tool permissions.
+                def answer_question(value):
+                    with self.permission_lock:
+                        if event["id"] not in self.interactions:
+                            raise SwarmError("interaction_not_pending", "Native question was withdrawn")
+                        response = value["response"]
+                        outcome = ({"outcome": "cancelled"} if response.get("action") == "cancel" else
+                                   {"outcome": "selected", "optionId": response["optionId"]})
+                        self.n.send({"id": event["id"], "result": {"outcome": outcome}})
+                        self.interactions.pop(event["id"], None)
+                with self.permission_lock:
+                    self.interactions[event["id"]] = (event["id"], {"outcome": {"outcome": "cancelled"}})
+                    self.n.broker.request(event["id"], self.n.output.session_id, params, answer_question,
+                                          interaction="acp-question")
+                return
             if self.n.task["provider"] == "codebuddy" and (tool_name == "AskUserQuestion" or tool.get("title") == "AskUserQuestion"):
                 self.codebuddy_question(tool, params, event["id"])
                 return

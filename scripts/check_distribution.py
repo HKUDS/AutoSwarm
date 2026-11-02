@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 
-PROVIDERS = ("codex", "claude-code", "opencode", "cursor", "copilot", "muse", "codebuddy", "hermes", "nanobot", "dsh", "grok")
+PROVIDERS = ("codex", "claude-code", "opencode", "cursor", "copilot", "muse", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi")
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -102,7 +102,7 @@ def main():
         assert json.loads(settings.read_text(encoding="utf-8"))["hooks"]["PostToolUse"][0]["hooks"][0]["asyncRewake"]
         plugin = invoke(["setup", "--host", "opencode", "--skill-dir", str(root / "opencode-skill"), "--plugin-dir", str(root / "plugins")])
         assert "__AUTOSWARM_COMMAND__" not in Path(plugin["plugin"]).read_text(encoding="utf-8")
-    print("Distribution passed: eleven providers, approval and question round trips, native resume, installed-launcher messaging and continuation, reinstall and bundled host integrations")
+    print("Distribution passed: twelve providers, approval and question round trips, native resume, installed-launcher messaging and continuation, reinstall and bundled host integrations")
 
 
 if __name__ == "__main__":
