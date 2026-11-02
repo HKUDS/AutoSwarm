@@ -14,15 +14,17 @@ ALIASES = {
     "hermes-agent": "hermes", "nanobot-ai": "nanobot", "deepseek-harness": "dsh",
     "grok-build": "grok", "grok_build": "grok",
     "gemini-cli": "gemini", "google-gemini": "gemini",
+    "antigravity-acp": "antigravity", "google-antigravity": "antigravity",
 }
 BINARIES = {
     "codex": "codex", "claude-code": "claude", "opencode": "opencode",
     "cursor": "cursor-agent", "copilot": "copilot", "muse": "muse", "codebuddy": "codebuddy",
     "hermes": "hermes", "nanobot": "nanobot", "dsh": "dsh", "grok": "grok",
-    "gemini": "gemini",
+    "gemini": "gemini", "antigravity": "agy_acp_server.par",
 }
 # Gemini CLI speaks ACP natively via `gemini --acp`.
-ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "gemini"}
+# Antigravity is Google's ACP server from the ACP registry (antigravity-acp); it takes no ACP flag.
+ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "gemini", "antigravity"}
 OWNED_SERVERS = ACP_PROVIDERS | {"opencode", "muse"}
 
 
@@ -105,6 +107,9 @@ def invocation(task: dict, config: dict) -> list[str]:
         return [*command, "acp", *native_args]
     elif name == "dsh":
         return [*command, "--profile", "acp", *native_args]
+    elif name == "antigravity":
+        # Speaks ACP on stdio by default; model selection uses ACP session controls.
+        return [*command, *native_args]
     elif name == "grok":
         command += ["agent", "--no-leader"]
         if options.get("model"):

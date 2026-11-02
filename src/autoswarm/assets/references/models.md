@@ -18,6 +18,7 @@ Use the installed CLI's current model catalog/configuration. Reuse native creden
 | DSH | Advertised `provider/model` route or exact native ACP option value | Advertised ACP `reasoning_effort` values |
 | Grok Build (`grok`) | Native `--model` | Native `--reasoning-effort` |
 | Gemini CLI (`gemini`) | Native `--model`; ACP selection when advertised | Only if its installed ACP version advertises a control; otherwise retain native defaults |
+| Antigravity (`antigravity`, ACP registry `antigravity-acp`) | ACP session model selection when advertised | Only if its ACP server advertises a control; otherwise retain native defaults |
 
 For example, with an accessible Codex model:
 
