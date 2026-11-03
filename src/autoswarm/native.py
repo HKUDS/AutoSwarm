@@ -14,6 +14,15 @@ from .records import SwarmError
 from .providers import ACP_PROVIDERS
 
 
+def auth_required(error):
+    data = error.get("data")
+    return error.get("code") == -32000 and ("auth" in str(error.get("message", "")).lower() or isinstance(data, dict) and data.get("category") == "auth")
+
+
+def rpc_error(error):
+    return SwarmError("native_auth_required" if auth_required(error) else "native_rpc_error", json.dumps(error, ensure_ascii=False))
+
+
 @dataclass
 class Output:
     session_id: str | None = None
@@ -124,8 +133,7 @@ class Native:
             if failure:
                 failure(error)
                 return
-            code = "native_auth_required" if error.get("code") == -32000 and ("auth" in error.get("message", "").lower() or (error.get("data") or {}).get("category") == "auth") else "native_rpc_error"
-            raise SwarmError(code, json.dumps(error, ensure_ascii=False))
+            raise rpc_error(error)
         callback(event.get("result", {}))
 
     def initial_prompt(self):
