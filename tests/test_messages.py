@@ -212,6 +212,22 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(messages.wait(self.records, sent_l["message_id"], sender=left["agent_id"])[0]["content"], "answer right")
         self.assertEqual(messages.wait(self.records, sent_r["message_id"], sender=right["agent_id"])[0]["content"], "answer left")
 
+    def test_claude_input_past_its_last_tool_boundary_runs_as_a_follow_up_turn(self):
+        # Recorded with Claude Code 2.1: stream-json input written during a turn is read at
+        # the next tool boundary, or (none left) run as a follow-up turn right after the result.
+        config = self.records.config()
+        config["providers"]["claude-code"]["command"].append("queue-insert")
+        write_json(self.records.home / "config.json", config)
+        call, gate, proof = self.start("claude-code")
+        sent = messages.send(self.records, call["agent_id"], "late question", sender=self.controller, interrupt=True)
+        self.eventually(lambda: messages.inspect(self.records, sent["message_id"])["delivery"]["state"] == "submitted")
+        self.assertEqual(self.reply(sent), [], "queued by Claude, not read mid-turn")
+        self.assertNotIn("cancelled", (self.root / ("events-" + call["agent_id"])).read_text(), "inserted, not interrupted")
+        gate.touch()
+        self.assertEqual(self.result(call)["outcome"], "completed")
+        self.assertTrue(self.reply(sent), "the call returned only after the follow-up turn answered")
+        self.assertEqual(proof.read_text(), "finished original assignment")
+
     def test_live_input_failure_is_reported_to_parent_and_original_task_survives(self):
         config = self.records.config()
         config["providers"]["codex"]["command"].append("reject-insert")

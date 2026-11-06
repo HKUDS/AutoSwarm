@@ -11,26 +11,15 @@ from .providers import discover
 from .records import Records, read_json, write_json
 
 
-def install(records: Records, host: str, skill_dir: str | None = None, settings_file: str | None = None, plugin_dir: str | None = None) -> dict:
-    defaults = {
-        "codex": Path.home() / ".agents/skills/autoswarm",
-        "claude-code": Path.home() / ".claude/skills/autoswarm",
-        "opencode": Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "opencode/skills/autoswarm",
-        "cursor": Path.home() / ".cursor/skills/autoswarm",
-        "copilot": Path.home() / ".copilot/skills/autoswarm",
-        "muse": Path.home() / ".agents/skills/autoswarm",
-        "codebuddy": Path.home() / ".codebuddy/skills/autoswarm",
-        "hermes": Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes")) / "skills/autoswarm",
-        "nanobot": Path.home() / ".nanobot/workspace/skills/autoswarm",
-        "dsh": Path(os.environ.get("DSH_AGENTS_HOME", Path.home() / ".agents")) / "skills/autoswarm",
-        "grok": Path.home() / ".grok/skills/autoswarm",
-        "kimi": Path(os.environ.get("KIMI_CODE_HOME", Path.home() / ".kimi-code")) / "skills/autoswarm",
-    }
-    if host == "nanobot" and not skill_dir:
+def install(records: Records, host: str, skill_dir: str | None = None, settings_file: str | None = None, plugin_dir: str | None = None, *, discover_agents: bool = True) -> dict:
+    from .skills import destination as skill_destination
+    if skill_dir:
+        destination = Path(skill_dir).expanduser().resolve()
+    elif host == "nanobot":
         from .nanobot import skill_directory
-        destination = skill_directory(records.config())
+        destination = skill_directory(records.config())  # Its own loader names the workspace (and its errors).
     else:
-        destination = Path(skill_dir).expanduser().resolve() if skill_dir else defaults[host].expanduser().resolve()
+        destination = skill_destination(host).expanduser().resolve()
     assets = Path(__file__).parent / "assets"
     destination.mkdir(parents=True, exist_ok=True)
     scripts = destination / "scripts"
@@ -79,5 +68,6 @@ def install(records: Records, host: str, skill_dir: str | None = None, settings_
         integration["note"] = "CODEX_THREAD_ID binds the current session automatically. Native callbacks also require its existing app-server endpoint; AUTOSWARM_CODEX_ENDPOINT or an explicit parent binding supplies it. Otherwise use wait."
     else:
         integration.update({"native_return": "wait", "note": "Use run/background and wait in the current turn to collect results and approvals. No original-session wake-up integration is installed for this host. Reload native skills if needed."})
-    integration["agents"] = discover(records.config())
+    if discover_agents:  # Desk, which installs one host at a time, already knows the agents.
+        integration["agents"] = discover(records.config())
     return integration

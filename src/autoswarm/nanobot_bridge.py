@@ -15,6 +15,7 @@ sys.path[:] = [p for p in sys.path if os.path.abspath(p or os.getcwd()) != _scri
 import argparse
 import asyncio
 import contextlib
+import io
 import json
 from pathlib import Path
 import uuid
@@ -31,6 +32,29 @@ def load_native_config(args):
     if args.workspace:
         config.agents.defaults.workspace = str(Path(args.workspace).expanduser().resolve())
     return config
+
+
+IDENTITY_KEYS = ("AUTOSWARM_CALL_ID", "AUTOSWARM_HOME", "PYTHONPATH")
+
+
+def autoswarm_commands(config):
+    """Let nanobot's commands use AutoSwarm the way other agents' commands do (this process only).
+
+    Its shell passes commands a minimal environment, which would drop the call's identity: an
+    agent started from here would not belong to this call. On Windows it runs each command in a
+    job that ends the command's processes with it; a runner started with `run --background` may
+    leave that job (only a process that asks to leave can), the others still end with it.
+    """
+    settings = getattr(getattr(config, "tools", None), "exec", None)
+    if settings is not None and isinstance(getattr(settings, "allowed_env_keys", None), list):
+        missing = [key for key in IDENTITY_KEYS if key in os.environ and key not in settings.allowed_env_keys]
+        with contextlib.suppress(TypeError, ValueError, AttributeError):
+            settings.allowed_env_keys = [*settings.allowed_env_keys, *missing]
+    if os.name == "nt":
+        with contextlib.suppress(ImportError):
+            from nanobot.agent.tools import _windows_job
+            if getattr(_windows_job, "_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE", None) == 0x2000:
+                _windows_job._JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000 | 0x800  # + JOB_OBJECT_LIMIT_BREAKAWAY_OK
 
 
 class Bridge:
@@ -54,7 +78,6 @@ class Bridge:
         from nanobot.agent.hooks import create_file_edit_activity_hook
         from nanobot.agent.tools.mcp import MCPProvider
         from nanobot.agent.tools.registry import ToolRegistry
-        from nanobot.providers.image_generation import image_gen_provider_configs
 
         config = load_native_config(self.args)
         if self.args.model:
@@ -65,10 +88,19 @@ class Bridge:
             config.resolve_preset().reasoning_effort = self.args.effort
             if not config.agents.defaults.model_preset or config.agents.defaults.model_preset == "default":
                 config.agents.defaults.reasoning_effort = self.args.effort
+        autoswarm_commands(config)
         tools = ToolRegistry()
+        extra = {}
+        try:
+            # nanobot 0.4 registers image generation as a tool before the loop is built.
+            from nanobot.agent.tools.image_generation import register_image_generation_tool
+        except ImportError:
+            from nanobot.providers.image_generation import image_gen_provider_configs
+            extra["image_generation_provider_configs"] = image_gen_provider_configs(config)
+        else:
+            register_image_generation_tool(config, tools, workspace=config.workspace_path)
         mcp = MCPProvider.from_config(config, tools)
-        loop = AgentLoop.from_config(config, image_generation_provider_configs=image_gen_provider_configs(config),
-                                     hook_factories=[create_file_edit_activity_hook], tool_registry=tools)
+        loop = AgentLoop.from_config(config, hook_factories=[create_file_edit_activity_hook], tool_registry=tools, **extra)
         # Same native SDK factory composition; only per-process config overrides.
         self.config = config
         return Nanobot(loop, config=config, mcp_provider=mcp)
@@ -81,8 +113,18 @@ class Bridge:
                 raise ValueError("Provide a text prompt")
             self.stream = await self.bot.run_streamed(text, session_key=self.session, channel="websocket", chat_id=self.session.split(":", 1)[1])
             async for event in self.stream.stream_events():
+                # What each tool is given and how it ended, as ACP agents report theirs (Desk shows the command).
+                arguments = getattr(event, "arguments", None)
                 if event.type == "tool.started":
-                    self.update({"sessionUpdate": "tool_call", "toolCallId": str(event.tool_call_id), "title": event.name or "native tool"})
+                    self.update({"sessionUpdate": "tool_call", "toolCallId": str(event.tool_call_id), "title": event.name or "native tool",
+                                 "status": "in_progress", **({"rawInput": arguments} if isinstance(arguments, dict) else {})})
+                elif event.type in {"tool.completed", "tool.failed"}:
+                    error = getattr(event, "error", None)
+                    self.update({"sessionUpdate": "tool_call_update", "toolCallId": str(event.tool_call_id),
+                                 "status": "completed" if event.type == "tool.completed" else "failed",
+                                 **({"content": [{"type": "content", "content": {"type": "text", "text": str(error)}}]} if error else {})})
+                elif event.type == "reasoning.delta" and getattr(event, "delta", ""):
+                    self.update({"sessionUpdate": "agent_thought_chunk", "content": {"type": "text", "text": event.delta}})
             result = await self.stream.wait()
             if result.error:
                 raise RuntimeError(result.error)
@@ -119,6 +161,11 @@ class Bridge:
             await self.bot.sessions.ingest(key, [], metadata={"workspace_scope": scope.metadata()})
             self.session = key
             result = {"sessionId": key}
+            # The configured model, as ACP agents advertise theirs (AutoSwarm's model list reads it);
+            # model and effort are chosen at launch (--model/--effort), never through a setter.
+            model = getattr(self.config.resolve_preset(), "model", None) or self.config.agents.defaults.model
+            if model:
+                result["models"] = {"availableModels": [{"modelId": model, "name": model}], "currentModelId": model}
         elif method == "session/prompt":
             if params.get("sessionId") != self.session or self.bot is None:
                 raise ValueError("Prompt belongs to another native session")
@@ -163,6 +210,23 @@ class Bridge:
                 await self.bot.aclose()
 
 
+def private_wire():
+    """Move the ACP wire to descriptors native tools do not inherit (dup'd ones are not, PEP 446).
+
+    A tool's stdin becomes the null device and its stdout this process's stderr: its output can
+    never corrupt the wire, and on Windows a child that inherited the pipe being read here could
+    not even start until another line arrived.
+    """
+    wire_in, wire_out = os.dup(0), os.dup(1)
+    null = os.open(os.devnull, os.O_RDONLY)
+    os.dup2(null, 0)
+    os.close(null)
+    os.dup2(2, 1)
+    reader = io.TextIOWrapper(io.BufferedReader(io.FileIO(wire_in, "rb")), encoding="utf-8")
+    writer = io.TextIOWrapper(io.BufferedWriter(io.FileIO(wire_out, "wb")), encoding="utf-8", newline="\n", line_buffering=True)
+    return reader, writer
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", "-c")
@@ -172,9 +236,7 @@ def main():
     parser.add_argument("--access-mode", choices=("full", "restricted"), default="full")
     parser.add_argument("--skill-directory", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
-    output = sys.stdout
-    output.reconfigure(encoding="utf-8")
-    sys.stdin.reconfigure(encoding="utf-8")
+    sys.stdin, output = private_wire()
     sys.stdout = sys.stderr  # Native logging/tools must never corrupt the wire.
     if args.skill_directory:
         directory = Path(load_native_config(args).agents.defaults.workspace).expanduser().resolve() / "skills/autoswarm"

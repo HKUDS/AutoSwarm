@@ -85,9 +85,10 @@ def configure_acp(native, result, done):
     """Apply overrides before prompting, including when loading old sessions."""
     provider = native.task["provider"]
     options = native.task.get("native_options", {})
-    if provider == "grok":
-        # Grok exposes process-scoped native flags. Apply them once at launch,
-        # without a second setter that may change an existing user preference.
+    if provider in {"grok", "nanobot"}:
+        # Grok exposes process-scoped native flags, and the nanobot bridge takes
+        # --model/--effort at launch. Apply them once there, without a second
+        # setter that may change an existing user preference.
         done()
         return
     model, effort = options.get("model"), options.get("effort")

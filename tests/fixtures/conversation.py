@@ -30,6 +30,7 @@ permission_allowed = False
 cancel_barrier = False
 prompt_count = 0
 selection = {}
+queued = []  # Claude Code: user input written while a turn runs.
 
 
 def emit(value):
@@ -88,6 +89,9 @@ def work(text, request, done=None):
                 pass
         gate = assignment.get("gate")
         while gate and not Path(gate).exists() and not stop.is_set():
+            # Like Claude Code at a tool boundary: input written mid-turn is read now.
+            while provider == "claude-code" and queued and "queue-insert" not in args:
+                mail(queued.pop(0))
             time.sleep(.01)
         if stop.is_set():
             log("cancelled")
@@ -97,6 +101,10 @@ def work(text, request, done=None):
             if proof and (not assignment.get("approval") or permission_allowed):
                 Path(proof).write_text("finished original assignment", encoding="utf-8")
             completed(request)
+        if provider == "claude-code" and queued:
+            # No boundary left: Claude runs the queued input as a follow-up turn.
+            emit({"type": "system", "subtype": "init", "session_id": session})
+            start(queued.pop(0))
     finally:
         if done:
             done.set()
@@ -205,6 +213,9 @@ else:
                 stop.set()
             emit({"type": "control_response", "response": {"subtype": "success", "request_id": event["request_id"], "response": {}}})
         elif event.get("type") == "user":
+            if work_thread is not None and work_thread.is_alive():
+                queued.append(event["message"]["content"])
+                continue
             emit({"type": "system", "subtype": "init", "session_id": session})
             start(event["message"]["content"])
         elif event.get("id") == permission and "result" in event:

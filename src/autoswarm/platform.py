@@ -18,6 +18,38 @@ def detached_options() -> dict:
     return {"start_new_session": True}
 
 
+def account() -> str:
+    """The account this process runs as (a native sandbox may run commands as another one)."""
+    if os.name != "nt":
+        return str(os.getuid())
+    from ctypes import wintypes
+    size = wintypes.DWORD(257)
+    name = ctypes.create_unicode_buffer(size.value)
+    if ctypes.WinDLL("advapi32", use_last_error=True).GetUserNameW(name, ctypes.byref(size)):
+        return name.value
+    return os.environ.get("USERNAME", "")
+
+
+def start_detached(argv, **options) -> subprocess.Popen:
+    """Start a process that outlives the command that started it (a runner, a message delivery).
+
+    On Windows a process stays in its parent's job object. Some agents run each shell command
+    in a job that ends everything inside when the command returns, which would end a runner
+    started by `run --background` before its native agent could answer. Leaving the job is
+    asked for, and only granted where the job allows it; otherwise the process starts as
+    before.
+    """
+    if os.name != "nt":
+        return subprocess.Popen(argv, **options, **detached_options())
+    flags = detached_options()["creationflags"]
+    try:
+        return subprocess.Popen(argv, **options, creationflags=flags | subprocess.CREATE_BREAKAWAY_FROM_JOB)
+    except OSError as error:
+        if getattr(error, "winerror", None) != 5:  # ERROR_ACCESS_DENIED: the job keeps its processes.
+            raise
+    return subprocess.Popen(argv, **options, creationflags=flags)
+
+
 def link_directory(link: Path, target: Path) -> None:
     """Reuse native storage; Windows junctions need no symlink privilege."""
     if os.name != "nt":

@@ -32,10 +32,12 @@ Use provider names `hermes`, `nanobot`, `dsh`, `grok`; `grok-build` is a child-p
 
 | Provider | Native entry | Skill installation |
 |---|---|---|
-| Hermes | `hermes acp` | `$HERMES_HOME/skills/autoswarm`, default `~/.hermes/skills/autoswarm` |
+| Hermes | `hermes acp` | `$HERMES_HOME/skills/autoswarm`, default `~/.hermes/skills/autoswarm` (Windows: `%LOCALAPPDATA%/hermes/skills/autoswarm`) |
 | Nanobot | Installed Python SDK through the bundled local bridge | Native configured workspace's `skills/autoswarm`, resolved by its own config loader |
 | DSH | `dsh --profile acp` | `$DSH_AGENTS_HOME/skills/autoswarm`, default `~/.agents/skills/autoswarm` |
 | Grok Build | `grok agent --no-leader stdio` | `~/.grok/skills/autoswarm` |
+
+`skills [--host PROVIDER] [--verify]` reads, without writing, whether each host finds a working Skill (`missing`, `broken` with its problems, or `ready`, with the record directory its launcher writes to); Cursor also reads `~/.claude/skills` and `~/.agents/skills`, and Copilot, Grok, Kimi, DSH and Muse read `~/.agents/skills`. `--verify` starts each launcher once without model calls. `models --agent PROVIDER` lists the models and reasoning efforts the agent reports itself (an ACP agent's new session, Codex's app-server, Claude Code's initialize, Cursor's `--list-models`) without a model call.
 
 `setup --host <provider> --skill-dir <path>` overrides the destination when native skill roots differ. Native profile/tool policies still determine which skills, memory and tools are available; AutoSwarm does not replace them. A native transcript/session ID does not guarantee that every product App lists that session.
 

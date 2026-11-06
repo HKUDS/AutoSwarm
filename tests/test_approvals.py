@@ -70,6 +70,16 @@ class ApprovalTests(unittest.TestCase):
                 self.assertIn("approved", result["content"])
                 self.assertEqual(approvals.pending(self.records, call_id), [])
 
+    def test_a_request_naming_its_tool_call_carries_what_the_call_said(self):
+        call_id, marker = self.start("dsh", provider_args=["sparse-permission"])
+        request = engine.wait(self.records, [call_id])[0]
+        tool = request["native_request"]["toolCall"]
+        self.assertEqual((tool["toolCallId"], tool["title"], tool["rawInput"]["command"], tool["rawInput"]["description"]),
+                         ("tool-1", "pwsh", "test-command", "Run the test"), "the decider sees the command")
+        approvals.decide(self.records, call_id, request["request_id"], "allow")
+        self.assertEqual(engine.wait(self.records, [call_id])[0]["outcome"], "completed")
+        self.assertTrue(marker.exists())
+
     def test_all_native_transports_relay_denial_without_executing(self):
         for provider in BINARIES:
             with self.subTest(provider=provider):

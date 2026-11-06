@@ -4,9 +4,50 @@ import os
 import shlex
 import shutil
 import json
+import re
 import subprocess
 
 from .records import SwarmError
+
+
+def _shebang(line):
+    if not line.startswith("#!"):
+        return None
+    try:
+        argv = shlex.split(line[2:], posix=os.name != "nt")
+    except ValueError:
+        return None
+    if os.name == "nt":
+        argv = [value[1:-1] if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'" else value for value in argv]
+    if argv and Path(argv[0]).name == "env":
+        argv = argv[1:]
+        if argv and argv[0] == "-S":
+            argv = argv[1:]
+        if argv and "python" in Path(argv[0]).name.lower() and shutil.which(argv[0]):
+            argv[0] = shutil.which(argv[0])
+    if argv and "python" in Path(argv[0]).name.lower() and Path(argv[0]).is_file():
+        return argv
+    return None
+
+
+def _launcher_python(cli):
+    """Windows .exe launchers carry their interpreter too: pip/distlib append a shebang
+    and a zip to the launcher stub, uv's trampoline stores the path at its end."""
+    try:
+        if cli.stat().st_size > 8 * 1024 * 1024:
+            return None
+        data = cli.read_bytes()
+    except OSError:
+        return None
+    for match in reversed(list(re.finditer(rb"#![^\r\n\x00]{3,1024}", data))):
+        found = _shebang(match.group().decode("utf-8", errors="replace").strip())
+        if found:
+            return found
+    for match in reversed(list(re.finditer(rb"[A-Za-z]:\\[^\x00\r\n\"*?<>|]{1,1024}?pythonw?\.exe", data, re.I))):
+        path = match.group().decode("utf-8", errors="replace")
+        if Path(path).is_file():
+            return [path]
+    return None
 
 
 def bridge_command(command, config):
@@ -26,18 +67,9 @@ def bridge_command(command, config):
         if cli.suffix.lower() != ".exe":
             with cli.open("rb") as stream:
                 first = stream.readline(4096).decode("utf-8", errors="replace").strip()
-            if first.startswith("#!"):
-                argv = shlex.split(first[2:], posix=os.name != "nt")
-                if os.name == "nt":
-                    argv = [value[1:-1] if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'" else value for value in argv]
-                if argv and Path(argv[0]).name == "env":
-                    argv = argv[1:]
-                    if argv and argv[0] == "-S":
-                        argv = argv[1:]
-                    if argv and "python" in Path(argv[0]).name.lower() and shutil.which(argv[0]):
-                        argv[0] = shutil.which(argv[0])
-                if argv and "python" in Path(argv[0]).name.lower() and Path(argv[0]).is_file():
-                    runtime = argv
+            runtime = _shebang(first)
+        else:
+            runtime = _launcher_python(cli)
         if runtime is None:
             for candidate in (cli.parent / "python.exe", cli.parent.parent / "python.exe", cli.parent / "python", cli.parent / "python3"):
                 if candidate.is_file():

@@ -67,6 +67,26 @@ class RuntimeTests(unittest.TestCase):
                 self.assertNotEqual(value["call_id"], call_id)
                 self.assertEqual(read_json(self.records.call(call_id) / "result.json"), result)
 
+    def test_optional_capture_covers_stdio_and_sse_without_changing_results(self):
+        config = self.records.config()
+        config['events'] = {'capture': True}
+        write_json(self.records.home/'config.json', config)
+        for provider in ['codex', 'claude-code', 'cursor', 'muse', 'opencode']:
+            with self.subTest(provider=provider):
+                cid = self.start(provider, 'capture check')
+                result = engine.wait(self.records, [cid])[0]
+                self.assertEqual(result['outcome'], 'completed')
+                path = self.records.call(cid)/'events.jsonl'
+                self.assertTrue(path.is_file())
+                rows = [json.loads(line) for line in path.read_text(encoding='utf8').splitlines()]
+                self.assertTrue(rows, provider)
+                self.assertTrue(all(isinstance(row,dict) for row in rows))
+
+    def test_capture_remains_disabled_by_default(self):
+        cid = self.start('codex', 'no capture')
+        engine.wait(self.records, [cid])
+        self.assertFalse((self.records.call(cid)/'events.jsonl').exists())
+
     def test_resumed_turn_reports_execution_before_returning(self):
         for provider in ("codex", "claude-code"):
             with self.subTest(provider=provider):
@@ -467,3 +487,15 @@ class RuntimeTests(unittest.TestCase):
         data = json.loads(output.stdout)["data"]
         self.ids.append(data["call_id"])
         self.assertEqual(data["content"], "relocated|session=fixture-session")
+
+
+class MessageGuidanceTests(unittest.TestCase):
+    # Found with real Cursor: a child reported completion by message, its owner
+    # acknowledged it, and each reply woke the other side again.
+    def test_agents_are_told_not_to_ping_pong_status_messages(self):
+        task = {"agent_id": "call_child", "communication": {"peers": [], "rules": ""}}
+        self.assertIn("final answer reaches your parent automatically", messages.context(task))
+        for values in ([{"kind": "agent_message", "content": "Done"}], [{"kind": "user_message", "content": "hi"}]):
+            text = messages.envelope(task, values)
+            self.assertIn("Do not acknowledge status updates", text)
+        self.assertIn("Incoming messages (preserve sender identity; answer questions using reply):\n", messages.envelope(task, [{"kind": "agent_message"}]))

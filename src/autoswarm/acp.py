@@ -1,7 +1,14 @@
 """One ACP client shared by native agents and the local nanobot SDK shim."""
+import os
 import threading
+import time
 
 from .records import SwarmError
+
+# Agents whose stdin must keep receiving input on Windows (see ACP.keepalive).
+KEEPALIVE = {"hermes"} if os.name == "nt" else set()
+KEEPALIVE_SECONDS = 1
+KEEPALIVE_LINE = {"id": "autoswarm-keepalive", "result": None}
 
 
 class ACP:
@@ -10,6 +17,7 @@ class ACP:
         self.accepting = False
         self.after_tool = False
         self.permissions = set()
+        self.tool_calls = {}
         self.interactions = {}
         self.codebuddy_questions = {}
         self.kimi_questions = set()
@@ -21,11 +29,48 @@ class ACP:
         self.prompt_text = None
 
     def start(self):
+        if self.n.task["provider"] in KEEPALIVE:
+            threading.Thread(target=self.keepalive, daemon=True).start()
         self.n.stage("handshake")
         capabilities = {"fs": {"readTextFile": False, "writeTextFile": False}, "terminal": False, "elicitation": {"form": {}, "url": {}}}
         if self.n.task["provider"] == "cursor":
             capabilities["_meta"] = {"parameterizedModelPicker": True}
         self.n.request("initialize", {"protocolVersion": 1, "clientInfo": {"name": "autoswarm", "version": "2.0.0.dev0"}, "clientCapabilities": capabilities}, self.initialized)
+
+    TOOL_FIELDS = ("title", "kind", "rawInput", "locations", "content")
+
+    def remember_tool(self, update):
+        """What a tool call has said about itself so far (tool_call, then its updates)."""
+        known = self.tool_calls.setdefault(update["toolCallId"], {})
+        for key in self.TOOL_FIELDS:
+            if update.get(key) not in (None, "", [], {}):
+                known[key] = update[key]
+        if len(self.tool_calls) > 500:  # Only recent calls can still ask for permission.
+            self.tool_calls.pop(next(iter(self.tool_calls)))
+
+    def described(self, params):
+        """A permission request may name its tool call by id only (DSH) or by a bare tool name
+        (Kimi's "Bash"); what the call reported earlier fills in what the request leaves out, so
+        whoever decides sees the command or file. The request's own fields win."""
+        tool = params.get("toolCall")
+        known = self.tool_calls.get(tool.get("toolCallId")) if isinstance(tool, dict) else None
+        if not known:
+            return params
+        merged = {**tool, **{key: value for key, value in known.items() if tool.get(key) in (None, "", [], {})}}
+        return {**params, "toolCall": merged}
+
+    def keepalive(self):
+        """Hermes on Windows reads its stdin pipe with a blocking read on one thread. A child it
+        starts (git, a shell command) inherits that pipe, and on Windows the child's startup waits
+        until the pending read returns, so without input Hermes stops at session/new or at its
+        first tool. A reply to no request is dropped silently by its ACP library and lets the read
+        return."""
+        while self.n.process.poll() is None:
+            time.sleep(KEEPALIVE_SECONDS)
+            try:
+                self.n.send(KEEPALIVE_LINE)
+            except (OSError, ValueError, SwarmError):
+                return
 
     def initialized(self, result):
         if result.get("protocolVersion") != 1:
@@ -52,16 +97,28 @@ class ACP:
             raise SwarmError("native_protocol_error", "ACP server returned no native session ID")
         self.n.output.content = ""  # session/load may replay the old transcript.
         self.accepting = True
+        self.modes = result.get("modes") or {}
         from .selection import configure_acp
         configure_acp(self.n, result, self.configured)
 
     def configured(self):
+        # Desk's permission mode selects a native session mode (Cursor Plan / Agent).
+        mode = self.n.task.get("native_options", {}).get("mode")
+        if mode and self.modes.get("currentModeId") != mode:
+            if not any(item.get("id") == mode for item in self.modes.get("availableModes", [])):
+                raise SwarmError("unsupported_permission", f"{self.n.task['provider']} did not offer the {mode!r} session mode")
+            self.modes = {**self.modes, "currentModeId": mode}
+            self.n.request("session/set_mode", {"sessionId": self.n.output.session_id, "modeId": mode}, lambda _: self.configured())
+            return
         self.n.stage("execution")
         self.n.continue_turn(self.n.initial_prompt())
 
     def prompt(self, text):
         self.prompt_text = text
         self.after_tool = False
+        tap = getattr(self.n, "tap", None)
+        if tap is not None:
+            tap.mark("prompt")  # session/load replayed the old transcript before this point.
         self.n.request("session/prompt", {"sessionId": self.n.output.session_id, "prompt": [{"type": "text", "text": text}]}, self.completed)
 
     def poll(self):
@@ -154,6 +211,8 @@ class ACP:
                 return
             update = params.get("update", {})
             meta = update.get("_meta", {})
+            if update.get("sessionUpdate") in {"tool_call", "tool_call_update"} and update.get("toolCallId"):
+                self.remember_tool(update)
             if (self.n.task["provider"] == "kimi" and update.get("sessionUpdate") in {"tool_call", "tool_call_update"}
                     and update.get("title") == "AskUserQuestion" and update.get("toolCallId")):
                 self.kimi_questions.add(update["toolCallId"])
@@ -223,6 +282,7 @@ class ACP:
             if params.get("sessionId") != self.n.output.session_id:
                 self.n.unknown(event)
                 return
+            params = self.described(params)
             tool = params.get("toolCall", {})
             tool_name = tool.get("_meta", {}).get("codebuddy.ai/toolName")
             if self.n.task["provider"] == "kimi" and tool.get("title") == "AskUserQuestion":

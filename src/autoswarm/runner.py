@@ -24,7 +24,7 @@ def execute(records: Records, call_id: str) -> int:
 
 def _execute(records: Records, call_id: str) -> int:
     directory, task = records.require(call_id)
-    handle = {"pid": os.getpid(), "identity": platform.identity(os.getpid()), "runner_lock": str(directory / "runner.lock"), "started_at": now(), "native_session_id": task.get("native_session_id"), "phase": "startup"}
+    handle = {"pid": os.getpid(), "identity": platform.identity(os.getpid()), "runner_lock": str(directory / "runner.lock"), "started_at": now(), "native_session_id": task.get("native_session_id"), "phase": "startup", "account": platform.account()}
     write_json(directory / "handle.json", handle)
     result = {"call_id": call_id, "agent_id": task["agent_id"], "controller_id": task["controller_id"], "provider": task["provider"], "native_session_id": task.get("native_session_id"), "outcome": "failed", "content": "", "error": None, "artifacts": [], "finished_at": None}
     result["requested_selection"] = {key: task[key] for key in ("model", "effort") if task.get(key) is not None}
@@ -51,8 +51,13 @@ def _execute(records: Records, call_id: str) -> int:
                 env.pop(name, None)
             env["AUTOSWARM_CALL_ID"] = call_id
             env["AUTOSWARM_HOME"] = str(records.home)
+            from .providers import opencode_environment
+            env = opencode_environment(task, env)
             from .selection import native_environment
             env = environment.enter_context(native_environment(task, env))
+            from .capture import Capture
+            capture = Capture(directory, records.config(), task["provider"])
+            environment.callback(capture.close)
             with (directory / "stderr.log").open("wb") as stderr, (directory / "stdout.log").open("wb") as stdout_log:
                 process = subprocess.Popen(task["command"], cwd=task["workspace"], env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr, **platform.detached_options())
                 handle["child_pid"] = process.pid
@@ -60,7 +65,7 @@ def _execute(records: Records, call_id: str) -> int:
                 failure = []
 
                 def session_changed(value):
-                    progress(handle["phase"] if task["provider"] == "opencode" else "execution", native_session_id=value)
+                    progress(handle["phase"] if task["provider"] == "opencode" and task.get("native_transport") != "acp" else "execution", native_session_id=value)
 
                 def progress(phase, **details):
                     with handle_lock:
@@ -70,16 +75,19 @@ def _execute(records: Records, call_id: str) -> int:
                             write_json(directory / "handle.json", handle)
 
                 native = Native(records, task, process, output, session_changed, progress)
+                native.tap = capture
                 mailbox = Mailbox(records, task, native)
 
                 def read_output():
                     try:
                         for raw in process.stdout:
-                            if task["provider"] == "opencode":
+                            if task["provider"] == "opencode" and task.get("native_transport") != "acp":
                                 stdout_log.write(raw)
                                 stdout_log.flush()
+                            else:
+                                capture.write(raw)
                             native.feed(raw.decode("utf-8", errors="replace"))
-                        if task["provider"] != "opencode" and not (output.terminal or output.cancelled):
+                        if (task["provider"] != "opencode" or task.get("native_transport") == "acp") and not (output.terminal or output.cancelled):
                             failure.append("Native output closed before a final result; inspect stderr.log")
                     except BaseException as error:
                         output.error_code = getattr(error, "code", "native_protocol_error")

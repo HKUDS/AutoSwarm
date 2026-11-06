@@ -35,6 +35,8 @@ def detect_parent() -> dict | None:
 
 
 def result_message(result: dict, directory: Path) -> str:
+    if result.get("kind") == "user_message":
+        return result["content"]
     if result.get("kind") in {"approval_required", "interaction_required"}:
         from .approvals import message
         return message(result)

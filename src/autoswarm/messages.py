@@ -6,7 +6,6 @@ import json
 import os
 import re
 import subprocess
-import sys
 import threading
 import time
 import uuid
@@ -30,6 +29,31 @@ def agent(records, agent_id):
     return value
 
 
+def running_agent(records, parent):
+    """The AutoSwarm conversation currently running this native session, if any.
+
+    An agent's commands normally carry AUTOSWARM_CALL_ID. Some hosts run them
+    without it (Codex's Windows sandbox runs them as another account with a
+    reduced environment); the native session they report is then matched to the
+    running call that owns it, so its workers stay under it.
+    """
+    from .providers import canonical
+    try:
+        host = canonical(parent.get("host") or "")
+    except SwarmError:
+        return None
+    session = parent.get("session_id")
+    if not session:
+        return None
+    for directory, task in records.calls(skip_unreadable=True):
+        if task.get("provider") != host or (directory / "result.json").exists():
+            continue
+        handle = read_json(directory / "handle.json") or {}
+        if session in (handle.get("native_session_id"), task.get("native_session_id")) and platform.running(handle):
+            return task.get("agent_id", task["call_id"])
+    return None
+
+
 def identity(records, explicit=None, parent=None):
     if os.environ.get("AUTOSWARM_CALL_ID"):
         return agent(records, records.require(os.environ["AUTOSWARM_CALL_ID"])[1].get("agent_id", os.environ["AUTOSWARM_CALL_ID"]))["agent_id"]
@@ -40,6 +64,9 @@ def identity(records, explicit=None, parent=None):
         from .hosts import detect_parent
         parent = detect_parent()
     if parent:
+        running = running_agent(records, parent)
+        if running:
+            return running
         key = json.dumps({key: parent.get(key) for key in ("host", "session_id", "host_instance")}, sort_keys=True)
         value = "main_" + hashlib.sha256(key.encode()).hexdigest()[:32]
         path = agent_path(records, value) / "agent.json"
@@ -150,7 +177,7 @@ def receive(records, target, *, mark=True):
     return values
 
 
-def send(records, target, content, *, sender=None, interrupt=False, reply_to=None, kind="agent_message", internal=False):
+def send(records, target, content, *, sender=None, interrupt=False, reply_to=None, kind="agent_message", internal=False, delivery_mode=None):
     sender = sender or identity(records)
     target = resolve(records, target, sender)
     source, destination = agent(records, sender), agent(records, target)
@@ -169,10 +196,13 @@ def send(records, target, content, *, sender=None, interrupt=False, reply_to=Non
     message_id = "msg_" + uuid.uuid4().hex
     message = {"kind": kind, "message_id": message_id, "from": sender, "to": target, "content": content,
                "interrupt": interrupt, "reply_to": reply_to, "created_at": now()}
+    if delivery_mode:
+        message["delivery_mode"] = delivery_mode
     path = agent_path(records, target) / "messages" / message_id
     write_json(path / "message.json", message)
     try:
-        wake_message(records, message)
+        if kind != "user_message" or destination.get("call_id"):
+            wake_message(records, message)
     except Exception as error:
         issue(records, target, message, "message_wakeup_failed", str(error))
     return {**message, "delivery": read_json(path / "delivery.json", {"state": "queued"})}
@@ -194,7 +224,7 @@ def wake_message(records, message):
         # It reuses the existing exact-host bridge, not a message service.
         try:
             with (location(records, message["message_id"]) / "notification.log").open("ab") as log:
-                process = subprocess.Popen([*runtime_argv(), "_message", message["message_id"]], env=runtime_env(records), stdin=subprocess.DEVNULL, stdout=log, stderr=log, **platform.detached_options())
+                process = platform.start_detached([*runtime_argv(), "_message", message["message_id"]], env=runtime_env(records), stdin=subprocess.DEVNULL, stdout=log, stderr=log)
             threading.Thread(target=process.wait, daemon=True).start()
         except OSError as error:
             receipt(records, message, "queued", error_code="host_message_failed", error=str(error))
@@ -261,18 +291,22 @@ def wake(records, target):
             return
         directory, task = records.require(value["call_id"])
         result = read_json(directory / "result.json")
+        human_input = any(m.get("kind") == "user_message" for m in pending(records, target))
         if not value.get("idle") and not result:
             # A child's native sandbox may hide the owning runner's PID.
             # Absence from its /proc view is not evidence of a dead peer.
             # The owner drains this mail; the main agent can diagnose a lost
             # call through wait/inspect without discarding its messages.
-            return
-        if not result or result.get("outcome") != "completed" or not result.get("native_session_id"):
+            if not human_input or platform.running(read_json(directory / "handle.json")):
+                return
+        session = (result or {}).get("native_session_id") or read_json(directory / "handle.json", {}).get("native_session_id") or task.get("native_session_id")
+        if not human_input and (not result or result.get("outcome") != "completed" or not session):
             for message in pending(records, target):
                 issue(records, target, message, "recipient_unavailable", "The recipient has no completed resumable call. Its assigning parent must decide how to recover.")
             return
-        engine.start_call(records, task["provider"], "Handle the incoming AutoSwarm messages. The earlier assignment has already returned; do not repeat it.", task["workspace"],
-                          parent=task.get("parent"), native_session_id=result["native_session_id"], model=task.get("model"), effort=task.get("effort"), provider_args=task.get("provider_args"),
+        prompt = "Respond to the incoming human messages in this conversation." if human_input else "Handle the incoming AutoSwarm messages. The earlier assignment has already returned; do not repeat it."
+        engine.start_call(records, task["provider"], prompt, task["workspace"],
+                          parent=task.get("parent"), native_session_id=session, model=task.get("model"), effort=task.get("effort"), provider_args=task.get("provider_args"),
                           previous_call=task["call_id"], return_mode="wait", delegate_approvals=task.get("delegate_approvals"),
                           agent_id=target, message_only=True, _dispatch_locked=True)
     finally:
@@ -317,9 +351,11 @@ def retry(records, message_id, *, sender=None):
 
 
 def context(task):
-    argv = [sys.executable, "-m", "autoswarm", "--home", os.environ.get("AUTOSWARM_HOME", "")]
+    from .engine import runtime_argv
+    argv = [*runtime_argv(), "--home", os.environ.get("AUTOSWARM_HOME", "")]
     return ("\n\n[AutoSwarm communication]\nUse CLI argv " + json.dumps(argv, ensure_ascii=False) +
             ". Your stable agent_id is " + task["agent_id"] + ". Contact parent with send parent. "
+            "Your final answer reaches your parent automatically when your turn ends; do not also send it a completion or status message. "
             "Allowed peers: " + json.dumps(task.get("communication", {}).get("peers", []), ensure_ascii=False) + ". "
             "Use send TARGET --input FILE; --interrupt requests priority handling. Reply with reply MESSAGE_ID --input FILE. "
             "CLI JSON has ok/data/error; send returns data.message_id; wait returns an array of events with kind, from, content and reply_to. "
@@ -329,8 +365,18 @@ def context(task):
             task.get("communication", {}).get("rules", "") + "\n[/AutoSwarm communication]")
 
 
+QUIET = ("Every reply wakes its recipient: reply only when a message asks you something or needs your decision. "
+         "Do not acknowledge status updates, completion notices or acknowledgements.")
+
+
 def envelope(task, values):
-    return context(task) + "\nIncoming messages (preserve sender identity; answer questions using reply):\n" + json.dumps(values, ensure_ascii=False)
+    if not any(value.get("kind") == "user_message" for value in values):
+        return context(task) + "\n" + QUIET + "\nIncoming messages (preserve sender identity; answer questions using reply):\n" + json.dumps(values, ensure_ascii=False)
+    return (context(task) + "\n" + QUIET + "\nEntries with kind=user_message "
+            "are direct input submitted by the human in AutoSwarm Desk to this exact conversation. "
+            "Respond to the human in your normal answer; do not send an acknowledgement to the Desk controller. "
+            "Other entries are agent collaboration input; answer their questions using reply.\n"
+            "Incoming messages (preserve sender identity; answer user_message directly, other questions using reply):\n" + json.dumps(values, ensure_ascii=False))
 
 
 def wait(records, message_id, *, sender=None, mark=True, block=True):
@@ -390,6 +436,8 @@ class Mailbox:
         if self.task["provider"] in {"codex", "muse"} and not self.native.turn_id:
             return  # Wait for the native turn acknowledgement, not a deadline.
         for message in self.mail():
+            if message.get("kind") == "user_message" and message.get("delivery_mode") == "after_turn":
+                continue
             def accepted(_, message=message):
                 receipt(self.records, message, "submitted", mechanism="native_input", call_id=self.task["call_id"])
                 self.active_messages.append(message)
@@ -416,6 +464,10 @@ class Mailbox:
         """Return True only when the invocation can publish its final result."""
         from dataclasses import replace
         output = self.native.output
+        if any(m.get("kind") == "user_message" for m in [*self.active_messages, *self.native.initial_messages]):
+            # The new human turn's answer is now the canonical result. Ordinary
+            # peer exchanges still preserve the original assignment result.
+            self.saved = None
         if not self.interrupting and (output.error or not output.terminal):
             for value in [*self.active_messages, *self.native.initial_messages, *self.mail()]:
                 issue(self.records, self.task["agent_id"], value, "native_message_failed", output.error or "Native message turn did not complete")

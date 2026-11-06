@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -212,3 +213,48 @@ class WindowsProcessTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(os.name == "nt", "Windows job objects")
+class DetachedJobTests(unittest.TestCase):
+    """Some agents (Grok Build) run each shell command in a job that ends everything inside when
+    the command returns; a runner started by that command must outlive it where the job allows."""
+
+    SHELL = (
+        "import ctypes, subprocess, sys, time\n"
+        "from ctypes import wintypes\n"
+        "kernel = ctypes.WinDLL('kernel32', use_last_error=True)\n"
+        "kernel.CreateJobObjectW.restype = wintypes.HANDLE\n"
+        "class Basic(ctypes.Structure):\n"
+        "    _fields_ = [('a', ctypes.c_int64), ('b', ctypes.c_int64), ('LimitFlags', wintypes.DWORD), ('c', ctypes.c_size_t), ('d', ctypes.c_size_t),\n"
+        "                ('e', wintypes.DWORD), ('f', ctypes.c_size_t), ('g', wintypes.DWORD), ('h', wintypes.DWORD)]\n"
+        "class Extended(ctypes.Structure):\n"
+        "    _fields_ = [('Basic', Basic), ('io', ctypes.c_uint64 * 6), ('p', ctypes.c_size_t), ('q', ctypes.c_size_t), ('r', ctypes.c_size_t), ('s', ctypes.c_size_t)]\n"
+        "job = kernel.CreateJobObjectW(None, None)\n"
+        "info = Extended(); info.Basic.LimitFlags = 0x2000 | (0x800 if sys.argv[2] == 'allow' else 0)  # KILL_ON_JOB_CLOSE, BREAKAWAY_OK\n"
+        "assert kernel.SetInformationJobObject(wintypes.HANDLE(job), 9, ctypes.byref(info), ctypes.sizeof(info)), ctypes.get_last_error()\n"
+        "assert kernel.AssignProcessToJobObject(wintypes.HANDLE(job), wintypes.HANDLE(int(subprocess._winapi.GetCurrentProcess())))\n"
+        "from autoswarm import platform\n"
+        "child = platform.start_detached([sys.executable, '-c', 'import time, pathlib, sys; time.sleep(1.5); pathlib.Path(sys.argv[1]).write_text(\"alive\")', sys.argv[1]],\n"
+        "                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n"
+        "print(child.pid, flush=True)\n"
+        "kernel.CloseHandle(wintypes.HANDLE(job))  # The command returns: its job ends what it holds.\n"
+    )
+
+    def run_in_job(self, allow):
+        with tempfile.TemporaryDirectory() as temporary:
+            marker = Path(temporary) / "marker"
+            env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parent.parent / "src"))
+            done = subprocess.run([sys.executable, "-c", self.SHELL, str(marker), allow], env=env, capture_output=True, text=True, timeout=30)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            deadline = time.monotonic() + 10
+            while not marker.exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            return marker.exists()
+
+    def test_a_runner_leaves_a_job_that_allows_it(self):
+        self.assertTrue(self.run_in_job("allow"), "The detached process outlived the command's job")
+
+    def test_a_job_that_keeps_its_processes_still_starts_one(self):
+        # Breakaway refused: the process still starts (and ends with the job, as before).
+        self.assertFalse(self.run_in_job("deny"))

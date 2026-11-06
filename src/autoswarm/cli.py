@@ -19,6 +19,8 @@ def parser() -> argparse.ArgumentParser:
     root.add_argument("--home", help="Records/config directory (or AUTOSWARM_HOME)")
     root.add_argument("--controller", help="Retained controller_id for hosts without a native session identity")
     commands = root.add_subparsers(dest="command")
+    from .desk import cli as desk_cli
+    desk_cli.register(commands)
     for name in ("agents", "doctor"):
         item = commands.add_parser(name)
         item.add_argument("--json", action="store_true", help="JSON is also the default")
@@ -68,8 +70,12 @@ def parser() -> argparse.ArgumentParser:
         item.add_argument("call_id")
         if name == "deliver":
             item.add_argument("--request", help="Redeliver a pending native request instead of the final result")
+    item = commands.add_parser("models", help="Models and reasoning efforts the agent reports itself (no model call)")
+    item.add_argument("--agent", required=True)
     item = commands.add_parser("config")
     item.add_argument("--delegate-approvals", choices=["on", "off"], help="Persist the default parent delegation setting; enabled by default")
+    item.add_argument("--capture-events", choices=["on", "off", "auto"], help="Keep native process events for Desk: on, off (default), or auto = only agents whose own session records Desk cannot read")
+    item.add_argument("--event-max-call-mb", type=float, help="Stop capturing one call's events above this size (default 64; 0 = no limit)")
     item = commands.add_parser("approvals")
     item.add_argument("call_id", nargs="?")
     for name in ("approve", "deny"):
@@ -105,6 +111,11 @@ def parser() -> argparse.ArgumentParser:
     item.add_argument("--skill-dir")
     item.add_argument("--settings-file", help="Claude settings.json; merged with existing settings")
     item.add_argument("--plugin-dir", help="OpenCode plugin destination")
+    item.add_argument("--no-agents", action="store_true", help="Skip the agent discovery in the result")
+    item = commands.add_parser("skills", help="Read whether each host can see an installed AutoSwarm Skill")
+    item.add_argument("--host", action="append", help="Host to check; repeat to select several")
+    item.add_argument("--verify", action="store_true", help="Also start each installed launcher once (no model calls)")
+    item.add_argument("--refresh", action="store_true", help="Update outdated skill copies of AutoSwarm (code, references, text), keeping their launcher argv")
     item = commands.add_parser("hook")
     item.add_argument("--host", choices=["claude-code"], required=True)
     item.add_argument("--event", choices=["session-start", "post-tool", "stop"], required=True)
@@ -135,6 +146,9 @@ def prompt_from(args) -> str:
 
 def dispatch(args, records: Records):
     name = args.command
+    if name == "desk":
+        from .desk import cli as desk_cli
+        return desk_cli.dispatch(args, records, prompt_from)
     if name in {"agents", "doctor"}:
         value = {"agents": discover(records.config(), args.agent if name == "doctor" else None), "home": str(records.home)}
         if name == "doctor":
@@ -187,8 +201,16 @@ def dispatch(args, records: Records):
         if args.call_id.startswith("msg_"):
             return messages.retry(records, args.call_id, sender=messages.identity(records, args.controller))
         return deliver(records, args.call_id, explicit=True, request_id=args.request)
+    if name == "models":
+        from .models import catalog
+        return catalog(records.config(), args.agent)
     if name == "config":
-        return approvals.configure(records, None if args.delegate_approvals is None else args.delegate_approvals == "on")
+        from . import capture
+        events = capture.configure(records, capture={"on": True, "off": False, "auto": "auto", None: None}[args.capture_events], max_call_mb=args.event_max_call_mb)
+        result = approvals.configure(records, None if args.delegate_approvals is None else args.delegate_approvals == "on")
+        if args.capture_events is not None or args.event_max_call_mb is not None:
+            result["events"] = events
+        return result
     if name == "_message":
         return messages.deliver_to_host(records, args.message_id)
     if name == "approvals":
@@ -253,8 +275,19 @@ def dispatch(args, records: Records):
         return {"parent": parent, "file": str(Path(args.output).expanduser().resolve())}
     if name == "setup":
         from .setup import install
-        return install(records, args.host, args.skill_dir, args.settings_file, args.plugin_dir)
+        return install(records, args.host, args.skill_dir, args.settings_file, args.plugin_dir, discover_agents=not args.no_agents)
+    if name == "skills":
+        from .skills import refresh, status
+        if args.refresh:
+            for host in args.host or []:
+                refresh(records, host)
+        return status(records, args.host, verify=args.verify)
     raise SwarmError("unknown_command", str(name))
+
+
+def desk_prompts():
+    from .desk.cli import PROMPT_COMMANDS
+    return PROMPT_COMMANDS
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -263,7 +296,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     # Python 3.10 argparse can leave an optional trailing positional behind
     # when flags occur after the required call ID. Preserve the same CLI
     # ordering accepted by newer Python versions without accepting extra flags.
-    if args.command in {"run", "resume", "send", "reply"} and args.prompt is None and len(remaining) == 1 and not remaining[0].startswith("-"):
+    if (args.command in {"run", "resume", "send", "reply"} or (args.command == "desk" and args.desk_command in desk_prompts())) and args.prompt is None and len(remaining) == 1 and not remaining[0].startswith("-"):
         args.prompt = remaining.pop()
     if remaining:
         root.error("unrecognized arguments: " + " ".join(remaining))
