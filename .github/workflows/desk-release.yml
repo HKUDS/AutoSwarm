@@ -1,0 +1,58 @@
+name: Desk release
+
+# Pushing a tag desk-v<version> (the version in desktop/package.json) builds AutoSwarm Desk for
+# Windows and attaches its files to a draft GitHub Release. Check the draft, then publish it as
+# the latest release: the READMEs link to releases/latest, and installed copies of Desk update
+# from published desk-v releases.
+on:
+  push:
+    tags: ['desk-v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desk-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    if: github.repository == 'HKUDS/AutoSwarm'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Match the tag to package.json
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_REF_NAME" != "desk-v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match desktop/package.json version $version"
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm test
+      - name: Build the installer, the ZIP and the update files
+        run: npm run release
+      - name: Create a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=${GITHUB_REF_NAME#desk-v}
+          cat > "$RUNNER_TEMP/notes.md" <<EOF
+          **Windows:** download **AutoSwarm-Desk-Setup.exe** and run it. It installs for the current user, includes Python, and updates itself.
+          Without installing: unzip **AutoSwarm-Desk-$version-win-x64.zip** and run \`AutoSwarm Desk.exe\`.
+
+          **Windows：** 下载 **AutoSwarm-Desk-Setup.exe** 并运行。安装到当前用户，自带 Python，会自动更新。
+          免安装：解压 **AutoSwarm-Desk-$version-win-x64.zip**，运行 \`AutoSwarm Desk.exe\`。
+
+          AutoSwarm-Desk-Update.exe, its .blockmap and latest.yml are read by Desk's automatic update; they are not needed for a manual download.
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/release/* --draft --title "AutoSwarm Desk $version" --notes-file "$RUNNER_TEMP/notes.md"

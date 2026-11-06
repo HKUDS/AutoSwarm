@@ -72,6 +72,18 @@ class DownloadStatisticsTests(unittest.TestCase):
         history = stats.merge_history(history, snapshot("2026-10-27", assets=[asset(3, 2, "2026-10-27")]))
         self.assertEqual(stats.totals(history)["release_downloads"], 11)
 
+    def test_desk_updates_and_update_files_are_counted_apart_from_downloads(self):
+        names = {1: "AutoSwarm-Desk-Setup.exe", 2: "AutoSwarm-Desk-0.9.8-win-x64.zip", 3: "AutoSwarm-Desk-Update.exe",
+                 4: "AutoSwarm-Desk-Update.exe.blockmap", 5: "latest.yml", 6: "通用 wheel.whl"}
+        assets = [{**asset(n, n * 10), "name": name} for n, name in names.items()]
+        history = stats.merge_history(None, snapshot(assets=assets))
+        values = stats.totals(history)
+        self.assertEqual((values["release_downloads"], values["desk_downloads"], values["desk_updates"]), (90, 30, 30))
+        rendered = stats.outputs(history)
+        self.assertEqual(json.loads(rendered["release-downloads-badge.json"])["message"], "90")
+        self.assertIn("| of which AutoSwarm Desk (installer and ZIP) | 30 |", rendered["README.md"])
+        self.assertIn("| AutoSwarm Desk automatic updates (not included above) | 30 |", rendered["README.md"])
+
     def test_asset_counter_corrections_use_the_original_baseline(self):
         history = stats.merge_history(None, snapshot(assets=[asset(1, 100, "2026-10-01")]))
         history = stats.merge_history(history, snapshot("2026-10-25", assets=[asset(1, 110, "2026-10-01")]))
