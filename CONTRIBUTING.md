@@ -35,7 +35,7 @@ The repository-local `pre-push` hook uses the Python interpreter that installed 
 
 For focused debugging, run the individual suites:
 
-Run `python -m unittest discover -s tests -v` and `node --test tests/test_opencode_plugin.mjs`. Tests use controlled native CLI peers and local HTTP/WebSocket servers; they require local socket and subprocess access. CI installs the built wheel and tests Linux, macOS and Windows with Python 3.10 and 3.12. Python runtime dependencies are empty; Node is needed only for the OpenCode plugin tests.
+Run `python -m unittest discover -s tests -v` and `node --test tests/test_opencode_plugin.mjs`. Core tests are in `tests/`, tests of the Desk backend (`src/autoswarm/desk/` and what only Desk turns on) in `tests/desk/`; the Desk app has its own tests under `desktop/` (see [desktop/README.md](desktop/README.md)). [docs/architecture.md](docs/architecture.md) describes where the plugin core ends and Desk begins. Tests use controlled native CLI peers and local HTTP/WebSocket servers; they require local socket and subprocess access. CI installs the built wheel and tests Linux, macOS and Windows with Python 3.10 and 3.12. Python runtime dependencies are empty; Node is needed only for the OpenCode plugin tests.
 
 The `scripts/live_*` checks create isolated native conversations and spend model calls using existing credentials. They are optional integration checks, not part of ordinary CI.
 

@@ -11,6 +11,11 @@
 
 [![Paper](https://img.shields.io/badge/Paper-arXiv-B31B1B?style=flat&logo=arxiv&logoColor=white)](https://arxiv.org/abs/2610.33048) [![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat)](./COMMUNICATION.md) [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
 
+[![Download AutoSwarm Desk for Windows](https://img.shields.io/badge/Download-AutoSwarm%20Desk%20for%20Windows-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-Setup.exe)
+
+**New: AutoSwarm Desk for Windows.** Your private assistant, all your agents, their work and approvals in one window.<br>
+Run the installer and start: Python is included, and Desk updates itself. [What it does](desktop/README.md)
+
 <a href="https://trendshift.io/repositories/82651?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-82651" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/82651" alt="HKUDS%2FAutoSwarm | Trendshift" width="250" height="55"/></a>
 
 </div>
@@ -66,7 +71,7 @@ Give AutoSwarm a task once. It unifies all your agents into one coordinated team
 </div>
 
 AutoSwarm works across Windows, macOS, and Linux. Use AutoSwarm through:
-- **Desktop apps**
+- **Desktop apps** — [AutoSwarm Desk for Windows (private assistant and live collaboration)](desktop/README.md)
 - **Command-line interfaces (CLI)**
 - **IDE extensions**
 - **Skill-enabled agent environments**
@@ -106,6 +111,7 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
 
 ## 📰 News
 
+- **AutoSwarm Desk for Windows is out**: a desktop app for AutoSwarm. Talk to a private assistant, start conversations with any of the twelve supported agents, follow how they share the work, and answer their approvals in one window. One installer, Python included, automatic updates. [Download](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-Setup.exe) · [Guide](desktop/README.md)
 - **AutoSwarm is live!**: Full technical details and multi-agent coordination algorithms are available in the [archive](autoswarm-v1.0.0/ARCHIVE.md).
 
 ## 🗺️ Roadmap
@@ -178,4 +184,4 @@ Read only the relevant references: [capabilities and data scope](src/autoswarm/a
 
 </details>
 
-[Architecture](docs/architecture.zh-CN.md) · [Contributing and validation](CONTRIBUTING.md) · [MIT License](LICENSE)
+[Architecture](docs/architecture.md) · [Contributing and validation](CONTRIBUTING.md) · [MIT License](LICENSE)
