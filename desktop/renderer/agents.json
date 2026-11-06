@@ -1,0 +1,17 @@
+{
+  "names": {
+    "claude-code": "Claude Code",
+    "codex": "Codex",
+    "cursor": "Cursor",
+    "opencode": "OpenCode",
+    "copilot": "Copilot CLI",
+    "dsh": "DeepSeek Harness",
+    "grok": "Grok Build",
+    "hermes": "Hermes",
+    "muse": "Muse",
+    "codebuddy": "CodeBuddy",
+    "nanobot": "Nanobot",
+    "kimi": "Kimi Code"
+  },
+  "pngLogos": ["nanobot", "kimi"]
+}

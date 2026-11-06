@@ -93,3 +93,9 @@ Thumbs.db
 .claude
 .tmp/
 tmp/
+
+# AutoSwarm Desk: renderer bundles written by npm run build (start, test and pack run it)
+desktop/renderer/app.js
+desktop/renderer/app.js.LEGAL.txt
+desktop/renderer/tray.js
+desktop/renderer/tray.js.LEGAL.txt
