@@ -167,9 +167,8 @@ class NanobotBridgeTests(unittest.TestCase):
         self.assertRegex(first, r"tool exited 0 after \d+\.\d+s", "the tool ran while the wire was being read")
         self.assertTrue(first.endswith("s\n"), "the wire's lines end with a bare newline")
         self.assertLess(float(first.rsplit(" ", 1)[1].strip().rstrip("s")), 15)
-        child.stdin.write(b'{"jsonrpc": "2.0"}\n')
-        child.stdin.close()
-        rest, errors = child.communicate(timeout=20)
+        # communicate() writes the line and closes stdin itself (closing it first breaks it on POSIX).
+        rest, errors = child.communicate(b'{"jsonrpc": "2.0"}\n', timeout=20)
         self.assertEqual(rest.decode().strip(), 'wire read {"jsonrpc": "2.0"}', "only the bridge's own lines are on the wire")
         self.assertIn("tool output", errors.decode(), "a tool's stdout goes to stderr")
         self.assertIn("''", errors.decode(), "a tool's stdin is empty")
