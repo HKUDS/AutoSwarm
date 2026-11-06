@@ -4,6 +4,8 @@ English · [中文](README.zh-CN.md)
 
 AutoSwarm's Windows desktop app: talk to a private assistant and start main conversations in one window, see how your agents split and share the work, answer their approvals and questions, and get notified when something needs you.
 
+![AutoSwarm Desk: Codex leads a release while six other agents work on its parts](../docs/assets/desk/desk-en.png)
+
 Desk is just one user of the AutoSwarm CLI. Without Desk, AutoSwarm still works as a plugin (Skill + CLI) inside any agent; the boundary between the two is described in "Plugin core and Desk" in [docs/architecture.md](../docs/architecture.md).
 
 ## Getting started
@@ -64,6 +66,7 @@ npm run test:ui          # other Electron tests: browser visual theme assistant 
 npm run pack             # dist/win-unpacked/AutoSwarm Desk.exe
 npm run dist             # installer and ZIP in dist/
 npm run release          # dist, then the files of one GitHub Release in dist/release
+npm run screenshots      # the README screenshots in docs/assets/desk (scene: scripts/readme-scene.mjs)
 ```
 
 - Release: raise `version` in `package.json` and push the tag `desk-v<version>`. The `Desk release` workflow builds on Windows and attaches the files to a draft release; check it and publish it as the latest release. A release can also be made by hand from `dist/release`. It has five files: `AutoSwarm-Desk-Setup.exe` for people to download, the ZIP, and `AutoSwarm-Desk-Update.exe`, its `.blockmap` and `latest.yml`, which only Desk's automatic update reads. The two copies of the installer let the [download statistics](../docs/download-statistics.md) count downloads and automatic updates apart.

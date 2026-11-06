@@ -68,6 +68,10 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
 
 支持 Windows、macOS、Linux。可在支持 Skill 和本地命令执行的 App、CLI 或 IDE 扩展中使用；被调用的 agent 需有可用的本地 CLI。
 
+## 🖥️ AutoSwarm Desk 应用界面
+
+<p align="center"><img src="docs/assets/desk/desk-zh.png" width="880" alt="AutoSwarm Desk 应用界面"></p>
+
 ## 📰 News
 
 - **AutoSwarm Desk（Windows 桌面版）发布**：在一个窗口里和私人助理对话，用已支持的十二个 Agent 开会话，查看它们如何分工协作，并处理审批。一个安装程序，自带 Python，自动更新。[下载](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-Setup.exe) · [使用说明](desktop/README.zh-CN.md)

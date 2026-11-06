@@ -78,6 +78,10 @@ AutoSwarm works across Windows, macOS, and Linux. Use AutoSwarm through:
 
 The main host needs Skill support and local command execution. Collaborators need compatible local CLIs; your assistant can help connect missing ones.
 
+## 🖥️ AutoSwarm Desk App
+
+<p align="center"><img src="docs/assets/desk/desk-en.png" width="880" alt="AutoSwarm Desk app"></p>
+
 ## 🚀 Easy to use
 
 One Lightweight Plug-in. Any Agent as Your Entry Point. All Your Agent at Work.

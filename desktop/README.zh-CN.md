@@ -4,6 +4,8 @@
 
 AutoSwarm 的 Windows 桌面应用：在一个窗口里和私人助理对话、直接开主会话，看各个 Agent 如何分工协作，处理它们的审批和提问，并在需要你时收到通知。
 
+![AutoSwarm Desk：Codex 主控一次发布，六个 Agent 分头处理](../docs/assets/desk/desk-zh.png)
+
 Desk 只是 AutoSwarm CLI 的一个使用方。不装 Desk，AutoSwarm 照样以插件方式（Skill + CLI）在任意 Agent 里使用；两者的代码边界见 [docs/architecture.zh-CN.md](../docs/architecture.zh-CN.md) 的「插件核心与 Desk」。
 
 ## 开始使用
@@ -64,6 +66,7 @@ npm run test:ui          # 其余 Electron 测试：browser visual theme assista
 npm run pack             # dist/win-unpacked/AutoSwarm Desk.exe
 npm run dist             # dist/ 里的安装程序和 ZIP
 npm run release          # 先 dist，再把一次 GitHub Release 要上传的文件放进 dist/release
+npm run screenshots      # 生成 docs/assets/desk 里的 README 截图（场景在 scripts/readme-scene.mjs）
 ```
 
 - 发布：把 `package.json` 的 `version` 调高，推送标签 `desk-v<版本>`。`Desk release` 工作流会在 Windows 上构建，并把文件附到一个草稿 Release；检查后发布，并设为最新版本（latest）。也可以用 `dist/release` 里的文件手动发布。一共五个文件：给用户下载的 `AutoSwarm-Desk-Setup.exe`、ZIP，以及只供 Desk 自动更新读取的 `AutoSwarm-Desk-Update.exe`、它的 `.blockmap` 和 `latest.yml`。安装程序分成两份，是为了让[下载统计](../docs/download-statistics.md)把用户下载和自动更新分开计数。

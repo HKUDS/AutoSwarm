@@ -39,7 +39,8 @@
     "test:demo": "node tests/demo.cjs",
     "test:models": "node tests/models.cjs",
     "icons": "electron scripts/make-icons.cjs",
-    "release": "npm run dist && node scripts/release.cjs"
+    "release": "npm run dist && node scripts/release.cjs",
+    "screenshots": "npm run build && node scripts/readme-screenshots.cjs"
   },
   "dependencies": {
     "dompurify": "^3.3.0",
