@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme, clipboard, net, session: electronSession } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, shell, nativeTheme, clipboard, net, session: electronSession } = require('electron');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -14,9 +14,12 @@ if (process.env.AUTOSWARM_DESK_USER_DATA) app.setPath('userData', process.env.AU
 if (!app.requestSingleInstanceLock()) { app.quit(); return; }
 app.on('second-instance', () => desktop?.showMain());
 if (process.platform === 'win32') app.setAppUserModelId(app.isPackaged ? 'org.autoswarm.desk' : process.execPath);
+// macOS: clicking the Dock icon while the window sits in the menu bar brings it back.
+if (process.platform === 'darwin') app.on('activate', () => desktop?.showMain());
 
 let win, desktop, watcher, probe, generation = 0, frame, preferences = {}, demo = process.argv.includes('--demo');
-const background = process.argv.includes('--background');
+// Started at login: tray only. macOS starts login items without arguments, so it says so itself (see whenReady).
+let background = process.argv.includes('--background');
 // captureAll: also keep a copy of Claude Code / Codex / Cursor process events (they are read from the agents' own records).
 const i18n = require('./i18n.cjs');
 const userEnv = require('./user-env.cjs');
@@ -340,7 +343,12 @@ async function connect() {
   else {
     // Resolve launchers to an actual interpreter. Killing py/uv alone on
     // Windows would otherwise leave a descendant watcher running after exit.
-    for (const [command, probeArgs] of [['python', ['-c', 'import sys; print(sys.executable)']], ['py', ['-3', '-c', 'import sys; print(sys.executable)']], ['uv', ['python', 'find', '--offline']]]) {
+    // macOS has python3 rather than python, and its own /usr/bin/python3 can be older than 3.10, so older ones are skipped there.
+    const newer = 'import sys; print(sys.executable) if sys.version_info >= (3, 10) else sys.exit(1)';
+    const probes = process.platform === 'win32'
+      ? [['python', ['-c', 'import sys; print(sys.executable)']], ['py', ['-3', '-c', 'import sys; print(sys.executable)']], ['uv', ['python', 'find', '--offline']]]
+      : [['python3', ['-c', newer]], ['python', ['-c', newer]], ['uv', ['python', 'find', '--offline', '>=3.10']]];
+    for (const [command, probeArgs] of probes) {
       const executable = await locate(command, probeArgs, base);
       if (token !== generation) return;
       if (executable) candidates.push([executable, []]);
@@ -418,6 +426,19 @@ async function previewTarget(target, base) {
   return value;
 }
 app.whenReady().then(async () => {
+  // macOS always shows an application menu; Electron's default one has developer items (reload, DevTools).
+  // This one keeps the standard app, edit (copy and paste in text fields) and window commands.
+  if (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin) background = true;
+  // The app's name stays the package name (autoswarm-desk: Desk's data folder is named after it), so the menu
+  // and the About panel are given the product name.
+  if (process.platform === 'darwin') {
+    const name = 'AutoSwarm Desk';
+    app.setAboutPanelOptions({ applicationName: name, applicationVersion: app.getVersion(), version: '', copyright: 'AutoSwarm contributors · MIT License' });
+    Menu.setApplicationMenu(Menu.buildFromTemplate([
+      { label: name, submenu: [{ role: 'about', label: `About ${name}` }, { type: 'separator' }, { role: 'services' }, { type: 'separator' },
+        { role: 'hide', label: `Hide ${name}` }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit', label: `Quit ${name}` }] },
+      { role: 'fileMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }]));
+  }
   preferencesPath = path.join(app.getPath('userData'), 'preferences.json');
   try { preferences = JSON.parse(fs.readFileSync(preferencesPath, 'utf8')); } catch { /* First start. */ }
   if (cliHome || process.env.AUTOSWARM_HOME) preferences.home = cliHome || process.env.AUTOSWARM_HOME;
@@ -431,9 +452,11 @@ app.whenReady().then(async () => {
   const bounds = preferences.bounds || {};
   nativeTheme.themeSource = ['light','dark'].includes(preferences.theme) ? preferences.theme : 'system';
   const surface = () => nativeTheme.shouldUseDarkColors ? '#151517' : '#ffffff';
+  // macOS keeps its own window buttons (top left) over the same custom titlebar; Windows draws its own.
+  const chrome = process.platform === 'darwin' ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 14, y: 14 } } : { frame: false };
   win = new BrowserWindow({ width: Math.max(800, bounds.width || 1320), height: Math.max(600, bounds.height || 900),
     minWidth: 540, minHeight: 500, title: 'AutoSwarm Desk', backgroundColor: surface(), show: !background,
-    icon: path.join(__dirname, '../assets', process.platform === 'win32' ? 'icon.ico' : 'logo.png'), frame: false,
+    icon: path.join(__dirname, '../assets', process.platform === 'win32' ? 'icon.ico' : 'logo.png'), ...chrome,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: true, plugins: true }
   });
   // plugins: Chromium's PDF viewer, for PDFs in the side panel (an iframe; a webview cannot draw them).
@@ -452,6 +475,12 @@ app.whenReady().then(async () => {
     if (step !== undefined) { event.preventDefault(); setZoom(step); }
   });
   win.webContents.on('did-finish-load', () => win.webContents.setZoomFactor(zoomFactor()));
+  // macOS hides its window buttons in full screen: the titlebar then gives their space back.
+  if (process.platform === 'darwin') {
+    const fullScreen = value => () => { if (!win.isDestroyed()) win.webContents.send('desk:fullscreen', value); };
+    win.on('enter-full-screen', fullScreen(true)); win.on('leave-full-screen', fullScreen(false));
+    win.webContents.on('did-finish-load', () => fullScreen(win.isFullScreen())());
+  }
   win.webContents.on('will-navigate', event => event.preventDefault());
   win.webContents.session.setPermissionRequestHandler((_, __, callback) => callback(false));
   electronSession.fromPartition(PREVIEW_PARTITION).setPermissionRequestHandler((_, permission, callback) => callback(permission === 'fullscreen'));
@@ -479,7 +508,9 @@ app.whenReady().then(async () => {
     if (!result.canceled) { preferences.home = result.filePaths[0]; demo = false; save(); await connect(); }
   });
   handle('desk:choose-python', async () => {
-    const result = await dialog.showOpenDialog(win, { title: i18n.t('选择 Python 3.10+ 解释器'), properties: ['openFile'], filters: [{ name: 'Python', extensions: ['exe'] }] });
+    // Interpreters on macOS have no extension (python3) and may sit inside an app bundle (Python.app).
+    const pick = process.platform === 'darwin' ? { properties: ['openFile', 'treatPackageAsDirectory'] } : { properties: ['openFile'], filters: [{ name: 'Python', extensions: ['exe'] }] };
+    const result = await dialog.showOpenDialog(win, { title: i18n.t('选择 Python 3.10+ 解释器'), ...pick });
     if (!result.canceled) { preferences.python = result.filePaths[0]; save(); if (!demo) await connect(); }
   });
   handle('desk:copy', text => {

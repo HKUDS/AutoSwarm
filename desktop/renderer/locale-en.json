@@ -750,5 +750,13 @@
   "新版本已下载，退出 Desk 时自动安装；有 Agent 正在运行时等到下次退出。": "The new version is downloaded and installs when Desk quits; while agents are running it waits for a later quit.",
   "打开新版本的下载页面": "Open the download page of the new version",
   "有 {count} 个 Agent 进程正在用 Desk 自带的 Python，现在安装会中断它们。等它们结束再更新，或之后退出 Desk 时自动安装。": ["{count} agent process is using Desk's bundled Python, and installing now would stop it. Update once it has finished, or it installs when you quit Desk later.", "{count} agent processes are using Desk's bundled Python, and installing now would stop them. Update once they have finished, or it installs when you quit Desk later."],
-  "无法确认是否有 Agent 正在运行，这次不安装。退出 Desk 时会再检查。": "Could not check whether agents are running, so the update was not installed. Desk checks again when it quits."
+  "无法确认是否有 Agent 正在运行，这次不安装。退出 Desk 时会再检查。": "Could not check whether agents are running, so the update was not installed. Desk checks again when it quits.",
+  "深色模式也会用于窗口背景，跟随系统时随 macOS 的外观切换。": "Dark mode also applies to the window background; System follows the macOS appearance.",
+  "⌘ + = 放大，⌘ + - 缩小，⌘ + 0 还原": "⌘ + = zooms in, ⌘ + - zooms out, ⌘ + 0 resets",
+  "菜单栏与通知": "Menu bar and notifications",
+  "关闭窗口后留在菜单栏": "Keep running in the menu bar after closing the window",
+  "继续接收提醒；右键菜单栏图标可以退出。": "You keep getting alerts; right-click the menu bar icon to quit.",
+  "开机时在菜单栏中启动": "Start in the menu bar at login",
+  "AutoSwarm Desk 仍在菜单栏中运行": "AutoSwarm Desk is still running in the menu bar",
+  "有事需要你决定时会在这里提醒你。右键菜单栏图标可以退出，点 Dock 图标可以打开窗口。": "It will let you know here when something needs your decision. Right-click the menu bar icon to quit; click the Dock icon to open the window."
 }

@@ -17,13 +17,16 @@ function createShell({ assets, preload, trayURL, background, mainWindow, prefere
     if (!images.has(name)) images.set(name, nativeImage.createFromPath(path.join(assets, 'tray', name + '.png')));
     return images.get(name);
   };
+  // macOS menu bar: black-and-transparent "Template" images, which macOS tints for light and dark menu bars.
+  const mac = process.platform === 'darwin';
+  const trayImage = name => image(mac ? `mac/${name}Template` : name);
   let shown = '';
   const prefs = () => preferences();
 
   async function setup() {
     attention = await import('./attention.mjs');
     engine = await import('./rules.mjs');
-    tray = new Tray(image('tray'));
+    tray = new Tray(trayImage('tray'));
     tray.setToolTip('AutoSwarm Desk');
     tray.on('click', () => toggle());
     tray.on('right-click', () => tray.popUpContextMenu(menu()));
@@ -40,7 +43,7 @@ function createShell({ assets, preload, trayURL, background, mainWindow, prefere
       { type: 'separator' },
       { label: t('需要我决定时弹出通知'), type: 'checkbox', checked: p.notify !== false, click: item => setPreference('notify', item.checked) },
       { label: t('会话完成或失败时通知'), type: 'checkbox', checked: p.notifyDone !== false, click: item => setPreference('notifyDone', item.checked) },
-      { label: t('开机时在托盘中启动'), type: 'checkbox', checked: !!p.openAtLogin, click: item => setPreference('openAtLogin', item.checked) },
+      { label: t(mac ? '开机时在菜单栏中启动' : '开机时在托盘中启动'), type: 'checkbox', checked: !!p.openAtLogin, click: item => setPreference('openAtLogin', item.checked) },
       { type: 'separator' },
       { label: t('退出 AutoSwarm Desk'), click: () => quit() }
     ]);
@@ -104,7 +107,8 @@ function createShell({ assets, preload, trayURL, background, mainWindow, prefere
     mainWindow().hide();
     if (!hintShown && !prefs().trayHintShown) {
       hintShown = true; setPreference('trayHintShown', true);
-      notify({ title: t('AutoSwarm Desk 仍在托盘中运行'), body: t('有事需要你决定时会在这里提醒你。右键托盘图标可以退出。'), silent: true });
+      notify(mac ? { title: t('AutoSwarm Desk 仍在菜单栏中运行'), body: t('有事需要你决定时会在这里提醒你。右键菜单栏图标可以退出，点 Dock 图标可以打开窗口。'), silent: true }
+        : { title: t('AutoSwarm Desk 仍在托盘中运行'), body: t('有事需要你决定时会在这里提醒你。右键托盘图标可以退出。'), silent: true });
     }
     return true;
   }
@@ -123,8 +127,10 @@ function createShell({ assets, preload, trayURL, background, mainWindow, prefere
     const text = attention.trayText(summary);
     if (text.tooltip === shown) return; // Only touch the shell when the count changes.
     shown = text.tooltip;
-    tray.setImage(image(text.waiting ? 'tray-attention' : 'tray'));
+    tray.setImage(trayImage(text.waiting ? 'tray-attention' : 'tray'));
     tray.setToolTip(tooltip = text.tooltip);
+    // macOS has no taskbar overlay: the count goes on the Dock icon.
+    if (mac) { app.dock?.setBadge(text.waiting ? (text.waiting > 9 ? '9+' : String(text.waiting)) : ''); return; }
     const win = mainWindow();
     if (win && !win.isDestroyed()) win.setOverlayIcon(text.waiting ? image(`badge-${text.waiting > 9 ? '9plus' : text.waiting}`) : null, text.waiting ? t('{count} 件等你决定', { count: text.waiting }) : '');
   }

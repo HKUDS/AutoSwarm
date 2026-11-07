@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desk', {
+  platform: process.platform,
   initial: () => ipcRenderer.invoke('desk:initial'),
   chooseHome: () => ipcRenderer.invoke('desk:choose-home'),
   demo: () => ipcRenderer.invoke('desk:demo'),
@@ -43,6 +44,11 @@ contextBridge.exposeInMainWorld('desk', {
   skills: () => ipcRenderer.invoke('desk:skills'),
   skillAgent: host => ipcRenderer.invoke('desk:skill-agent', host),
   skillInstall: host => ipcRenderer.invoke('desk:skill-install', host),
+  onFullScreen: callback => {
+    const listener = (_, value) => callback(value === true);
+    ipcRenderer.on('desk:fullscreen', listener);
+    return () => ipcRenderer.removeListener('desk:fullscreen', listener);
+  },
   onNavigate: callback => {
     const listener = (_, target) => callback(target);
     ipcRenderer.on('desk:navigate', listener);

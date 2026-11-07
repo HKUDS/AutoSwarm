@@ -21,6 +21,10 @@ const desk = window.desk || {
   reveal: desktopOnly, window: desktopOnly
 };
 document.body.classList.toggle('browser-preview', browserPreview);
+// macOS: the system's window buttons sit at the top left of the titlebar; the menu bar takes the tray's place.
+const mac = desk.platform === 'darwin';
+document.body.classList.toggle('mac', mac);
+desk.onFullScreen?.(value => document.body.classList.toggle('full-screen', value));
 
 const app = document.querySelector('#app');
 const settings = document.querySelector('#settings');
@@ -318,9 +322,9 @@ function updateButton() {
   const tip = ready ? t('新版本已下载，退出 Desk 时自动安装；有 Agent 正在运行时等到下次退出。') : t('打开新版本的下载页面');
   return `<button class="settings-button update-button" data-action="${ready ? 'update-install' : 'update-open'}" title="${escape(tip)}">${icon('download')}<span class="sidebar-text">${text}</span></button>`;
 }
-const appearanceSection = () => `<div class="settings-section appearance"><label>${t('外观')}</label><div class="theme-choices" role="radiogroup" aria-label="${t('外观')}">${[['system','跟随系统','monitor'],['light','浅色','sun'],['dark','深色','moon']].map(([value,text,glyph])=>`<button type="button" role="radio" aria-checked="${themeChoice===value}" data-theme-choice="${value}">${icon(glyph)}<span>${t(text)}</span></button>`).join('')}</div><p>${t('深色模式也会用于窗口背景，跟随系统时随 Windows 的应用主题切换。')}</p>`
+const appearanceSection = () => `<div class="settings-section appearance"><label>${t('外观')}</label><div class="theme-choices" role="radiogroup" aria-label="${t('外观')}">${[['system','跟随系统','monitor'],['light','浅色','sun'],['dark','深色','moon']].map(([value,text,glyph])=>`<button type="button" role="radio" aria-checked="${themeChoice===value}" data-theme-choice="${value}">${icon(glyph)}<span>${t(text)}</span></button>`).join('')}</div><p>${t(mac ? '深色模式也会用于窗口背景，跟随系统时随 macOS 的外观切换。' : '深色模式也会用于窗口背景，跟随系统时随 Windows 的应用主题切换。')}</p>`
   + `<div class="settings-row"><span class="settings-row-label">${t('语言')}<small>${t('只改变 Desk 自己的界面；Agent 写什么语言就显示什么语言。')}</small></span><div class="segmented" role="radiogroup" aria-label="${t('语言')}">${LANGUAGES.map(([value, name]) => `<button type="button" role="radio" aria-checked="${language() === value}" data-language="${value}" lang="${value === 'zh' ? 'zh-CN' : 'en'}">${name}</button>`).join('')}</div></div>`
-  + (desk.zoom ? `<div class="settings-row"><span class="settings-row-label">${t('缩放')}<small>${t('Ctrl + = 放大，Ctrl + - 缩小，Ctrl + 0 还原')}</small></span><div class="zoom-control"><button type="button" class="zoom-step" data-zoom="-1" aria-label="${t('缩小')}" ${zoomFactor <= 0.8 ? 'disabled' : ''}>−</button><output class="zoom-value" aria-live="polite">${Math.round(zoomFactor * 100)}%</output><button type="button" class="zoom-step" data-zoom="1" aria-label="${t('放大')}" ${zoomFactor >= 2 ? 'disabled' : ''}>+</button><button type="button" class="text-button" data-zoom="0" ${zoomFactor === 1 ? 'disabled' : ''}>${t('还原')}</button></div></div>` : '')
+  + (desk.zoom ? `<div class="settings-row"><span class="settings-row-label">${t('缩放')}<small>${t(mac ? '⌘ + = 放大，⌘ + - 缩小，⌘ + 0 还原' : 'Ctrl + = 放大，Ctrl + - 缩小，Ctrl + 0 还原')}</small></span><div class="zoom-control"><button type="button" class="zoom-step" data-zoom="-1" aria-label="${t('缩小')}" ${zoomFactor <= 0.8 ? 'disabled' : ''}>−</button><output class="zoom-value" aria-live="polite">${Math.round(zoomFactor * 100)}%</output><button type="button" class="zoom-step" data-zoom="1" aria-label="${t('放大')}" ${zoomFactor >= 2 ? 'disabled' : ''}>+</button><button type="button" class="text-button" data-zoom="0" ${zoomFactor === 1 ? 'disabled' : ''}>${t('还原')}</button></div></div>` : '')
   + '</div>';
 const showToast = text => { const el = document.querySelector('#toast'); el.textContent = text; el.classList.add('visible'); setTimeout(() => el.classList.remove('visible'), 2800); };
 
@@ -711,7 +715,7 @@ async function pickPermission(menu, provider, mode) {
 }
 function shellSection() {
   const row = (key, title, note = '') => `<label class="check-row"><input type="checkbox" data-pref="${key}" ${shellPrefs[key] ? 'checked' : ''} ${isDemo ? 'disabled' : ''}><span>${t(title)}${note ? `<small>${t(note)}</small>` : ''}</span></label>`;
-  return `<div class="settings-section shell-settings"><label>${t('托盘与通知')}</label>${row('notify', '需要我决定时弹出系统通知', '审批或提问出现时提醒；点击通知直达对应卡片。主窗口在前台时只更新角标。')}${row('notifyDone', '会话完成或失败时通知')}${row('closeToTray', '关闭窗口后留在托盘', '继续接收提醒；右键托盘图标可以退出。')}${row('openAtLogin', '开机时在托盘中启动')}${row('wakeAssistant', '私人助理交出的会话全部返回时唤醒它', '助理会收取结果并告诉你结论。每次唤醒都会调用一次模型，默认关闭。')}</div>`;
+  return `<div class="settings-section shell-settings"><label>${t(mac ? '菜单栏与通知' : '托盘与通知')}</label>${row('notify', '需要我决定时弹出系统通知', '审批或提问出现时提醒；点击通知直达对应卡片。主窗口在前台时只更新角标。')}${row('notifyDone', '会话完成或失败时通知')}${mac ? row('closeToTray', '关闭窗口后留在菜单栏', '继续接收提醒；右键菜单栏图标可以退出。') : row('closeToTray', '关闭窗口后留在托盘', '继续接收提醒；右键托盘图标可以退出。')}${row('openAtLogin', mac ? '开机时在菜单栏中启动' : '开机时在托盘中启动')}${row('wakeAssistant', '私人助理交出的会话全部返回时唤醒它', '助理会收取结果并告诉你结论。每次唤醒都会调用一次模型，默认关闭。')}</div>`;
 }
 const RULE_ACTIONS = { notify: '通知', silence: '静音内置通知', assistant: '交给私人助理', message: '发给会话' };
 const RULE_STATUS = { shown: '已通知', watching: '窗口在前台，未弹出', silenced: '已静音', queued: '排队中', sent: '已发送', failed: '失败', limit: '已达次数上限，跳过', 'no-session': '没有可发送的会话' };

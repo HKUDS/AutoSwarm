@@ -4,9 +4,13 @@
 const { spawnSync } = require('node:child_process');
 const crypto = require('node:crypto'), fs = require('node:fs'), path = require('node:path');
 const PYTHON = { version: '3.13.18', release: '20261026',
-  'win32-x64': { target: 'x86_64-pc-windows-msvc', sha256: '7369f7a35f261222a6ac8b3a87c1c88eeebee8af945d85346202591a64038dd3' } };
-const pin = PYTHON[`${process.platform}-${process.arch}`];
-if (!pin) throw Error(`No pinned Python for ${process.platform}-${process.arch}`);
+  'win32-x64': { target: 'x86_64-pc-windows-msvc', sha256: '7369f7a35f261222a6ac8b3a87c1c88eeebee8af945d85346202591a64038dd3' },
+  'darwin-arm64': { target: 'aarch64-apple-darwin', sha256: '8392b6ea51d94391befb2c31ebe75463f045d0b69dfcf5e1bb3234e1f5fa3405' },
+  'darwin-x64': { target: 'x86_64-apple-darwin', sha256: '7412c19d896c99431b74a18a5643e110449a7f9590fbab179c3e5ab27b9aa9e3' } };
+// The architecture to package for, this machine's unless given (a Mac builds the Apple silicon and Intel apps in turn).
+const arch = process.argv[2] || process.arch;
+const pin = PYTHON[`${process.platform}-${arch}`];
+if (!pin) throw Error(`No pinned Python for ${process.platform}-${arch}`);
 const build = path.join(__dirname, '..', 'build'), out = path.join(build, 'python'), stamp = path.join(out, '.pinned');
 // Packaged, the runtime sits in resources/python/runtime next to resources/python/autoswarm. A .pth file
 // (its relative path counts from site-packages) lets `python -m autoswarm` find the package without
@@ -31,6 +35,11 @@ const tar = process.platform === 'win32' ? path.join(process.env.SystemRoot || '
 if (spawnSync(tar, ['-xzf', archive, '-C', build], { stdio: 'inherit' }).status !== 0) throw Error('Could not unpack ' + archive);
 // Tests, IDLE and Tk are never used.
 for (const dir of ['Lib/test', 'Lib/idlelib', 'Lib/tkinter', 'Lib/turtledemo', 'tcl']) fs.rmSync(path.join(out, dir), { recursive: true, force: true });
+if (process.platform === 'darwin') {
+  const lib = path.join(out, 'lib'), stdlib = path.join(lib, `python${PYTHON.version.split('.').slice(0, 2).join('.')}`);
+  for (const dir of ['test', 'idlelib', 'tkinter', 'turtledemo']) fs.rmSync(path.join(stdlib, dir), { recursive: true, force: true });
+  for (const dir of fs.readdirSync(lib)) if (/^(tcl|tk|itcl|thread)\d/.test(dir)) fs.rmSync(path.join(lib, dir), { recursive: true, force: true });
+}
 findAutoSwarm();
 fs.writeFileSync(stamp, pin.sha256);
 console.log(`Bundled Python ${PYTHON.version} in ${out}`);

@@ -948,6 +948,17 @@ button.tray-more:hover { color: var(--accent-text); }
 @media (min-width: 861px) { body:has(.app.collapsed) .brand { padding: 0; justify-content: center; } body:has(.app.collapsed) .titlebar-toggle { margin: 0; } }
 @media (min-width: 601px) and (max-width: 860px) { .brand .titlebar-toggle { display: none; } }
 @media (max-width: 600px) { .brand { width: auto; } .brand .titlebar-toggle { margin-left: 8px; } }
+/* macOS: the system's window buttons take the titlebar's top left (to about 74px), so the brand starts after
+   them and drops the logo (the Dock shows it); the icon rail is wide enough to hold them, and collapsed or
+   narrow, only the window buttons and the sidebar toggle remain. */
+.mac .window-buttons, .mac .brand .swarm-mark { display: none; }
+.mac .brand { padding-left: 86px; }
+@media (max-width: 1100px) { .mac .brand-desk { display: none; } }
+@media (min-width: 601px) and (max-width: 860px) { body.mac { --sidebar-w: 84px; } }
+/* Full screen: macOS hides its window buttons, so the brand and the rail take their usual place. */
+body.mac.full-screen .brand { padding-left: 16px; }
+@media (min-width: 861px) { body.mac.full-screen:has(.app.collapsed) .brand { width: var(--sidebar-w); padding-left: 0; justify-content: center; } }
+@media (min-width: 861px) { body.mac:has(.app.collapsed) { --sidebar-w: 84px; } body.mac:has(.app.collapsed) .brand { width: auto; padding-left: 86px; justify-content: flex-start; } }
 
 /* Sidebar: workspace folders with their sessions */
 .app > aside .new-session { margin-top: 2px; }

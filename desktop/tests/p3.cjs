@@ -53,9 +53,11 @@ async function launch(extra = []) {
     const handed = cli(['run', '--agent', 'codex', '--cwd', workspace, '--background', '--no-parent', '--input', '-'], `gate:${gate}\nASSISTANT_HANDOFF`, { AUTOSWARM_CALL_ID: assistant.call_id });
 
     // 1. Closing the window keeps Desk in the tray.
-    await page.locator('[data-window="close"]').click();
+    // macOS has the system's close button instead of Desk's own: close the window as it does.
+    if (process.platform === 'darwin') await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith('index.html')).close());
+    else await page.locator('[data-window="close"]').click();
     await until(() => app.evaluate(({ BrowserWindow }) => !BrowserWindow.getAllWindows().find(w => w.getTitle() === 'AutoSwarm Desk' && w.webContents.getURL().endsWith('index.html')).isVisible()), 'main window hidden');
-    assert.ok((await notes(app)).some(n => /仍在托盘中运行/.test(n.title)), 'first close explains the tray');
+    assert.ok((await notes(app)).some(n => (process.platform === 'darwin' ? /仍在菜单栏中运行/ : /仍在托盘中运行/).test(n.title)), 'first close explains the tray');
 
     // 2. Two sessions need the user at the same time.
     const approved = path.join(workspace, 'approved.txt'), answered = path.join(workspace, 'answered.txt');

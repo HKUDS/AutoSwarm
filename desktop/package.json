@@ -21,6 +21,8 @@
     "pack": "electron-builder --dir --win",
     "predist": "npm run build && node scripts/fetch-python.cjs",
     "dist": "electron-builder --win --publish never",
+    "pack:mac": "npm run build && node scripts/dist-mac.cjs --dir",
+    "dist:mac": "npm run build && node scripts/dist-mac.cjs",
     "pretest:assistant": "npm run build",
     "test:assistant": "node tests/assistant.cjs",
     "pretest:visual": "npm run build",
@@ -40,6 +42,7 @@
     "test:models": "node tests/models.cjs",
     "icons": "electron scripts/make-icons.cjs",
     "release": "npm run dist && node scripts/release.cjs",
+    "release:mac": "npm run dist:mac && node scripts/release-mac.cjs",
     "screenshots": "npm run build && node scripts/readme-screenshots.cjs"
   },
   "dependencies": {
@@ -107,6 +110,21 @@
       ],
       "icon": "assets/icon.ico",
       "signExecutable": false
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "packaging/icon.icns",
+      "category": "public.app-category.developer-tools",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "darkModeSupport": true,
+      "artifactName": "AutoSwarm-Desk-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "artifactName": "AutoSwarm-Desk-mac-${arch}.${ext}"
     },
     "artifactName": "AutoSwarm-Desk-${version}-win-${arch}.${ext}",
     "nsis": {
