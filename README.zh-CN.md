@@ -16,10 +16,10 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
 
 [![Paper](https://img.shields.io/badge/Paper-arXiv-B31B1B?style=flat&logo=arxiv&logoColor=white)](https://arxiv.org/abs/2610.33048) [![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat)](./COMMUNICATION.md) [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
 
-[![下载 AutoSwarm Desk Windows 版](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-AutoSwarm%20Desk%20Windows%20%E7%89%88-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-Setup.exe)
+[![下载 AutoSwarm Desk Windows 版](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-AutoSwarm%20Desk%20Windows%20%E7%89%88-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-Setup.exe) [![下载 AutoSwarm Desk macOS 版（Apple 芯片）](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-macOS%20%E7%89%88%EF%BC%88Apple%20%E8%8A%AF%E7%89%87%EF%BC%89-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-arm64.dmg) [![下载 AutoSwarm Desk macOS 版（Intel）](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-macOS%20%E7%89%88%EF%BC%88Intel%EF%BC%89-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-x64.dmg)
 
-**新：AutoSwarm Desk Windows 桌面版。** 私人助理、所有 Agent、它们的工作进展和审批，都在一个窗口里。<br>
-运行安装程序即可开始：自带 Python，Desk 会自动更新。[了解功能](desktop/README.zh-CN.md)
+**新：AutoSwarm Desk 桌面版（Windows 和 macOS）。** 私人助理、所有 Agent、它们的工作进展和审批，都在一个窗口里。<br>
+运行安装程序即可开始：自带 Python，Windows 版会自动更新。[了解功能](desktop/README.zh-CN.md)
 
 </div>
 
@@ -74,6 +74,7 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
 
 ## 📰 News
 
+- **AutoSwarm Desk macOS 版发布**：同一个应用，支持 Apple 芯片和 Intel 芯片的 Mac，自带 Python。[Apple 芯片版](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-arm64.dmg) · [Intel 版](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-x64.dmg) · [使用说明](desktop/README.zh-CN.md)
 - **AutoSwarm Desk（Windows 桌面版）发布**：在一个窗口里和私人助理对话，用已支持的十二个 Agent 开会话，查看它们如何分工协作，并处理审批。一个安装程序，自带 Python，自动更新。[下载](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-Setup.exe) · [使用说明](desktop/README.zh-CN.md)
 - **OpenOPC → AutoSwarm**：v2 将 swarm 能力带入用户已有的 agent。旧版完整实现保留在 [v1.0.0 归档](autoswarm-v1.0.0/ARCHIVE.md)中。
 
