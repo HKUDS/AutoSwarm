@@ -22,7 +22,7 @@ test('only newer published desk-v releases count, whatever else the repository r
   assert.equal(newest({ message: 'API rate limit exceeded' }, '0.9.7'), null);
 });
 
-function setup({ cache = scratch(), record = path.join(scratch(), 'update-installing.json'), version = '0.9.7', copy = true, releases = [release('desk-v0.9.8')], running = [], ok = true } = {}) {
+function setup({ cache = scratch(), record = path.join(scratch(), 'update-installing.json'), version = '0.9.7', copy = true, releases = [release('desk-v0.9.8')], running = [], ok = true, platform = 'win32' } = {}) {
   let checked = 0;
   const app = Object.assign(new EventEmitter(), { isPackaged: true, getVersion: () => version, quits: 0, quit() { this.quits++; } });
   const engine = Object.assign(new EventEmitter(), { feeds: [], installs: [], autoInstallOnAppQuit: true, installerPath: path.join(cache, 'pending', 'AutoSwarm-Desk-Update.exe'),
@@ -32,7 +32,7 @@ function setup({ cache = scratch(), record = path.join(scratch(), 'update-instal
   const net = { async fetch() { return { ok, status: ok ? 200 : 403, json: async () => releases }; } };
   const states = [], hidden = [];
   const log = { info() {}, warn() {}, error() {} };
-  const updater = createUpdater({ app, net, log, isInstalled: () => copy, platform: 'win32', onChange: state => states.push(state.kind), load: () => engine,
+  const updater = createUpdater({ app, net, log, isInstalled: () => copy, platform, onChange: state => states.push(state.kind), load: () => engine,
     running: async () => { checked++; return (typeof running === 'function' ? running() : running).map(pid => ({ pid, path: 'python.exe' })); }, windows: () => [{ hide: () => hidden.push(1) }], recheck: 0, cache, record });
   return { app, engine, updater, states, hidden, checks: () => checked, cache, record };
 }
@@ -76,6 +76,21 @@ test('a ZIP copy, or a release without update files, only links to the release',
     assert.equal(updater.state().page, `${BASE}/tag/desk-v0.9.8`);
     assert.deepEqual(engine.feeds, []);
   }
+});
+
+test('a Mac copy only links to a newer release with a Mac download, and never downloads it', async () => {
+  const mac = { name: 'AutoSwarm-Desk-mac-arm64.dmg', browser_download_url: `${BASE}/download/desk-v0.9.9/AutoSwarm-Desk-mac-arm64.dmg` };
+  const withMac = release('desk-v0.9.9'); withMac.assets = [...withMac.assets, mac];
+  // 0.9.9 has a Mac download, 1.0.0 is Windows only: a Mac is offered 0.9.9.
+  const { engine, updater } = setup({ platform: 'darwin', releases: [release('desk-v1.0.0'), withMac] });
+  assert.equal(updater.state().installed, false);
+  await updater.check();
+  assert.equal(updater.state().kind, 'available');
+  assert.equal(updater.state().version, '0.9.9');
+  assert.deepEqual(engine.feeds, [], 'Nothing is downloaded on a Mac');
+  const windowsOnly = setup({ platform: 'darwin', releases: [release('desk-v1.0.0')] });
+  await windowsOnly.updater.check();
+  assert.equal(windowsOnly.updater.state().kind, 'current');
 });
 
 test('a failed check leaves Desk as it was', async () => {

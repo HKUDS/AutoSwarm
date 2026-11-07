@@ -25,3 +25,24 @@ test('PATH is found whatever its case, and kept when nothing is new', () => {
   assert.deepEqual(merge({ PATH: 'C:\\a' }, [['Path', 'REG_SZ', 'c:\\A\\']], []), { PATH: 'C:\\a' });
   assert.equal(merge({}, [], [['Path', 'REG_SZ', 'C:\\x']]).Path, 'C:\\x');
 });
+
+const { mergeShell, parseShell } = createRequire(import.meta.url)('../electron/user-env.cjs');
+
+test('macOS: the login shell environment is read between the marks, whatever the profile prints', () => {
+  const mark = '__AUTOSWARM_DESK_ENV__';
+  const output = `Welcome!\n${mark}PATH=/opt/homebrew/bin:/usr/bin\0KEY=a=b\0MULTI=one\ntwo\0bad name=x\0${mark}bye`;
+  assert.deepEqual(parseShell(output), { PATH: '/opt/homebrew/bin:/usr/bin', KEY: 'a=b', MULTI: 'one\ntwo' });
+  assert.equal(parseShell('no marks here'), null, 'An unfinished answer keeps the environment as it is');
+});
+
+test('macOS: the shell PATH comes first, other variables are only added', () => {
+  const env = { PATH: '/usr/bin:/bin:/desk/only', X: '1' };
+  const shell = { PATH: '/opt/homebrew/bin:/Users/me/.local/bin:/usr/bin:/bin', X: '2', ANTHROPIC_API_KEY: 'k', PWD: '/tmp', SHLVL: '2',
+    TERM: 'xterm-256color', AUTOSWARM_HOME: 'h', CLAUDECODE: '1', EMPTY: '' };
+  const result = mergeShell(env, shell);
+  assert.equal(result.PATH, '/opt/homebrew/bin:/Users/me/.local/bin:/usr/bin:/bin:/desk/only');
+  assert.equal(result.X, '1', 'A value Desk already has stays');
+  assert.equal(result.ANTHROPIC_API_KEY, 'k', 'A key exported in the profile is added');
+  for (const name of ['PWD', 'SHLVL', 'TERM', 'AUTOSWARM_HOME', 'CLAUDECODE', 'EMPTY']) assert.equal(name in result, false, name);
+  assert.equal(env.PATH, '/usr/bin:/bin:/desk/only', 'The input is not changed');
+});

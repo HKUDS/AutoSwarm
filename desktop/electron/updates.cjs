@@ -3,6 +3,8 @@
 // the background and installs it when Desk quits; a ZIP copy only links to the new release.
 // The installer replaces its whole folder and stops everything running from it, including agents'
 // runners and AutoSwarm commands on Desk's bundled Python, so installing waits until none of them run.
+// macOS: Desk is not signed with an Apple Developer ID, which installing an update in place requires,
+// so a Mac copy only links to a newer release that has a Mac download.
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -19,12 +21,14 @@ function compare(a, b) {
   for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0) ? 1 : -1;
   return 0;
 }
-/** The newest published Desk release above the running version, or null. */
-function newest(releases, current) {
+const MAC_DOWNLOAD = /^AutoSwarm-Desk-mac-[\w-]+\.dmg$/;
+/** The newest published Desk release above the running version, or null; `needs` names a download it must have. */
+function newest(releases, current, needs = null) {
   let best = null;
   for (const release of Array.isArray(releases) ? releases : []) {
     const match = !release?.draft && !release?.prerelease && TAG.exec(release?.tag_name || '');
     if (!match || compare(match[1], current) <= 0 || (best && compare(match[1], best.version) <= 0)) continue;
+    if (needs && !(release.assets || []).some(asset => needs.test(asset?.name || ''))) continue;
     const feed = (release.assets || []).find(asset => asset?.name === FEED)?.browser_download_url;
     best = { version: match[1], page: /^https?:\/\//.test(release.html_url || '') ? release.html_url : null,
       feed: typeof feed === 'string' ? feed.slice(0, -FEED.length - 1) : null };
@@ -75,9 +79,10 @@ function createUpdater({ app, net, onChange = () => {}, log = { info() {}, warn:
   record = path.join(app.getPath?.('userData') || os.tmpdir(), 'update-installing.json') }) {
   const source = process.env.AUTOSWARM_DESK_RELEASES || RELEASES;
   // Tests use their own user data and check only against a release list they serve.
-  const enabled = app.isPackaged && platform === 'win32' && process.env.AUTOSWARM_DESK_UPDATES !== 'off'
+  const linkOnly = platform === 'darwin';
+  const enabled = app.isPackaged && (platform === 'win32' || linkOnly) && process.env.AUTOSWARM_DESK_UPDATES !== 'off'
     && (!process.env.AUTOSWARM_DESK_USER_DATA || !!process.env.AUTOSWARM_DESK_RELEASES);
-  let state = { kind: enabled ? 'idle' : 'off', current: app.getVersion(), installed: isInstalled() };
+  let state = { kind: enabled ? 'idle' : 'off', current: app.getVersion(), installed: !linkOnly && isInstalled() };
   let engine = null, checking = null, deciding = false, decided = false, installing = false;
   const set = patch => { state = { ...state, ...patch }; onChange(state); };
 
@@ -95,10 +100,10 @@ function createUpdater({ app, net, onChange = () => {}, log = { info() {}, warn:
   async function look() {
     const response = await net.fetch(source, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'AutoSwarm-Desk/' + app.getVersion() } });
     if (!response.ok) throw Error('GitHub releases: HTTP ' + response.status);
-    const release = newest(await response.json(), app.getVersion());
+    const release = newest(await response.json(), app.getVersion(), linkOnly ? MAC_DOWNLOAD : null);
     log.info(`Checked ${source}: ${release ? 'found ' + release.version : 'nothing newer than ' + app.getVersion()}`);
     // Checked each time: right after an update the installer may still be finishing.
-    const copy = isInstalled();
+    const copy = !linkOnly && isInstalled();
     if (!release) return set({ kind: 'current', installed: copy, checked_at: Date.now() });
     if (state.kind === 'downloading' && state.version === release.version) return;
     if (!copy || !release.feed) return set({ kind: 'available', installed: copy, version: release.version, page: release.page });
