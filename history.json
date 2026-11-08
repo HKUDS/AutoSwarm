@@ -87,10 +87,120 @@
     "2026-10-31": {
       "count": 186,
       "uniques": 85
+    },
+    "2026-11-01": {
+      "count": 569,
+      "uniques": 383
+    },
+    "2026-11-02": {
+      "count": 397,
+      "uniques": 273
+    },
+    "2026-11-03": {
+      "count": 238,
+      "uniques": 164
+    },
+    "2026-11-04": {
+      "count": 189,
+      "uniques": 127
+    },
+    "2026-11-05": {
+      "count": 205,
+      "uniques": 151
+    },
+    "2026-11-06": {
+      "count": 248,
+      "uniques": 156
+    },
+    "2026-11-07": {
+      "count": 188,
+      "uniques": 96
     }
   },
-  "last_collected_at": "2026-11-01T10:29:38.124997+00:00",
-  "release_assets": {},
+  "last_collected_at": "2026-11-08T10:24:51.626128+00:00",
+  "release_assets": {
+    "716041054": {
+      "baseline": 0,
+      "count": 6,
+      "created_at": "2026-11-06T05:33:30+00:00",
+      "last_seen_at": "2026-11-08T10:24:51.626128+00:00",
+      "name": "AutoSwarm-Desk-Update.exe",
+      "present": true,
+      "tag": "desk-v0.1.0"
+    },
+    "716041055": {
+      "baseline": 0,
+      "count": 1,
+      "created_at": "2026-11-06T05:33:30+00:00",
+      "last_seen_at": "2026-11-08T10:24:51.626128+00:00",
+      "name": "latest.yml",
+      "present": true,
+      "tag": "desk-v0.1.0"
+    },
+    "716041061": {
+      "baseline": 0,
+      "count": 12,
+      "created_at": "2026-11-06T05:33:30+00:00",
+      "last_seen_at": "2026-11-08T10:24:51.626128+00:00",
+      "name": "AutoSwarm-Desk-0.1.0-win-x64.zip",
+      "present": true,
+      "tag": "desk-v0.1.0"
+    },
+    "716041062": {
+      "baseline": 0,
+      "count": 33,
+      "created_at": "2026-11-06T05:33:30+00:00",
+      "last_seen_at": "2026-11-08T10:24:51.626128+00:00",
+      "name": "AutoSwarm-Desk-Setup.exe",
+      "present": true,
+      "tag": "desk-v0.1.0"
+    },
+    "716041063": {
+      "baseline": 0,
+      "count": 1,
+      "created_at": "2026-11-06T05:33:30+00:00",
+      "last_seen_at": "2026-11-08T10:24:51.626128+00:00",
+      "name": "AutoSwarm-Desk-Update.exe.blockmap",
+      "present": true,
+      "tag": "desk-v0.1.0"
+    },
+    "721805250": {
+      "baseline": 0,
+      "count": 6,
+      "created_at": "2026-11-07T20:09:40+00:00",
+      "last_seen_at": "2026-11-08T10:24:51.626128+00:00",
+      "name": "AutoSwarm-Desk-mac-arm64.dmg",
+      "present": true,
+      "tag": "desk-v0.1.0"
+    },
+    "721806279": {
+      "baseline": 0,
+      "count": 4,
+      "created_at": "2026-11-07T20:10:08+00:00",
+      "last_seen_at": "2026-11-08T10:24:51.626128+00:00",
+      "name": "AutoSwarm-Desk-mac-x64.dmg",
+      "present": true,
+      "tag": "desk-v0.1.0"
+    },
+    "721807266": {
+      "baseline": 0,
+      "count": 0,
+      "created_at": "2026-11-07T20:10:37+00:00",
+      "last_seen_at": "2026-11-08T10:24:51.626128+00:00",
+      "name": "AutoSwarm-Desk-0.1.0-mac-arm64.zip",
+      "present": true,
+      "tag": "desk-v0.1.0"
+    },
+    "721808266": {
+      "baseline": 0,
+      "count": 1,
+      "created_at": "2026-11-07T20:11:04+00:00",
+      "last_seen_at": "2026-11-08T10:24:51.626128+00:00",
+      "name": "AutoSwarm-Desk-0.1.0-mac-x64.zip",
+      "present": true,
+      "tag": "desk-v0.1.0"
+    }
+  },
   "repository": "HKUDS/AutoSwarm",
   "schema_version": 1,
   "since": "2026-10-10",
