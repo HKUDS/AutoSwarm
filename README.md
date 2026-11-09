@@ -7,8 +7,6 @@
 
 [简体中文](README.zh-CN.md)
 
-**Unify your agents. Unify your context. Work as One**
-
 [![Paper](https://img.shields.io/badge/Paper-arXiv-B31B1B?style=flat&logo=arxiv&logoColor=white)](https://arxiv.org/abs/2610.33048) [![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat)](./COMMUNICATION.md) [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
 
 [![Download AutoSwarm for Windows](https://img.shields.io/badge/Download-AutoSwarm%20Desk%20for%20Windows-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-Setup.exe) [![Download AutoSwarm for Mac (Apple silicon)](https://img.shields.io/badge/Download-macOS%20%28Apple%20silicon%29-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-arm64.dmg) [![Download AutoSwarm for Mac (Intel)](https://img.shields.io/badge/Download-macOS%20%28Intel%29-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-x64.dmg)
