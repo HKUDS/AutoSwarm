@@ -2,7 +2,7 @@
 
 <h1>
   <img src="docs/assets/autoswarm/AutoSwarm-logo.png" width="48" height="48" align="absmiddle" alt="AutoSwarm logo">
-  AutoSwarm: Unify Your Agents. Unify Your Context
+  AutoSwarm: Unify Your Agents. Break Context Barriers.
 </h1>
 
 [简体中文](README.zh-CN.md)
