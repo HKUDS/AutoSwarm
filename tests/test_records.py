@@ -29,6 +29,23 @@ class AtomicRecordTests(unittest.TestCase):
                 with self.assertRaises(PermissionError):
                     records.require("call_01")
 
+    def test_hook_pending_scan_skips_unreadable_unrelated_history(self):
+        from autoswarm.hooks import pending_calls
+        with tempfile.TemporaryDirectory() as temporary:
+            records = Records(temporary)
+            private = records.call("call_01")
+            mine = records.call("call_02")
+            parent = {"host": "claude-code", "session_id": "session-a"}
+            write_json(private / "task.json", {"call_id": "call_01"})
+            write_json(mine / "task.json", {"call_id": "call_02", "parent": parent})
+            original = read_json
+            def read_with_private_history(path, default=None):
+                if path.parent == private:
+                    raise PermissionError("[WinError 5] Access is denied")
+                return original(path, default)
+            with patch("autoswarm.records.read_json", side_effect=read_with_private_history):
+                self.assertEqual([d for d, _ in pending_calls(records, "session-a", include_submitted=True)], [mine])
+
     def test_receive_collects_completed_call_despite_unreadable_unrelated_history(self):
         with tempfile.TemporaryDirectory() as temporary:
             records = Records(temporary)
