@@ -13,8 +13,15 @@
 
 [![Download AutoSwarm Desk for Windows](https://img.shields.io/badge/Download-AutoSwarm%20Desk%20for%20Windows-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-Setup.exe) [![Download AutoSwarm Desk for macOS (Apple silicon)](https://img.shields.io/badge/Download-macOS%20%28Apple%20silicon%29-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-arm64.dmg) [![Download AutoSwarm Desk for macOS (Intel)](https://img.shields.io/badge/Download-macOS%20%28Intel%29-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-x64.dmg)
 
-**New: AutoSwarm Desk for Windows and macOS.** Your private assistant, all your agents, their work and approvals in one window.<br>
-Run the installer and start: Python is included, and on Windows Desk updates itself. [What it does](desktop/README.md)
+</div>
+
+**New:** **AutoSwarm Desktop Released** — All Your Agents in One Private Workspace
+
+One window to coordinate agents, share context, review approvals, and track progress.
+
+Watch all your agents work together for you. [What AutoSwarm does](desktop/README.md)
+
+<div align="center">
 
 <a href="https://trendshift.io/repositories/82651?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-82651" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/82651" alt="HKUDS%2FAutoSwarm | Trendshift" width="250" height="55"/></a>
 
