@@ -25,6 +25,14 @@ Watch all your agents work together for you. [What AutoSwarm does](desktop/READM
 
 </div>
 
+<p align="center">
+  <img
+    src="assets/AutoSwarm.png"
+    alt="AutoSwarm Desk"
+    width="900"
+  />
+</p>
+
 ## Why AutoSwarm?
   
 **No single agent can do everything. You don’t need another agent—you need all your agents working as one.**
