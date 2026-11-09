@@ -27,7 +27,7 @@ Watch all your agents work together for you. [What AutoSwarm does](desktop/READM
 
 <p align="center">
   <img
-    src="assets/AutoSwarm.png"
+    src="assets/docs/assets/desk/AutoSwarm_Desk.png"
     alt="AutoSwarm Desk"
     width="900"
   />
