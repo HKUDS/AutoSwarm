@@ -3,6 +3,8 @@ contextBridge.exposeInMainWorld('desk', {
   platform: process.platform,
   initial: () => ipcRenderer.invoke('desk:initial'),
   chooseHome: () => ipcRenderer.invoke('desk:choose-home'),
+  agentSwitches: () => ipcRenderer.invoke('desk:agent-switches'),
+  agentToggle: provider => ipcRenderer.invoke('desk:agent-toggle', provider),
   demo: () => ipcRenderer.invoke('desk:demo'),
   reconnect: () => ipcRenderer.invoke('desk:reconnect'),
   choosePython: () => ipcRenderer.invoke('desk:choose-python'),

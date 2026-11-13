@@ -76,6 +76,8 @@ def parser() -> argparse.ArgumentParser:
     item.add_argument("--delegate-approvals", choices=["on", "off"], help="Persist the default parent delegation setting; enabled by default")
     item.add_argument("--capture-events", choices=["on", "off", "auto"], help="Keep native process events for Desk: on, off (default), or auto = only agents whose own session records Desk cannot read")
     item.add_argument("--event-max-call-mb", type=float, help="Stop capturing one call's events above this size (default 64; 0 = no limit)")
+    item.add_argument("--agent", help="Provider whose AutoSwarm availability to change")
+    item.add_argument("--enabled", choices=["on", "off"], help="Allow or block new AutoSwarm calls for --agent")
     item = commands.add_parser("approvals")
     item.add_argument("call_id", nargs="?")
     for name in ("approve", "deny"):
@@ -206,10 +208,32 @@ def dispatch(args, records: Records):
         return catalog(records.config(), args.agent)
     if name == "config":
         from . import capture
+        from .providers import canonical
+        from .platform import session_lease
+        if (args.agent is None) != (args.enabled is None):
+            raise SwarmError("invalid_config", "Set both --agent and --enabled to change an Agent switch")
         events = capture.configure(records, capture={"on": True, "off": False, "auto": "auto", None: None}[args.capture_events], max_call_mb=args.event_max_call_mb)
         result = approvals.configure(records, None if args.delegate_approvals is None else args.delegate_approvals == "on")
         if args.capture_events is not None or args.event_max_call_mb is not None:
             result["events"] = events
+        if args.agent is not None:
+            provider = canonical(args.agent)
+            lease = session_lease(records.home / "config.lock")
+            try:
+                config = records.config() or {}
+                if not isinstance(config, dict):
+                    raise SwarmError("invalid_config", "AutoSwarm config must be a JSON object")
+                providers = config.setdefault("providers", {})
+                if not isinstance(providers, dict):
+                    raise SwarmError("invalid_config", "providers must be a JSON object")
+                settings = providers.setdefault(provider, {})
+                if not isinstance(settings, dict):
+                    raise SwarmError("invalid_config", f"providers.{provider} must be a JSON object")
+                settings["enabled"] = args.enabled == "on"
+                write_json(records.home / "config.json", config)
+            finally:
+                lease.close()
+            result["agent"] = {"provider": provider, "enabled": args.enabled == "on"}
         return result
     if name == "_message":
         return messages.deliver_to_host(records, args.message_id)

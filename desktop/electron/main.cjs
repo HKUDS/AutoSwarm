@@ -558,6 +558,29 @@ app.whenReady().then(async () => {
   });
   handle('desk:demo', async () => { demo = true; await connect(); });
   handle('desk:reconnect', async () => { demo = false; await connect(); });
+  async function listAgentSwitches() {
+    const home = preferences.home || controlHome;
+    if (demo) return { agents: [], home: home || null, demo: true };
+    if (!home) throw Error(i18n.t('请先连接本地记录目录'));
+    const inventory = await cli(['agents'], '', home);
+    const agents = (inventory.agents || []).filter(agent => agent.available || agent.configured).map(agent => {
+      const provider = agent.provider;
+      return { provider, name: AGENT_NAMES[provider] || provider, available: !!agent.available, version: agent.version || '', enabled: agent.enabled !== false, manageable: true, error: agent.error || '' };
+    });
+    return { agents, home, demo: false };
+  }
+  handle('desk:agent-switches', () => listAgentSwitches());
+  handle('desk:agent-toggle', async provider => {
+    if (typeof provider !== 'string' || !/^[a-z][a-z0-9-]{0,40}$/.test(provider)) throw Error(i18n.t('无效的 Agent'));
+    if (demo) throw Error(i18n.t('请先连接本地记录目录'));
+    const before = await listAgentSwitches();
+    const agent = before.agents.find(item => item.provider === provider);
+    if (!agent) throw Error('Agent ' + provider + ' is not detected in this AutoSwarm home');
+    const enabled = !agent.enabled;
+    await cli(['config', '--agent', provider, '--enabled', enabled ? 'on' : 'off'], '', before.home);
+    await connect();
+    return listAgentSwitches();
+  });
   handle('desk:choose-workspace', async () => {
     if (demo || !controlHome) throw Error(i18n.t('请先连接本地记录目录'));
     const settings = settingsFor(controlHome);

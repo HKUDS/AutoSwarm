@@ -38,7 +38,7 @@ From source, Desk tries `AUTOSWARM_DESK_PYTHON`, `python`, `py -3` and uv's Pyth
 - **Direct messages**: write to a main conversation or any worker, also while it runs, or stop a whole conversation.
 - **Tray and notifications**: notified when something waits for you or a conversation finishes or fails; can start in the tray at login. On macOS the icon sits in the menu bar and the count on the Dock icon.
 - **Trigger rules**: create `triggers.json` in Settings and write rules as "when + what", for example a notification naming the conversation when Codex waits for approval, no notification when an external conversation finishes, or asking the private assistant to find out why a conversation failed.
-- **Settings**: English/Chinese, zoom (Ctrl + = / −, ⌘ on macOS), light/dark, keeping process events, the Python interpreter, and a demo space (left from its banner or the top right at any time).
+- **Settings**: English/Chinese, zoom (Ctrl + = / −, ⌘ on macOS), light/dark, detected Agent switches, keeping process events, the Python interpreter, and a demo space (left from its banner or the top right at any time). Turning an Agent off blocks new AutoSwarm calls; existing sessions continue.
 
 ## Supported agents
 

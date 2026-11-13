@@ -43,6 +43,8 @@ async function inside(page, label) {
     assert.equal(await page.locator('aside .new-session .sidebar-text').innerText(), 'New session');
     assert.ok(await page.locator('aside .session-item', { hasText: '调研 Terminal' }).count(), 'Session titles are agent content and stay in their language');
     await openSettings(page);
+    await page.waitForSelector('#agent-switches');
+    assert.equal(await page.locator('.agent-switch-empty').innerText(), 'No available or configured agents were detected.');
     // Assistant conversation titles are the user's own words and stay as written.
     const text = await page.locator('#settings').evaluate(el => { const copy = el.cloneNode(true); copy.querySelectorAll('.assistant-row-text strong').forEach(n => n.remove()); return copy.innerText; });
     assert.ok(!CJK.test(text.replace('中文', '')), `English settings contain Chinese: ${text.match(/.{0,20}[一-鿿].{0,20}/)?.[0]}`);
@@ -54,6 +56,8 @@ async function inside(page, label) {
       for (const lang of ['en', 'zh']) {
         await page.locator(`[data-language="${lang}"]`).click();
         await inside(page, `${width}x${height} ${lang} top`);
+        await page.locator('.agent-switch-section').scrollIntoViewIfNeeded();
+        await inside(page, `${width}x${height} ${lang} Agent switches`);
         await page.locator('.permission-settings').scrollIntoViewIfNeeded();
         await inside(page, `${width}x${height} ${lang} permissions`);
         for (const option of await page.locator('.permission-option').all()) assert.ok(await option.isVisible(), 'Every permission choice is visible');
