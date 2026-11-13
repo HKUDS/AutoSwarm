@@ -16,15 +16,21 @@ ALIASES = {
     "github-copilot": "copilot", "muse-code": "muse", "meta-muse-code": "muse", "codebuddy-code": "codebuddy",
     "hermes-agent": "hermes", "nanobot-ai": "nanobot", "deepseek-harness": "dsh",
     "grok-build": "grok", "grok_build": "grok",
+    "gemini-cli": "gemini", "google-gemini": "gemini",
+    "antigravity-acp": "antigravity", "google-antigravity": "antigravity",
     "kimi-code": "kimi", "kimi-cli": "kimi",
 }
 BINARIES = {
     "codex": "codex", "claude-code": "claude", "opencode": "opencode",
     "cursor": "cursor-agent", "copilot": "copilot", "muse": "muse", "codebuddy": "codebuddy",
     "hermes": "hermes", "nanobot": "nanobot", "dsh": "dsh", "grok": "grok", "kimi": "kimi",
+    "gemini": "gemini", "antigravity": "agy_acp_server.par",
 }
-ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi"}
+# Gemini CLI speaks ACP natively via `gemini --acp`.
+# Antigravity is Google's ACP server from the ACP registry (antigravity-acp); it takes no ACP flag.
+ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi", "gemini", "antigravity"}
 OWNED_SERVERS = ACP_PROVIDERS | {"opencode", "muse"}
+AUTH_TIMEOUT = 600  # Seconds for one ACP `authenticate`; browser sign-in can take minutes.
 
 
 def canonical(name: str) -> str:
@@ -154,6 +160,16 @@ def invocation(task: dict, config: dict) -> list[str]:
                 raise SwarmError("conflicting_selection", "--effort and native --variant request different OpenCode variants")
             options["variant"] = task["effort"]
     task["native_options"] = options
+    if name in ACP_PROVIDERS:
+        # ACP `authenticate` runs only with an explicitly configured method;
+        # there is no default sign-in. Interactive sign-in may take minutes.
+        settings = config.get("providers", {}).get(name, {})
+        method, timeout = settings.get("auth_method"), settings.get("auth_timeout", AUTH_TIMEOUT)
+        if method is not None and (not isinstance(method, str) or not method.strip()):
+            raise SwarmError("invalid_config", f"providers.{name}.auth_method must be a non-empty ACP auth method ID")
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0:
+            raise SwarmError("invalid_config", f"providers.{name}.auth_timeout must be a positive number of seconds")
+        task["auth_method"], task["auth_timeout"] = method, timeout
     if name == "opencode":
         task["native_transport"] = opencode_transport(command, config)
         if task["native_transport"] == "acp":
@@ -185,6 +201,9 @@ def invocation(task: dict, config: dict) -> list[str]:
         return [*command, "acp", *native_args]
     elif name == "dsh":
         return [*command, "--profile", "acp", *native_args]
+    elif name == "antigravity":
+        # Speaks ACP on stdio by default; model selection uses ACP session controls.
+        return [*command, *native_args]
     elif name == "grok":
         command += ["agent", "--no-leader"]
         if options.get("model"):

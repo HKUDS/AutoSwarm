@@ -64,7 +64,7 @@ def finished(prompt):
     if provider == "codex":
         emit({"method": "item/completed", "params": {"threadId": session, "item": {"type": "agentMessage", "text": text}}})
         emit({"method": "turn/completed", "params": {"threadId": session, "turn": {"id": "native-turn", "status": "failed" if prompt == "fail" else "completed"}}})
-    elif provider in {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi"}:
+    elif provider in {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi", "gemini", "antigravity"}:
         if prompt == "with-tools":
             emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "INTERIM COMMENTARY"}}}})
             emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "tool_call", "toolCallId": "tool-1", "title": "fixture tool"}}})
@@ -196,10 +196,11 @@ if provider == "opencode":
     server.daemon_threads = True
     print("Native service ready (changed banner)", file=sys.stderr, flush=True)
     server.serve_forever()
-elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot", "dsh", "grok", "kimi"}:
+elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot", "dsh", "grok", "kimi", "gemini", "antigravity"}:
     marker = None
     prompt_id = None
     unsupported_replied = False
+    signed_in = False
     detached_tool = None
     for raw in sys.stdin:
         value = json.loads(raw)
@@ -209,9 +210,19 @@ elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot",
             if "unknown-interaction" in args:
                 emit({"id": "unsupported", "method": "future/interaction", "params": {}})
             result = {"schema": {"version": 2 if "bad-protocol" in args else 1}} if provider == "muse" else {"protocolVersion": 2 if "bad-protocol" in args else 1, "agentCapabilities": ({"sessionCapabilities": {"resume": {}}} if provider == "dsh" and "no-resume" not in args else {"loadSession": "no-resume" not in args})}
+            if "auth-methods" in args and provider != "muse":
+                result["authMethods"] = [{"id": "oauth-personal", "name": "Google sign-in"}, {"id": "api-key", "name": "API key"}]
             emit({"id": value["id"], "result": result})
+        elif method == "authenticate":
+            # auth-reject fails, auth-hang never answers, auth-ineffective
+            # answers but stays signed out (a client must not loop).
+            if "auth-reject" in args:
+                emit({"id": value["id"], "error": {"code": -32603, "message": "Sign-in was cancelled"}})
+            elif "auth-hang" not in args:
+                signed_in = "auth-ineffective" not in args and params.get("methodId") == "oauth-personal"
+                emit({"id": value["id"], "result": {}})
         elif method in {"session/start", "session/resume", "session/new", "session/load"}:
-            if "auth-required" in args:
+            if "auth-required" in args and not signed_in:
                 emit({"id": value["id"], "error": {"code": -32000, "message": "Authentication required"}})
                 continue
             session = params.get("sessionId", session)

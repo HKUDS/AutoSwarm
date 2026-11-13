@@ -45,6 +45,23 @@ DSH's ACP profile can select a different route from its configured headless/web 
 
 Nanobot runs in the environment that installed its CLI, without another SDK installation. The adapter finds its Python from the launcher or neighboring venv executables. For wrappers where this cannot be inferred, set `providers.nanobot.python` to the existing native Python argv, for example `["<native-venv>/bin/python"]` or `["<native-venv>/Scripts/python.exe"]`. Native `--config`/`--workspace` arguments can go in `providers.nanobot.args`; do not replace its memory/skills workspace with the project cwd. The bridge supplies the project through native session workspace scope. This SDK has no native interactive approval channel, reported as `approval_relay: false`, so AutoSwarm defaults each new/resumed Nanobot session to native Full Access (`access_mode: full`). This is session metadata, not a global native config edit. For restricted access, set `providers.nanobot.args` to include `["--access-mode", "restricted"]` or pass `--provider-arg=--access-mode --provider-arg=restricted` on the call. Native OS/enforced sandbox boundaries still apply; SDK/tool errors remain visible to the parent. Hermes, DSH and Grok permissions use the shared ACP relay without unconditional approval flags.
 
+## Gemini CLI and Google Antigravity
+
+Use provider names `gemini` (aliases `gemini-cli`, `google-gemini`) and `antigravity` (aliases `antigravity-acp`, `google-antigravity`). Both use the shared ACP relay and the same run/resume, messaging and result collection commands.
+
+| Provider | Native entry | Skill installation |
+|---|---|---|
+| Gemini CLI | `gemini --acp` | `~/.gemini/skills/autoswarm` |
+| Google Antigravity | Google's ACP server from the ACP registry (`antigravity-acp`), launched with no extra arguments | Child provider only; `setup` needs an explicit `--skill-dir` |
+
+Google no longer accepts Gemini CLI's Google sign-in for individual accounts; for those, Gemini CLI needs its native API key or Vertex AI configuration. Google's Antigravity ACP server accepts a Google sign-in. Download the server for your platform from its ACP registry entry, verify the published sha256, and merge its absolute argv into `providers.antigravity.command`, for example `["/path/to/agy_acp_server.par"]`.
+
+The Antigravity server refuses new sessions until it has a credential. Set `providers.antigravity.auth_method` in config.json to one of the method IDs the server advertises (for example `"oauth-personal"`). When an ACP server advertises `authMethods` and refuses `session/new`, `session/load` or `session/resume` with an authentication error, AutoSwarm calls ACP `authenticate` once with that method, lets the server open the browser, and retries the session call once; it never loops. With no method configured the call fails with `native_auth_required`, naming the advertised method IDs and the config key. The same `providers.<provider>.auth_method` key works for any ACP provider; there is no default method.
+
+Interactive sign-in can take minutes, so `authenticate` has its own timeout: 600 seconds by default, or `providers.<provider>.auth_timeout` in seconds. A timeout fails with `native_auth_timeout` and a rejected sign-in with `native_auth_failed`. A timed-out or failed `authenticate` can make some servers, including Antigravity, clear their stored credential, so run only one sign-in at a time: start one child, finish its sign-in, then start the others.
+
+`python3 scripts/antigravity_acp_signin.py /path/to/agy_acp_server.par` is now optional. It runs `initialize` and `authenticate` on its own (method `oauth-personal` by default; pass another advertised method ID as the second argument), which is useful for signing in before any AutoSwarm call. The server stores its own credential; AutoSwarm never reads it. Model selection uses the server's advertised ACP session controls.
+
 ## Recovery
 
 Start with `inspect <call-id>`, its result diagnostics, handle phase, stdout.log and stderr.log. Check the actual executable and workspace before changing installations.
