@@ -88,12 +88,12 @@
       node.append(el('label', 'local-model-heading', zh ? '本地模型（Ollama）' : 'Local models (Ollama)'));
       node.append(el('p', '', zh ? '模型由 OpenCode 等 Agent 使用；Agent 开关不会安装或卸载模型。' : 'Agents such as OpenCode use these models. Agent switches do not install or remove models.'));
       if (!result.localModels?.length) {
-        node.append(el('p', 'agent-switch-empty', zh ? '未检测到正在运行的 Ollama 中的本地模型。' : 'No local models detected from a running Ollama instance.'));
+        node.append(el('p', 'agent-switch-empty', zh ? '未检测到本机已安装的 Ollama 模型。' : 'No installed Ollama models detected.'));
       } else {
         for (const model of result.localModels) {
           const row = el('div', 'permission-row agent-switch-row local-model-row');
           const name = el('span', '', model);
-          name.append(el('small', '', zh ? 'Ollama · 本地模型' : 'Ollama · local model'));
+          name.append(el('small', '', zh ? 'Ollama · 已安装在本机' : 'Ollama · installed locally'));
           row.append(name);
           node.append(row);
         }

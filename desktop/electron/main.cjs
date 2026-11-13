@@ -559,6 +559,13 @@ app.whenReady().then(async () => {
   handle('desk:demo', async () => { demo = true; await connect(); });
   handle('desk:reconnect', async () => { demo = false; await connect(); });
   function localModels() {
+    const installed = () => {
+      const library = path.join(process.env.OLLAMA_MODELS || path.join(os.homedir(), '.ollama', 'models'), 'manifests', 'registry.ollama.ai', 'library');
+      try {
+        return fs.readdirSync(library, { withFileTypes: true }).filter(item => item.isDirectory()).flatMap(item =>
+          fs.readdirSync(path.join(library, item.name), { withFileTypes: true }).filter(tag => tag.isFile()).map(tag => item.name + ':' + tag.name));
+      } catch { return []; }
+    };
     const fallback = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Ollama', 'ollama.exe');
     const executable = process.platform === 'win32' && fs.existsSync(fallback) ? fallback : 'ollama';
     return new Promise(resolve => {
@@ -566,10 +573,10 @@ app.whenReady().then(async () => {
       let output = '';
       const timer = setTimeout(() => child.kill(), 5000);
       child.stdout.on('data', chunk => { output = (output + chunk.toString('utf8')).slice(0, 32768); });
-      child.on('error', () => { clearTimeout(timer); resolve([]); });
+      child.on('error', () => { clearTimeout(timer); resolve(installed()); });
       child.on('close', code => {
         clearTimeout(timer);
-        resolve(code === 0 ? output.split(/\r?\n/).slice(1).map(line => line.trim().split(/\s+/)[0]).filter(Boolean) : []);
+        resolve(code === 0 ? output.split(/\r?\n/).slice(1).map(line => line.trim().split(/\s+/)[0]).filter(Boolean) : installed());
       });
     });
   }
