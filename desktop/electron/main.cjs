@@ -34,6 +34,79 @@ let lastSnapshot, controlHome, controlPromise, controlError = '', sending = fals
 let flushing = false;
 // The agents Desk knows: the same list the window shows (renderer/agents.json).
 const AGENT_NAMES = require('../renderer/agents.json').names, PROVIDERS = Object.keys(AGENT_NAMES);
+const MODEL_SOURCE_NAMES = { chatgpt: 'ChatGPT', claude: 'Claude', deepseek: 'DeepSeek', 'provider:opencode': 'OpenCode 模型服务' };
+function modelSourceKey(agent, id, localModels = preferences.detectedLocalModels || []) {
+  const value = String(id || '').trim();
+  if (!value) return '';
+  const slash = value.indexOf('/');
+  const namespace = slash > 0 ? value.slice(0, slash).toLowerCase() : '';
+  const model = slash > 0 ? value.slice(slash + 1) : value;
+  const local = (Array.isArray(localModels) ? localModels : []).find(item => String(item).toLowerCase() === model.toLowerCase()
+    || (model.toLowerCase().endsWith(':latest') && String(item).toLowerCase() === model.slice(0, -7).toLowerCase()));
+  if (local && (!namespace || namespace.startsWith('ollama'))) return 'local:' + String(local).toLowerCase();
+  if (namespace.startsWith('ollama')) return 'local:' + model.toLowerCase();
+  if (/^deepseek(?:-|$)/i.test(model)) return 'deepseek';
+  if (/^claude-/i.test(model)) return 'claude';
+  if (/^(gpt-|o[134](?:-|$))/i.test(model)) return 'chatgpt';
+  if (namespace === 'openai' || (agent === 'codex' && /^(gpt-|o[134](?:-|$))/i.test(value))) return 'chatgpt';
+  if (namespace === 'anthropic' || namespace === 'claude' || (agent === 'claude-code' && /^claude-/i.test(value))) return 'claude';
+  if (namespace === 'deepseek' || /^deepseek[-/]/i.test(value)) return 'deepseek';
+  if (namespace) return 'provider:' + namespace;
+  return 'agent:' + agent;
+}
+function modelSourceLabel(key, source) {
+  if (key.startsWith('local:')) {
+    const model = source.models?.[0] || key.slice(6);
+    const where = source.installed ? '（本机）' : '（Ollama）';
+    return /^deepseek/i.test(model) ? `DeepSeek · ${model}${where}` : `${model}${source.installed ? '（Ollama 本机模型）' : '（Ollama 模型）'}`;
+  }
+  if (MODEL_SOURCE_NAMES[key]) return MODEL_SOURCE_NAMES[key];
+  if (key.startsWith('provider:')) {
+    const value = key.slice(9);
+    return value ? value[0].toUpperCase() + value.slice(1) : value;
+  }
+  return key.slice(6);
+}
+function modelSourceCatalog(localModels) {
+  const groups = new Map();
+  const add = (key, model, agent, installed = false) => {
+    if (!key) return;
+    const group = groups.get(key) || { key, models: [], agents: [], installed: false };
+    if (model && !group.models.includes(model)) group.models.push(model);
+    if (agent && !group.agents.includes(agent)) group.agents.push(agent);
+    group.installed ||= installed;
+    groups.set(key, group);
+  };
+  for (const model of localModels || []) add('local:' + String(model).toLowerCase(), model, '', true);
+  for (const [agent, entry] of Object.entries(preferences.catalogs || {})) {
+    for (const model of entry?.value?.models || []) {
+      const display = String(model.id || '').split('/').at(-1);
+      add(modelSourceKey(agent, model.id, localModels), display, agent);
+    }
+  }
+  const disabled = new Set(Array.isArray(preferences.disabledModelSources) ? preferences.disabledModelSources : []);
+  return [...groups.values()].map(group => ({ ...group, name: modelSourceLabel(group.key, group), enabled: !disabled.has(group.key) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+function assertModelSourceEnabled(agent, model) {
+  const catalog = preferences.catalogs?.[agent]?.value;
+  const id = model || catalog?.models?.find(item => item.default)?.id || '';
+  const key = modelSourceKey(agent, id);
+  if (key && (Array.isArray(preferences.disabledModelSources) ? preferences.disabledModelSources : []).includes(key)) {
+    const source = modelSourceLabel(key, { models: [id.includes('/') ? id.slice(id.indexOf('/') + 1) : id] });
+    throw Error(`${source} 已在 AutoSwarm Desk 设置中关闭。请在“模型与服务”中重新开启，或为 ${AGENT_NAMES[agent] || agent} 选择其他模型。`);
+  }
+}
+function visibleModelCatalog(agent, catalog) {
+  const disabled = new Set(Array.isArray(preferences.disabledModelSources) ? preferences.disabledModelSources : []);
+  return { ...catalog, models: (catalog.models || []).filter(model => !disabled.has(modelSourceKey(agent, model.id))) };
+}
+function publishVisibleModelCatalogs() {
+  if (!win || win.isDestroyed()) return;
+  for (const [provider, entry] of Object.entries(preferences.catalogs || {})) {
+    if (entry?.value) win.webContents.send('desk:catalog', { provider, value: visibleModelCatalog(provider, { ...entry.value, read_at: entry.at }) });
+  }
+}
 // Installed-CLI check per records home (executable --version only, no model calls).
 const availability = new Map();
 const inputPump = setInterval(async () => {
@@ -231,6 +304,7 @@ async function sendAssistant(text) {
   if (sending) throw Error(i18n.t('正在发送，请稍候'));
   const home = controlHome, settings = settingsFor(home);
   if (!settings.workspace) throw Error(i18n.t('请先选择私人助理的工作目录'));
+  assertModelSourceEnabled(settings.provider, settings.model);
   sending = true; refresh();
   try {
     const result = await cli(['desk','assistant','--agent',settings.provider,'--cwd',settings.workspace,'--input','-', ...(settings.model ? ['--model',settings.model] : []), ...(settings.effort ? ['--effort',settings.effort] : []), ...permissionArgs()], text, home, settings.binding.controller_id);
@@ -558,6 +632,63 @@ app.whenReady().then(async () => {
   });
   handle('desk:demo', async () => { demo = true; await connect(); });
   handle('desk:reconnect', async () => { demo = false; await connect(); });
+  function localModels() {
+    const installed = () => {
+      const library = path.join(process.env.OLLAMA_MODELS || path.join(os.homedir(), '.ollama', 'models'), 'manifests', 'registry.ollama.ai', 'library');
+      try {
+        return fs.readdirSync(library, { withFileTypes: true }).filter(item => item.isDirectory()).flatMap(item =>
+          fs.readdirSync(path.join(library, item.name), { withFileTypes: true }).filter(tag => tag.isFile()).map(tag => item.name + ':' + tag.name));
+      } catch { return []; }
+    };
+    const fallback = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Ollama', 'ollama.exe');
+    const executable = process.platform === 'win32' && fs.existsSync(fallback) ? fallback : 'ollama';
+    return new Promise(resolve => {
+      const child = spawn(executable, ['list'], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+      let output = '';
+      const timer = setTimeout(() => child.kill(), 5000);
+      child.stdout.on('data', chunk => { output = (output + chunk.toString('utf8')).slice(0, 32768); });
+      child.on('error', () => { clearTimeout(timer); resolve(installed()); });
+      child.on('close', code => {
+        clearTimeout(timer);
+        resolve(code === 0 ? output.split(/\r?\n/).slice(1).map(line => line.trim().split(/\s+/)[0]).filter(Boolean) : installed());
+      });
+    });
+  }
+  async function listAgentSwitches() {
+    const home = preferences.home || controlHome;
+    if (demo) return { agents: [], localModels: [], home: home || null, demo: true };
+    if (!home) throw Error(i18n.t('请先连接本地记录目录'));
+    const inventory = await cli(['agents'], '', home);
+    const agents = (inventory.agents || []).filter(agent => agent.available || agent.configured).map(agent => {
+      const provider = agent.provider;
+      return { provider, name: AGENT_NAMES[provider] || provider, available: !!agent.available, version: agent.version || '', enabled: agent.enabled !== false, manageable: true, error: agent.error || '' };
+    });
+    const models = await localModels();
+    if (JSON.stringify(preferences.detectedLocalModels || []) !== JSON.stringify(models)) { preferences.detectedLocalModels = models; save(); refresh(); }
+    return { agents, localModels: models, modelSources: modelSourceCatalog(models), home, demo: false };
+  }
+  handle('desk:agent-switches', () => listAgentSwitches());
+  handle('desk:agent-toggle', async provider => {
+    if (typeof provider !== 'string' || !/^[a-z][a-z0-9-]{0,40}$/.test(provider)) throw Error(i18n.t('无效的 Agent'));
+    if (demo) throw Error(i18n.t('请先连接本地记录目录'));
+    const before = await listAgentSwitches();
+    const agent = before.agents.find(item => item.provider === provider);
+    if (!agent) throw Error('Agent ' + provider + ' is not detected in this AutoSwarm home');
+    const enabled = !agent.enabled;
+    await cli(['config', '--agent', provider, '--enabled', enabled ? 'on' : 'off'], '', before.home);
+    await connect();
+    return listAgentSwitches();
+  });
+  handle('desk:model-source-toggle', async key => {
+    if (typeof key !== 'string' || key.length > 240) throw Error(i18n.t('无效的模型服务'));
+    const state = await listAgentSwitches();
+    if (!state.modelSources.some(source => source.key === key)) throw Error('Model source is not currently detected in AutoSwarm Desk');
+    const disabled = new Set(Array.isArray(preferences.disabledModelSources) ? preferences.disabledModelSources : []);
+    if (disabled.has(key)) disabled.delete(key); else disabled.add(key);
+    preferences.disabledModelSources = [...disabled];
+    save(); publishVisibleModelCatalogs(); refresh();
+    return modelSourceCatalog(state.localModels);
+  });
   handle('desk:choose-workspace', async () => {
     if (demo || !controlHome) throw Error(i18n.t('请先连接本地记录目录'));
     const settings = settingsFor(controlHome);
@@ -613,8 +744,9 @@ app.whenReady().then(async () => {
       preferences.catalogs = { ...(preferences.catalogs || {}), [provider]: entry }; save();
       readThisRun.add(provider);
       const fresh = { ...value, read_at: entry.at };
-      if (win && !win.isDestroyed()) win.webContents.send('desk:catalog', { provider, value: fresh });
-      return fresh;
+      const visible = visibleModelCatalog(provider, fresh);
+      if (win && !win.isDestroyed()) win.webContents.send('desk:catalog', { provider, value: visible });
+      return visible;
     }).finally(() => catalogReads.delete(provider));
     catalogReads.set(provider, run);
     return run;
@@ -626,11 +758,11 @@ app.whenReady().then(async () => {
     const cached = stored?.version === CATALOG_VERSION ? stored : null;
     if (!cached || options?.refresh === true) {
       try { return await readCatalog(provider); }
-      catch (error) { if (cached) return { ...cached.value, read_at: cached.at, refresh_error: error.message }; throw error; }
+      catch (error) { if (cached) return visibleModelCatalog(provider, { ...cached.value, read_at: cached.at, refresh_error: error.message }); throw error; }
     }
     const agent = availability.get(controlHome)?.[provider]?.version || '';
     if (!readThisRun.has(provider) || Date.now() - cached.at > CATALOG_FRESH || (agent && cached.agent && cached.agent !== agent)) readCatalog(provider).catch(() => { /* The shown list stays. */ });
-    return { ...cached.value, read_at: cached.at };
+    return visibleModelCatalog(provider, { ...cached.value, read_at: cached.at });
   });
   handle('desk:rules-open', async () => {
     const file = rulesPath(), created = !fs.existsSync(file);
@@ -661,6 +793,7 @@ app.whenReady().then(async () => {
     if (typeof value.workspace !== 'string' || !value.workspace || !fs.existsSync(value.workspace) || !fs.statSync(value.workspace).isDirectory()) throw Error(i18n.t('请选择存在的工作目录'));
     const home = controlHome, settings = settingsFor(home);
     const model = value.model.trim(), effort = value.effort.trim();
+    assertModelSourceEnabled(value.provider, model);
     settings.session = { provider: value.provider, model, effort, workspace: value.workspace }; save();
     return cli(['desk','start','--agent',value.provider,'--cwd',value.workspace,'--input','-', ...(model ? ['--model',model] : []), ...(effort ? ['--effort',effort] : []), ...(typeof value.skill === 'boolean' ? ['--skill', value.skill ? 'on' : 'off'] : []), ...permissionArgs(), ...(value.permission ? ['--permission', value.permission] : [])], value.prompt, home, settings.binding.controller_id);
   });

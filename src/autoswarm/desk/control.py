@@ -415,6 +415,13 @@ def _external(records, destination):
                 continue
             messages.deliver_to_host(records, value["message_id"])
         return
+    if binding.get("host") == "codex" and not binding.get("endpoint"):
+        # An idle Codex Desktop thread can still have an active thread-store
+        # writer. A second CLI process must not resume the same thread.
+        for value in values:
+            messages.receipt(records, value, "needs_attention",
+                             error="这个 Codex 对话正在桌面版中打开。请在原 Codex 窗口回复；Desk 未发送这条消息。")
+        return
     if not native or native.get("busy") is None:
         for value in values:
             messages.receipt(records, value, "needs_attention", error="未连接到这个主控的原生会话。请连接原会话后重试；消息尚未发送。")
