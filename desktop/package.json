@@ -1,0 +1,147 @@
+{
+  "name": "autoswarm-desk",
+  "version": "0.1.0",
+  "description": "AutoSwarm Desk — private assistant and live agent collaboration",
+  "author": "AutoSwarm contributors",
+  "license": "MIT",
+  "private": true,
+  "main": "electron/main.cjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prestart": "npm run build",
+    "start": "electron .",
+    "predemo": "npm run build",
+    "demo": "electron . --demo",
+    "test": "node --test tests/*.test.mjs",
+    "pretest:ui": "npm run build",
+    "test:ui": "node tests/smoke.cjs",
+    "pretest:browser": "npm run build",
+    "test:browser": "node tests/browser.cjs",
+    "prepack": "npm run build && node scripts/fetch-python.cjs",
+    "pack": "electron-builder --dir --win",
+    "predist": "npm run build && node scripts/fetch-python.cjs",
+    "dist": "electron-builder --win --publish never",
+    "pack:mac": "npm run build && node scripts/dist-mac.cjs --dir",
+    "dist:mac": "npm run build && node scripts/dist-mac.cjs",
+    "pretest:assistant": "npm run build",
+    "test:assistant": "node tests/assistant.cjs",
+    "pretest:visual": "npm run build",
+    "test:visual": "node tests/visual.cjs",
+    "pretest:theme": "npm run build",
+    "test:theme": "node tests/theme.cjs",
+    "pretest:p2": "npm run build",
+    "test:p2": "node tests/p2.cjs",
+    "pretest:p3": "npm run build",
+    "test:p3": "node tests/p3.cjs",
+    "pretest:p4": "npm run build",
+    "test:p4": "node tests/p4.cjs",
+    "test:swarm": "node tests/swarm.cjs",
+    "test:settings": "node tests/settings.cjs",
+    "test:preview": "node tests/preview.cjs",
+    "test:demo": "node tests/demo.cjs",
+    "test:models": "node tests/models.cjs",
+    "icons": "electron scripts/make-icons.cjs",
+    "release": "npm run dist && node scripts/release.cjs",
+    "release:mac": "npm run dist:mac && node scripts/release-mac.cjs",
+    "screenshots": "npm run build && node scripts/readme-screenshots.cjs"
+  },
+  "dependencies": {
+    "dompurify": "^3.3.0",
+    "electron-updater": "^6.8.11",
+    "marked": "^17.0.0"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.28.2",
+    "playwright": "^1.56.0"
+  },
+  "build": {
+    "appId": "org.autoswarm.desk",
+    "productName": "AutoSwarm Desk",
+    "files": [
+      "electron/**",
+      "renderer/**",
+      "assets/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../src/autoswarm",
+        "to": "python/autoswarm",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**"
+        ]
+      },
+      {
+        "from": "build/python",
+        "to": "python/runtime",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**"
+        ]
+      },
+      {
+        "from": "../LICENSE",
+        "to": "LICENSE"
+      },
+      {
+        "from": "README.md",
+        "to": "README.md"
+      },
+      {
+        "from": "README.zh-CN.md",
+        "to": "README.zh-CN.md"
+      },
+      {
+        "from": "../docs/assets/agents",
+        "to": "third-party/agent-icons",
+        "filter": [
+          "NOTICE.md",
+          "sources.json"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "icon": "assets/icon.ico",
+      "signExecutable": false
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "packaging/icon.icns",
+      "category": "public.app-category.developer-tools",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "darkModeSupport": true,
+      "artifactName": "AutoSwarm-Desk-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "artifactName": "AutoSwarm-Desk-mac-${arch}.${ext}"
+    },
+    "artifactName": "AutoSwarm-Desk-${version}-win-${arch}.${ext}",
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "AutoSwarm-Desk-Update.${ext}",
+      "shortcutName": "AutoSwarm Desk",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://github.com/HKUDS/AutoSwarm/releases/latest/download"
+      }
+    ]
+  }
+}

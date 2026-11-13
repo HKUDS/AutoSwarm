@@ -20,16 +20,24 @@ Update when requested; AutoSwarm has no automatic updater. Keep the work in the 
 4. Run the **updated package's** `autoswarm --home <existing-home> setup --host <host>` (or `python -m autoswarm` with the same arguments). Reuse custom `--skill-dir`, `--settings-file` and `--plugin-dir` values, and refresh each host installation in use. Setup copies the runtime, Skill and references and refreshes that host's integration. The old installed launcher imports its own copied runtime; invoking setup through it does not obtain the new package.
 5. Preserve `home/config.json`, task/message records and native agent configuration, credentials and histories. Reload the host as its integration requires, read the refreshed Skill's launcher argv, then verify the needed providers in the actual host/project using the Configuration guidance above. Package or CLI version output alone does not verify the installed Skill's runtime. Briefly report what was updated, the verified collaborators, how to request another collaborator and any issue needing user action.
 
+## Kimi Code
+
+Use provider/host `kimi` (`kimi-code` and `kimi-cli` are child-provider aliases). The current official [Kimi Code CLI](https://github.com/MoonshotAI/kimi-code) exposes `kimi acp`; install the current CLI, not the archived Python `kimi-cli` package. Setup installs the Skill into `$KIMI_CODE_HOME/skills/autoswarm`, default `~/.kimi-code/skills/autoswarm`. As a main host, collect children with wait in the current turn.
+
+Reuse its native `config.toml`, credentials, skills, MCP and permission policy. A compatible API can be configured as a native provider/model; AutoSwarm does not select or configure an API backend. Kimi reads credentials from native provider entries or their explicit `api_key_env` references, not arbitrary `ANTHROPIC_*` exports. Native model aliases differ from backend model IDs. Verify the selected route with a real call and resume; preserve native settings and keep credentials out of AutoSwarm records. Permissions and questions use the shared ACP relay.
+
 ## Hermes, Nanobot, DSH and Grok Build
 
 Use provider names `hermes`, `nanobot`, `dsh`, `grok`; `grok-build` is a child-provider alias. They use the same run/resume, messaging and result collection commands. With these main hosts, collect work using wait in the current turn.
 
 | Provider | Native entry | Skill installation |
 |---|---|---|
-| Hermes | `hermes acp` | `$HERMES_HOME/skills/autoswarm`, default `~/.hermes/skills/autoswarm` |
+| Hermes | `hermes acp` | `$HERMES_HOME/skills/autoswarm`, default `~/.hermes/skills/autoswarm` (Windows: `%LOCALAPPDATA%/hermes/skills/autoswarm`) |
 | Nanobot | Installed Python SDK through the bundled local bridge | Native configured workspace's `skills/autoswarm`, resolved by its own config loader |
 | DSH | `dsh --profile acp` | `$DSH_AGENTS_HOME/skills/autoswarm`, default `~/.agents/skills/autoswarm` |
 | Grok Build | `grok agent --no-leader stdio` | `~/.grok/skills/autoswarm` |
+
+`skills [--host PROVIDER] [--verify]` reads, without writing, whether each host finds a working Skill (`missing`, `broken` with its problems, or `ready`, with the record directory its launcher writes to); Cursor also reads `~/.claude/skills` and `~/.agents/skills`, and Copilot, Grok, Kimi, DSH and Muse read `~/.agents/skills`. `--verify` starts each launcher once without model calls. `models --agent PROVIDER` lists the models and reasoning efforts the agent reports itself (an ACP agent's new session, Codex's app-server, Claude Code's initialize, Cursor's `--list-models`) without a model call.
 
 `setup --host <provider> --skill-dir <path>` overrides the destination when native skill roots differ. Native profile/tool policies still determine which skills, memory and tools are available; AutoSwarm does not replace them. A native transcript/session ID does not guarantee that every product App lists that session.
 

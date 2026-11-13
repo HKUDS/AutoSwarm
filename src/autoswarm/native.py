@@ -11,6 +11,10 @@ from dataclasses import dataclass, field
 
 from .approvals import Broker
 from .records import SwarmError
+
+# Claude Code reads input written during a turn at its next tool boundary; with
+# none left it runs that input as a follow-up turn right after the result.
+CLAUDE_FOLLOWUP_GRACE = 3.0
 from .providers import ACP_PROVIDERS
 
 
@@ -51,13 +55,16 @@ class Native:
         self.turn_id = None
         self.ready = False
         self.control_errors = {}
+        self.claude_lock = threading.Lock()
+        self.claude_inserted = False
+        self.claude_followup = None
         self.endpoint = task.get("native_endpoint")
         self.stream = None
         self.work = None
         self.finished = threading.Event()
         self.adapter = None
         self.initial_messages = []
-        if task["provider"] in ACP_PROVIDERS:
+        if task["provider"] in ACP_PROVIDERS or task.get("native_transport") == "acp":
             from .acp import ACP
             self.adapter = ACP(self)
         elif task["provider"] == "muse":
@@ -141,6 +148,19 @@ class Native:
         text = self.task["prompt"]
         if self.task.get("communication") and not self.task.get("message_only"):
             text += context(self.task)
+        # A mentioned Skill is loaded the native way, as if the user had typed the mention:
+        # Codex takes a skill input item, agents that list skills among their commands run it
+        # as one (skills.MENTIONS); the others are told where the Skill is.
+        skill = self.task.get("skill")
+        if skill and self.task["provider"] == "codex":
+            self.mention = {"type": "skill", "name": skill["name"], "path": skill["path"]}
+        elif skill:
+            from .skills import MENTIONS
+            command = MENTIONS.get(self.task["provider"])
+            if command and skill["name"] == "autoswarm":
+                text = command + " " + text
+            else:
+                text = f"Use your {skill['name']} skill for this task; its instructions are in {skill['path']}.\n\n" + text
         if self.task.get("message_only"):
             values = pending(self.broker.records, self.task["agent_id"])
             self.initial_messages = values
@@ -156,13 +176,16 @@ class Native:
         self.turn_done.clear()
         self.turn_id = None
         self.ready = True
+        with self.claude_lock:
+            self.claude_inserted = False
         # A resumed session keeps its ID, so session_changed need not fire.
         self.stage("execution")
         if self.adapter:
             self.adapter.prompt(text)
         elif self.task["provider"] == "codex":
             options = self.task.get("native_options", {})
-            self.request("turn/start", {"threadId": self.output.session_id, "input": [{"type": "text", "text": text}], **{key: options[key] for key in ("model", "effort") if key in options}}, lambda value: setattr(self, "turn_id", value.get("turn", {}).get("id")))
+            mention, self.mention = getattr(self, "mention", None), None
+            self.request("turn/start", {"threadId": self.output.session_id, "input": [{"type": "text", "text": text}, *([mention] if mention else [])], **{key: options[key] for key in ("model", "effort") if key in options}}, lambda value: setattr(self, "turn_id", value.get("turn", {}).get("id")))
         elif self.task["provider"] == "claude-code":
             self.send({"type": "user", "session_id": self.output.session_id or "", "message": {"role": "user", "content": text}, "parent_tool_use_id": None})
         else:
@@ -186,8 +209,16 @@ class Native:
                     rejected(error)
             threading.Thread(target=submit, daemon=True).start()
             return True
-        # ACP v1 and Claude's queued user input have no common live-steer
-        # acknowledgement. Their ordinary mail is delivered at a turn boundary.
+        if name == "claude-code" and self.output.session_id and not self.turn_done.is_set():
+            # stream-json input written mid-turn is queued by Claude itself: taken at
+            # the next tool boundary, or run as a follow-up turn (see claude()).
+            with self.claude_lock:
+                self.claude_inserted = True
+            self.send({"type": "user", "session_id": self.output.session_id, "message": {"role": "user", "content": text}, "parent_tool_use_id": None})
+            accepted({"queued": True})
+            return True
+        # ACP v1 has no live input; its mail is delivered at a turn boundary
+        # (or after an interrupt, for urgent mail).
         return False
 
     def interrupt(self, rejected):
@@ -216,6 +247,13 @@ class Native:
             threading.Thread(target=stop, daemon=True).start()
         else:
             rejected("This native transport did not expose a running turn to interrupt")
+
+    def claude_settle(self):
+        with self.claude_lock:
+            if self.claude_followup is None:
+                return
+            self.claude_followup = None
+        self.finish_turn()
 
     def finish_turn(self):
         # A completed/cancelled native turn cannot accept a late permission
@@ -250,7 +288,7 @@ class Native:
             self.work.start()
 
     def feed(self, line):
-        if self.task["provider"] == "opencode":
+        if self.task["provider"] == "opencode" and not self.adapter:
             return
         try:
             event = json.loads(line)
@@ -395,7 +433,22 @@ class Native:
                 if event.get("is_error"):
                     error = event.get("errors") or self.output.content or event.get("subtype")
                     self.output.error = error if isinstance(error, str) else json.dumps(error, ensure_ascii=False)
+                with self.claude_lock:
+                    inserted, self.claude_inserted = self.claude_inserted, False
+                    if inserted:
+                        # Input written during this turn may still be queued; a follow-up
+                        # turn then starts at once (system init). Otherwise settle.
+                        self.claude_followup = threading.Timer(CLAUDE_FOLLOWUP_GRACE, self.claude_settle)
+                        self.claude_followup.daemon = True
+                        self.claude_followup.start()
+                        return
                 self.finish_turn()
+            elif event.get("type") == "system" and event.get("subtype") == "init":
+                with self.claude_lock:
+                    if self.claude_followup is not None:
+                        self.claude_followup.cancel()
+                        self.claude_followup = None
+                        self.output.terminal = False  # The follow-up turn's result is the answer.
             elif event.get("type") == "assistant" and not self.output.terminal:
                 blocks = event.get("message", {}).get("content", [])
                 text = "".join(block.get("text", "") for block in blocks if isinstance(block, dict) and block.get("type") == "text")
@@ -500,7 +553,10 @@ class Native:
                         if line.startswith("data:"):
                             data.append(line[5:].lstrip())
                         elif not line and data:
-                            self.opencode_event(json.loads("\n".join(data)))
+                            event = json.loads("\n".join(data))
+                            if getattr(self, "tap", None):
+                                self.tap.write((json.dumps(event, ensure_ascii=False) + "\n").encode("utf-8"))
+                            self.opencode_event(event)
                             data = []
                     if not self.finished.is_set() and not self.broker.closed.is_set():
                         raise SwarmError("native_events_disconnected", "OpenCode permission event stream disconnected")

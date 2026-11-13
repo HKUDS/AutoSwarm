@@ -2,18 +2,36 @@
 
 <h1>
   <img src="docs/assets/autoswarm/AutoSwarm-logo.png" width="48" height="48" align="absmiddle" alt="AutoSwarm logo">
-  AutoSwarm: Unify Your Agents. Unify Your Context
+  AutoSwarm: Unify All Your Agents. Break Context Barriers.
 </h1>
 
 [简体中文](README.zh-CN.md)
 
-**Unify your agents. Unify your context. Work as One**
-
 [![Paper](https://img.shields.io/badge/Paper-arXiv-B31B1B?style=flat&logo=arxiv&logoColor=white)](https://arxiv.org/abs/2610.33048) [![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat)](./COMMUNICATION.md) [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
+
+[![Download AutoSwarm for Windows](https://img.shields.io/badge/Download-AutoSwarm%20Desk%20for%20Windows-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-Setup.exe) [![Download AutoSwarm for Mac (Apple silicon)](https://img.shields.io/badge/Download-macOS%20%28Apple%20silicon%29-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-arm64.dmg) [![Download AutoSwarm for Mac (Intel)](https://img.shields.io/badge/Download-macOS%20%28Intel%29-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-x64.dmg)
+
+</div>
+
+**New:** **AutoSwarm Desktop Released** — All Your Agents in One Private Workspace
+
+One window to coordinate agents, share context, review approvals, and track progress.
+
+Watch all your agents work together for you. [What AutoSwarm does](desktop/README.md)
+
+<div align="center">
 
 <a href="https://trendshift.io/repositories/82651?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-82651" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/82651" alt="HKUDS%2FAutoSwarm | Trendshift" width="250" height="55"/></a>
 
 </div>
+
+<p align="center">
+  <img
+    src="docs/assets/desk/AutoSwarm_Desk.png"
+    alt="AutoSwarm Desk"
+    width="900"
+  />
+</p>
 
 ## Why AutoSwarm?
   
@@ -59,19 +77,23 @@ Give AutoSwarm a task once. It unifies all your agents into one coordinated team
     <td align="center" width="25%"><p><img src="docs/assets/agents/nanobot.png" width="48" height="48" alt=""><br><strong>Nanobot</strong></p></td>
     <td align="center" width="25%"><p><img src="docs/assets/agents/dsh.svg" width="48" height="48" alt=""><br><strong>DeepSeek Harness</strong></p></td>
     <td align="center" width="25%"><p><img src="docs/assets/agents/grok.svg" width="48" height="48" alt=""><br><strong>Grok Build</strong></p></td>
-    <td align="center" width="25%"><p><a href="#whats-next"><img src="docs/assets/agents/more.svg" width="48" height="48" alt=""><br><strong>More agents coming</strong></a></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/kimi.png" width="48" height="48" alt="Kimi Code logo"><br><strong>Kimi Code</strong></p></td>
   </tr>
 </table>
 
 </div>
 
 AutoSwarm works across Windows, macOS, and Linux. Use AutoSwarm through:
-- **Desktop apps**
+- **Desktop apps** — [AutoSwarm Desk for Windows and macOS (private assistant and live collaboration)](desktop/README.md)
 - **Command-line interfaces (CLI)**
 - **IDE extensions**
 - **Skill-enabled agent environments**
 
 The main host needs Skill support and local command execution. Collaborators need compatible local CLIs; your assistant can help connect missing ones.
+
+## 🖥️ AutoSwarm Desk App
+
+<p align="center"><img src="docs/assets/desk/desk-en.png" width="880" alt="AutoSwarm Desk app"></p>
 
 ## 🚀 Easy to use
 
@@ -106,6 +128,8 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
 
 ## 📰 News
 
+- **AutoSwarm Desk for macOS is out**: the same app on Apple silicon and Intel Macs, Python included. [Apple silicon](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-arm64.dmg) · [Intel](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-x64.dmg) · [Guide](desktop/README.md)
+- **AutoSwarm Desk for Windows is out**: a desktop app for AutoSwarm. Talk to a private assistant, start conversations with any of the twelve supported agents, follow how they share the work, and answer their approvals in one window. One installer, Python included, automatic updates. [Download](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-Setup.exe) · [Guide](desktop/README.md)
 - **AutoSwarm is live!**: Full technical details and multi-agent coordination algorithms are available in the [archive](autoswarm-v1.0.0/ARCHIVE.md).
 
 ## 🗺️ Roadmap
@@ -144,7 +168,7 @@ If you find this work helpful to your research, please kindly consider citing ou
    autoswarm setup --host codex
    ```
 
-   Other host IDs: `claude-code`, `opencode`, `cursor`, `copilot`, `muse`, `codebuddy`, `hermes`, `nanobot`, `dsh`, `grok`. Without uv, use a dedicated Python 3.10+ environment and `python -m pip install .`; keep its interpreter available. Do not reuse the archived v1 environment.
+   Other host IDs: `claude-code`, `opencode`, `cursor`, `copilot`, `muse`, `codebuddy`, `hermes`, `nanobot`, `dsh`, `grok`, `kimi`. Without uv, use a dedicated Python 3.10+ environment and `python -m pip install .`; keep its interpreter available. Do not reuse the archived v1 environment.
 3. Read the installed `SKILL.md` at the path returned by setup. It contains the launcher argv and usage instructions. Use that exact launcher when the App cannot find `autoswarm`. Run `agents` in the actual host environment; if needed, merge an existing CLI's absolute argv into `providers.<provider>.command` in the reported AutoSwarm home/config.json. Preserve unrelated settings.
 4. Verify requested providers in the actual project, replacing the example provider and directory as appropriate:
 
@@ -178,4 +202,4 @@ Read only the relevant references: [capabilities and data scope](src/autoswarm/a
 
 </details>
 
-[Architecture](docs/architecture.zh-CN.md) · [Contributing and validation](CONTRIBUTING.md) · [MIT License](LICENSE)
+[Architecture](docs/architecture.md) · [Contributing and validation](CONTRIBUTING.md) · [MIT License](LICENSE)

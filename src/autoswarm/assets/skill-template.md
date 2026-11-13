@@ -24,6 +24,7 @@ Honor user choices; otherwise match the task to available agents and their worki
 | nanobot | Messaging/email-driven assistants and automations | Gateway, image tool, workspace/video/deployment presets |
 | dsh | Execution in an existing project/profile | CloudBase, QQ/DingTalk connectors, profile-specific tools |
 | grok | General execution; specialty tools need verification | X/research/image/video candidates, browser/deployment/SMS plugins |
+| kimi | Coding and repository tasks with native Kimi Code tools | Native skills, MCP, project instructions and resumable sessions |
 
 For external platforms, plugins, experimental tools or needs not covered above, read the relevant agent and platform sections in [capabilities and data scope](references/agent-capabilities.md). It retains platform resources and conditions; a messaging channel does not imply access to the user's account data. Verify only what the assignment relies on in the actual child transport/profile. App/cloud/interactive-only features are separate entry points. Reuse working shared tools instead of adding a child just to access them; inspect or recover through the parent when a needed capability fails. Unlisted or untested tools remain candidates when local configuration and evidence support them.
 

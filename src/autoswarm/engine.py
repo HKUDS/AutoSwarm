@@ -11,6 +11,7 @@ from pathlib import Path
 
 from . import platform
 from . import approvals, messages
+from . import permissions as access
 from .hosts import detect_parent
 from .providers import canonical, invocation
 from .records import Records, SwarmError, now, read_json, write_json
@@ -28,7 +29,30 @@ def runtime_env(records: Records) -> dict:
     return env
 
 
-def start_call(records: Records, provider: str, prompt: str, workspace: str | Path, *, parent: dict | None = None, native_session_id: str | None = None, model: str | None = None, effort: str | None = None, provider_args: list[str] | None = None, previous_call: str | None = None, return_mode: str = "native", delegate_approvals: bool | None = None, controller: str | None = None, name: str | None = None, peers: list[str] | None = None, rules: str | None = None, agent_id: str | None = None, message_only: bool = False, _dispatch_locked: bool = False) -> dict:
+def _same_account(records: Records, controller: str | None) -> None:
+    """An agent is started as the account its owner runs as.
+
+    A native sandbox may run the owner's commands as another account (Codex's on Windows uses
+    CodexSandbox* accounts). An agent started from there would run as that account too: without
+    the user's environment and logins, and offline without network. The command belongs outside
+    the sandbox, through the owner's own approval for that (never by turning the sandbox off).
+    """
+    if not str(controller or "").startswith("call_"):
+        return
+    try:
+        agent = read_json(messages.agent_path(records, controller) / "agent.json") or {}
+        handle = read_json(records.call(agent.get("call_id") or controller) / "handle.json") or {}
+    except (OSError, ValueError, SwarmError):
+        return
+    expected, current = handle.get("account"), platform.account()
+    if expected and current and expected.lower() != current.lower() and platform.running(handle):
+        raise SwarmError("sandbox_account", f"This AutoSwarm command runs as account {current!r}, but the agent that runs it ({controller}) runs as {expected!r}: "
+                         "its native sandbox runs commands as another account. An agent started from here would run without the user's environment, "
+                         "logins or network. Run the same command outside the sandbox with your native escalation, which asks the user or your "
+                         "reviewer (Codex: request escalated permissions for it); do not disable the sandbox or change its settings.")
+
+
+def start_call(records: Records, provider: str, prompt: str, workspace: str | Path, *, parent: dict | None = None, native_session_id: str | None = None, model: str | None = None, effort: str | None = None, provider_args: list[str] | None = None, previous_call: str | None = None, return_mode: str = "native", delegate_approvals: bool | None = None, controller: str | None = None, name: str | None = None, peers: list[str] | None = None, rules: str | None = None, agent_id: str | None = None, message_only: bool = False, skill: dict | None = None, permission: str | None = None, permissions: dict | None = None, _dispatch_locked: bool = False) -> dict:
     provider = canonical(provider)
     directory_path = Path(workspace).expanduser().resolve()
     if not directory_path.is_dir():
@@ -38,10 +62,19 @@ def start_call(records: Records, provider: str, prompt: str, workspace: str | Pa
     task["effort"] = effort
     task["delegate_approvals"] = delegate_approvals
     approvals.delegated(records, task)
+    task["message_only"] = message_only
+    if skill:
+        task["skill"] = skill  # {"name", "path"}: mentioned natively in the first turn only
+    value = messages.prepare(records, task, controller=controller, name=name, peers=peers, rules=rules, agent_id=agent_id)
+    # A Desk conversation keeps its permission choice; its calls and workers derive theirs.
+    if permissions is not None:
+        value["permissions"] = access.table(permissions)
+    if permission is not None:
+        value["permission"] = access.check(provider, permission)
+    access.apply(records, task, value)
+    _same_account(records, task["controller_id"])
     # Validate and resolve the executable before accepting a background call.
     task["command"] = invocation(task, records.config())
-    task["message_only"] = message_only
-    value = messages.prepare(records, task, controller=controller, name=name, peers=peers, rules=rules, agent_id=agent_id)
     lease = None
     if not _dispatch_locked:
         while True:
@@ -54,16 +87,20 @@ def start_call(records: Records, provider: str, prompt: str, workspace: str | Pa
                 time.sleep(0.01)  # Serialize short dispatch/finish bookkeeping.
     directory = records.call(call_id)
     try:
-        if agent_id:
+        if agent_id and messages.agent(records, agent_id).get("call_id"):
             latest = messages.agent(records, agent_id)
             latest_directory, _ = records.require(latest["call_id"])
             if not latest.get("idle") and read_json(latest_directory / "result.json") is None and platform.running(read_json(latest_directory / "handle.json")):
                 raise SwarmError("session_busy", "This conversation is handling work or messages; send to its stable agent_id or wait before resuming")
-        directory.mkdir(parents=True, exist_ok=False, mode=0o700)
+        # Private to the user. On Windows, mode 0o700 means "only the creating account": a call
+        # started from inside an agent's sandbox (Codex's runs as another account) would then be
+        # unreadable to the user and to Desk. There the records folder's own permissions, already
+        # private to the user, are inherited instead.
+        directory.mkdir(parents=True, exist_ok=False, **({} if os.name == "nt" else {"mode": 0o700}))
         write_json(directory / "task.json", task)
         write_json(messages.agent_path(records, task["agent_id"]) / "agent.json", {**value, "idle": False})
         with (directory / "runner.log").open("ab") as log:
-            process = subprocess.Popen([*runtime_argv(), "_runner", call_id], env=runtime_env(records), stdin=subprocess.DEVNULL, stdout=log, stderr=log, **platform.detached_options())
+            process = platform.start_detached([*runtime_argv(), "_runner", call_id], env=runtime_env(records), stdin=subprocess.DEVNULL, stdout=log, stderr=log)
     finally:
         if lease:
             lease.close()
@@ -148,7 +185,7 @@ def wait(records: Records, call_ids: list[str], *, any_result: bool = False, mar
         time.sleep(0.1)
 
 
-def resume(records: Records, call_id: str, prompt: str, *, parent: dict | None = None, inherit_parent: bool = True, model: str | None = None, effort: str | None = None, provider_args: list[str] | None = None, return_mode: str = "native", delegate_approvals: bool | None = None) -> dict:
+def resume(records: Records, call_id: str, prompt: str, *, parent: dict | None = None, inherit_parent: bool = True, model: str | None = None, effort: str | None = None, provider_args: list[str] | None = None, return_mode: str = "native", delegate_approvals: bool | None = None, permission: str | None = None, permissions: dict | None = None) -> dict:
     directory, task = records.require(call_id)
     info = inspect_call(records, call_id)
     if info["state"] == "running":
@@ -157,7 +194,7 @@ def resume(records: Records, call_id: str, prompt: str, *, parent: dict | None =
     if not session:
         raise SwarmError("session_unavailable", "Provider did not return a native session ID")
     # A result is retained in the old directory; continuing creates a new call.
-    return start_call(records, task["provider"], prompt, task["workspace"], parent=parent if parent is not None or not inherit_parent else task.get("parent"), native_session_id=session, model=model if model is not None else task.get("model"), effort=effort if effort is not None else task.get("effort"), provider_args=provider_args if provider_args is not None else task.get("provider_args"), previous_call=call_id, return_mode=return_mode, delegate_approvals=delegate_approvals if delegate_approvals is not None else task.get("delegate_approvals"), agent_id=task.get("agent_id", call_id))
+    return start_call(records, task["provider"], prompt, task["workspace"], parent=parent if parent is not None or not inherit_parent else task.get("parent"), native_session_id=session, model=model if model is not None else task.get("model"), effort=effort if effort is not None else task.get("effort"), provider_args=provider_args if provider_args is not None else task.get("provider_args"), previous_call=call_id, return_mode=return_mode, delegate_approvals=delegate_approvals if delegate_approvals is not None else task.get("delegate_approvals"), agent_id=task.get("agent_id", call_id), permission=permission, permissions=permissions)
 
 
 def cancel(records: Records, call_id: str) -> dict:

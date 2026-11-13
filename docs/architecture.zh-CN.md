@@ -1,6 +1,8 @@
 # AutoSwarm v2 实现架构
 
-AutoSwarm 将一次委派变成原生 CLI 调用，将返回值送回发起它的主会话。主 agent 负责分工、选择 agent、管理工作区、判断结果及后续动作。主子角色属于当前调用；支持 Codex、Claude Code、OpenCode、Cursor、GitHub Copilot CLI、Meta Muse Code、CodeBuddy、Hermes、Nanobot、DSH 和 Grok Build。
+AutoSwarm 将一次委派变成原生 CLI 调用，将返回值送回发起它的主会话。主 agent 负责分工、选择 agent、管理工作区、判断结果及后续动作。主子角色属于当前调用；支持 Codex、Claude Code、OpenCode、Cursor、GitHub Copilot CLI、Meta Muse Code、CodeBuddy、Hermes、Nanobot、DSH、Grok Build 和 Kimi Code。
+
+AutoSwarm 有两种用法：**插件式**（一份 Skill 加 CLI，装进任意主 agent 后在原会话里使用）和 **AutoSwarm Desk**（Windows 桌面应用，`desktop/`）。Desk 只是同一 CLI 的另一个使用方，插件式不依赖它；两者的代码边界见「插件核心与 Desk」。英文版：[architecture.md](architecture.md)。
 
 ## 层级与文件
 
@@ -14,8 +16,30 @@ AutoSwarm 将一次委派变成原生 CLI 调用，将返回值送回发起它�
 | 调用执行 | `runner.py`、`platform.py` | 每次调用独立运行，收集最终结果、处理取消和进程身份；无需常驻调度服务 |
 | 原主会话回传 | `hosts.py`、`wire.py`、`hooks.py`、`assets/opencode.js` | 连接实际原主会话，处理等待、忙碌、空闲三个场景；宿主能力与子 agent 品牌相互独立 |
 | 小型记录 | `records.py` | 保存委派、结果及交付凭据；使用原子文件发布与操作系统锁，不复制原生完整历史 |
+| 模型与 Skill 查询 | `models.py`、`skills.py` | `models` 列出 agent 自己报告的模型与思考强度（不调用模型）；`skills` 检查、校验、更新各宿主能找到的 Skill；插件式与 Desk 共用 |
 
 MCP 不作为当前依赖。CLI 已经给支持命令工具的宿主提供统一调用面；原生 hooks/插件解决 CLI 工具返回之外的异步唤醒。未来需要 MCP 的宿主可在同一核心外增加薄工具层，不必更换执行与记录机制。
+
+## 插件核心与 Desk
+
+| 层 | 位置 | 内容 |
+| --- | --- | --- |
+| 插件核心 | `src/autoswarm/`（不含 `desk/`） | 上表各层：Skill、CLI、原生适配、批准、消息、执行与记录。插件式用法只需要这一层 |
+| Desk 后端 | `src/autoswarm/desk/` | Desk 的身份与私人助理（`control.py`）、`autoswarm desk …` 子命令（`cli.py`）、给窗口的记录快照（`watch.py`）、过程记录解析（`lens.py`、`streams.py`）、读取 Claude Code/Codex/Cursor 自己的会话记录（`native_history.py`、`native_calls.py`）、读取 Windows 当前用户环境（`environment.py`） |
+| Desk 应用 | `desktop/` | Electron 主进程（`electron/`）与界面（`renderer/`）；Agent 名单在 `renderer/agents.json` |
+
+依赖是单向的：Desk 后端调用核心，核心不调用 Desk 后端；唯一的接点是 `cli.py` 注册 `desk` 子命令（定义与分发都在 `desk/cli.py`）。Desk 应用只通过 CLI（`python -m autoswarm …`）和 `autoswarm.desk.watch` 进程使用 AutoSwarm，不直接读写记录目录。
+
+**由 Desk 开启、在核心里执行**的几处必须在启动 agent 或收发消息时生效，所以放在核心；不用 Desk 时它们都不起作用：
+
+- 权限级别（`permissions.py`）：只有调用带着 Desk 的权限表（`desk start/assistant --permissions`）时才换算成各家的原生参数；否则 `apply` 直接返回，agent 沿用自己的设置。
+- 过程记录另存（`capture.py`）：`events.capture` 默认关闭；Desk 设为 `auto`，只为没有可读本地记录的 agent 保存。
+- 人工输入（消息种类 `user_message`）：只由 `desk message` 产生，按原会话续接。
+- ACP 会话模式（如 Cursor 的 Plan）：只由 Desk 的权限级别设置。
+
+`models`、`skills` 两个命令和下文的各项修复（Windows 沙箱账户、作业对象、Hermes 卡住、补全权限请求等）对两种用法同样生效。`setup` 把整个包（含 `desk/`）复制进各宿主的 Skill；`desk/` 在插件式里不会被调用，保留它使私人助理经任一启动器都能读取其他助理会话（`desk transcript`）。
+
+测试按层放置：`tests/` 是核心，`tests/desk/` 是 Desk 后端，`desktop/tests/` 是 Desk 应用（Node 单元测试与 Electron 测试）。
 
 ## 一次调用
 
@@ -40,13 +64,19 @@ Cursor 协商 parameterizedModelPicker，使用模型返回的参数控件设置
 
 agents/doctor 的快速发现只报告 executable 检查，invocation_verified 默认 false。显式 doctor --agent NAME --probe 使用正常调用和 resume，在当前 AutoSwarm 配置、实际项目目录及原生环境中验证回复和会话记忆；不换成丢失项目配置的临时环境。验证是一次事实，不是永久认证状态。已安装运行时的模板使用普通文件名，并清理旧版嵌套 SKILL.md；从已安装启动器再次安装仍然可用。
 
+命令不在 PATH 时（安装后尚未重新登录等），再查官方安装器的默认目录：Hermes（`%LOCALAPPDATA%\hermes\bin`）、Grok（`~/.grok/bin`）、Muse（`%LOCALAPPDATA%\Programs\muse`）、`~/.local/bin`、`%APPDATA%\npm`；用户显式配置的命令照用，不猜。
+
+runner 记录自己运行的系统账户。原生沙箱可能以另一个账户执行主 agent 的命令（Codex 在 Windows 上用 `CodexSandbox*` 账户）；从那里派出的 agent 会缺少用户的环境变量、登录和网络，因此账户不同时拒绝派出并说明原因，由主 agent 使用自己的提权方式在沙箱外重跑同一命令，不关闭或绕过沙箱。Windows 上 runner 与消息投递进程请求离开父进程的作业对象（只在作业允许时生效），避免 agent 在命令结束时连同后台 runner 一起结束。
+
 CLI 的 --background 仅控制工具是否立即返回，默认 return_mode=wait。--notify-parent 显式开启原生回传；没有可用原主绑定时直接提示使用 wait/receive。普通任务在当前轮派发、收取、处理批准并汇总，不依赖唤醒接口。底层原生回传能力继续用于已验证宿主。
 
 ## 原生批准交接
 
-Cursor、Copilot、CodeBuddy、Hermes、DSH 和 Grok Build 共用 stdio ACP 客户端：initialize 协商，session/new 后发起 session/prompt；续接按原生能力选择 session/load 或 session/resume，以 prompt 响应的 stopReason 判断最终状态，旧历史回放不混入新结果。session/request_permission 复用同一个批准 Broker，按原生 optionId 回答。allow_always 可能持久化，不能冒充会话级授权；当前只转交一次性批准。
+Cursor、Copilot、CodeBuddy、Hermes、DSH、Grok Build 和 Kimi Code 共用 stdio ACP 客户端：initialize 协商，session/new 后发起 session/prompt；续接按原生能力选择 session/load 或 session/resume，以 prompt 响应的 stopReason 判断最终状态，旧历史回放不混入新结果。session/request_permission 复用同一个批准 Broker，按原生 optionId 回答。allow_always 可能持久化，不能冒充会话级授权；当前只转交一次性批准。Kimi 使用 `kimi acp`，保留原生 config.toml、权限、Skill 和 MCP；模型与思考选择使用原生 ACP 控件。原生 AskUserQuestion 按工具调用 ID 关联后走表单回复，允许授权范围内的主 agent 回答；未关联的表单及 URL 授权仍需用户回答。
 
 Nanobot 没有原生 ACP 入口，由其 CLI 所属 Python 运行本地 `nanobot_bridge.py`，把同一 ACP 通道映射到原生 SDK 的 run_streamed、sessions 和取消接口。独立原生 session key 避免 HTTP 服务共用会话；原生配置负责模型、记忆、Skill 和工具，项目目录通过原生 workspace_scope 元数据传入，不替换 agent 的记忆工作区。因 SDK 无原生交互式批准通道，AutoSwarm 在新建及续接会话时默认写入 access_mode: full，使用原生 Full Access；可通过 Nanobot provider 参数 --access-mode restricted 显式选择受限模式。访问模式保存在会话元数据中，模型/强度覆盖仅在进程内生效。桥接没有增加第三方依赖或修改原生全局配置；错误沿原有诊断交给主 agent。DSH 保留原生 ACP profile 及配置叠加方式；Grok 使用独占 agent 入口，取消不会把工作留给共享 leader。
+
+权限请求只给出工具调用 ID（DSH）或只有工具名（Kimi 的 Bash、Write）时，ACP 客户端用该调用此前 tool_call 更新报告过的标题、类型、输入和位置补全，请求自身的字段优先，决定者因此看得到命令或文件。Windows 上 Hermes 以一个线程阻塞读取 stdin，它启动的子进程（git、shell 命令）继承该管道后要等这次读取返回才能启动；AutoSwarm 每秒发送一条它会静默丢弃的 JSON-RPC 回复使读取返回。Nanobot 桥接把 ACP 通道移到子进程不继承的描述符，工具的 stdin 为空设备、stdout 进 stderr，并为其 shell 补上 AutoSwarm 的调用身份变量，使它派出的子任务归属正确。
 
 Muse 使用原生 MSP：initialize、session/start 或 session/resume、turn/start，以 turn/completed 判断结束。approval/request 的展示回执与 approval/decide 的实际决定分开；保留 currentRequirementId，批准阶段变化后撤回旧请求。每个写入命令生成原生要求的 UUIDv7 幂等键，选择与授权范围一致的原生选项。
 
@@ -58,7 +88,7 @@ Claude 子端使用与原生 SDK 相同的双向 stream-JSON 控制协议，`--p
 
 OpenCode 子端用操作系统选择的本机端口启动本次调用自有的 serve，通过 /global/health 和 /doc 确认服务及必要接口，再创建会话、订阅 SSE 并提交任务。启动文字及 stdout/stderr 位置不参与就绪判断。端口选择与实际绑定之间存在竞争窗口，原生绑定失败会作为启动失败暴露，不接管其他进程。permission.asked 产生请求；原生 reply 接口回复决定。最终 assistant 响应结束调用，runner 回收自有服务。无需用户部署或管理常驻服务。
 
-本机 HTTP 控制及 SSE 使用相同认证和代理策略：沿用原生服务密码，loopback 绕过外网代理；远端模型请求继续由原生产品处理。明确的 HTTP 认证、协议和连接错误保留发生阶段与接口依据；尚未就绪时 handle.phase、endpoint 和 diagnostic 可检查，取消不依赖握手完成。不增加固定启动截止时间；进程存活本身不视为调用已验证。原生 API 不满足适配器时明确报告版本/协议问题，不通过重复安装认证掩盖。
+本机 HTTP 控制及 SSE 使用相同认证和代理策略：沿用原生服务密码，loopback 绕过外网代理（设置了代理时 `providers.opencode_environment` 把 localhost 加入 NO_PROXY）；远端模型请求继续由原生产品处理。明确的 HTTP 认证、协议和连接错误保留发生阶段与接口依据；尚未就绪时 handle.phase、endpoint 和 diagnostic 可检查，取消不依赖握手完成。不增加固定启动截止时间；进程存活本身不视为调用已验证。原生 API 不满足适配器时明确报告版本/协议问题，不通过重复安装认证掩盖。
 
 冷启动服务可能接收连接但不回答第一次健康请求，因此单次健康 GET 会让出并重试。这个网络轮询不限制总启动等待、模型任务或批准等待；正常消息 POST 不自动重试，避免重复执行。
 
@@ -98,7 +128,7 @@ OpenCode 插件从 tool context 取得 session ID。后台 watcher 只读取结�
 
 ## 文件、并发与恢复
 
-每个 call 一个目录，保存任务、运行句柄、结果、可选交付凭据及诊断。先完整写入临时文件，flush/fsync 后在同目录原子替换。不同 call 不竞争同一份 JSON 队列。
+每个 call 一个目录，保存任务、运行句柄、结果、可选交付凭据及诊断。先完整写入临时文件，flush/fsync 后在同目录原子替换。不同 call 不竞争同一份 JSON 队列。Windows 上调用目录继承记录目录本身的权限（本来就只属于用户），使从 agent 沙箱内建立的调用仍能被用户和 Desk 读取；其他系统以 0o700 建立。
 
 Windows 记录读句柄允许其他进程原子替换文件，并保留正在读取的完整快照。读写仅针对原生共享冲突重试，真实访问拒绝直接报错，沿用系统权限。
 
@@ -139,6 +169,8 @@ submitted 只证明原生输入已接受，reply_to 才关联实际答复。原�
 ## 验证范围
 
 自动化测试使用受控 CLI、真实本地 WebSocket/HTTP 与子进程；真实联调脚本另外调用本机已配置的原生产品。CI 定义 Linux、macOS、Windows 的包安装和行为验证。本机测试只证明本机平台，App UI 的会话可见性仍需实际客户端验收。
+
+`scripts/check.py` 在独立虚拟环境中构建并安装包，运行 `tests/`（含 `tests/desk/`）、OpenCode 插件测试、可搬迁 Skill 安装，以及安装后的发布检查（`scripts/check_distribution.py`：十二个 provider、批准与提问往返、原生续接、经安装后启动器收发消息、重装）。这条检查不需要 Desk。Desk 应用另有 `desktop/` 下的 `npm test` 与各 `npm run test:*` Electron 测试。
 
 
 ## 原生交互转接

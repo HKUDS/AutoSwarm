@@ -1,8 +1,15 @@
 """One ACP client shared by native agents and the local nanobot SDK shim."""
 import json
+import os
 import threading
+import time
 
 from .records import SwarmError
+
+# Agents whose stdin must keep receiving input on Windows (see ACP.keepalive).
+KEEPALIVE = {"hermes"} if os.name == "nt" else set()
+KEEPALIVE_SECONDS = 1
+KEEPALIVE_LINE = {"id": "autoswarm-keepalive", "result": None}
 
 
 class ACP:
@@ -11,8 +18,10 @@ class ACP:
         self.accepting = False
         self.after_tool = False
         self.permissions = set()
+        self.tool_calls = {}
         self.interactions = {}
         self.codebuddy_questions = {}
+        self.kimi_questions = set()
         self.permission_keys = {}
         self.permission_lock = threading.RLock()
         self.interrupted_for_message = False
@@ -26,11 +35,48 @@ class ACP:
         self.auth_timer = None
 
     def start(self):
+        if self.n.task["provider"] in KEEPALIVE:
+            threading.Thread(target=self.keepalive, daemon=True).start()
         self.n.stage("handshake")
         capabilities = {"fs": {"readTextFile": False, "writeTextFile": False}, "terminal": False, "elicitation": {"form": {}, "url": {}}}
         if self.n.task["provider"] == "cursor":
             capabilities["_meta"] = {"parameterizedModelPicker": True}
         self.n.request("initialize", {"protocolVersion": 1, "clientInfo": {"name": "autoswarm", "version": "2.0.0.dev0"}, "clientCapabilities": capabilities}, self.initialized)
+
+    TOOL_FIELDS = ("title", "kind", "rawInput", "locations", "content")
+
+    def remember_tool(self, update):
+        """What a tool call has said about itself so far (tool_call, then its updates)."""
+        known = self.tool_calls.setdefault(update["toolCallId"], {})
+        for key in self.TOOL_FIELDS:
+            if update.get(key) not in (None, "", [], {}):
+                known[key] = update[key]
+        if len(self.tool_calls) > 500:  # Only recent calls can still ask for permission.
+            self.tool_calls.pop(next(iter(self.tool_calls)))
+
+    def described(self, params):
+        """A permission request may name its tool call by id only (DSH) or by a bare tool name
+        (Kimi's "Bash"); what the call reported earlier fills in what the request leaves out, so
+        whoever decides sees the command or file. The request's own fields win."""
+        tool = params.get("toolCall")
+        known = self.tool_calls.get(tool.get("toolCallId")) if isinstance(tool, dict) else None
+        if not known:
+            return params
+        merged = {**tool, **{key: value for key, value in known.items() if tool.get(key) in (None, "", [], {})}}
+        return {**params, "toolCall": merged}
+
+    def keepalive(self):
+        """Hermes on Windows reads its stdin pipe with a blocking read on one thread. A child it
+        starts (git, a shell command) inherits that pipe, and on Windows the child's startup waits
+        until the pending read returns, so without input Hermes stops at session/new or at its
+        first tool. A reply to no request is dropped silently by its ACP library and lets the read
+        return."""
+        while self.n.process.poll() is None:
+            time.sleep(KEEPALIVE_SECONDS)
+            try:
+                self.n.send(KEEPALIVE_LINE)
+            except (OSError, ValueError, SwarmError):
+                return
 
     def initialized(self, result):
         if result.get("protocolVersion") != 1:
@@ -101,16 +147,28 @@ class ACP:
             raise SwarmError("native_protocol_error", "ACP server returned no native session ID")
         self.n.output.content = ""  # session/load may replay the old transcript.
         self.accepting = True
+        self.modes = result.get("modes") or {}
         from .selection import configure_acp
         configure_acp(self.n, result, self.configured)
 
     def configured(self):
+        # Desk's permission mode selects a native session mode (Cursor Plan / Agent).
+        mode = self.n.task.get("native_options", {}).get("mode")
+        if mode and self.modes.get("currentModeId") != mode:
+            if not any(item.get("id") == mode for item in self.modes.get("availableModes", [])):
+                raise SwarmError("unsupported_permission", f"{self.n.task['provider']} did not offer the {mode!r} session mode")
+            self.modes = {**self.modes, "currentModeId": mode}
+            self.n.request("session/set_mode", {"sessionId": self.n.output.session_id, "modeId": mode}, lambda _: self.configured())
+            return
         self.n.stage("execution")
         self.n.continue_turn(self.n.initial_prompt())
 
     def prompt(self, text):
         self.prompt_text = text
         self.after_tool = False
+        tap = getattr(self.n, "tap", None)
+        if tap is not None:
+            tap.mark("prompt")  # session/load replayed the old transcript before this point.
         self.n.request("session/prompt", {"sessionId": self.n.output.session_id, "prompt": [{"type": "text", "text": text}]}, self.completed)
 
     def poll(self):
@@ -126,6 +184,7 @@ class ACP:
                 self.n.broker.withdraw(native_id, "interrupted_for_message")
                 self.n.send({"id": request, "result": response})
             self.interactions.clear()
+            self.kimi_questions.clear()
             for request in list(self.permissions):
                 self.permissions.remove(request)
                 self.n.broker.withdraw(self.permission_keys.pop(request, request), "interrupted_for_message")
@@ -153,6 +212,7 @@ class ACP:
             self.interactions.clear()
             self.permission_keys.clear()
             self.codebuddy_questions.clear()
+            self.kimi_questions.clear()
         self.n.output.finish_reason = reason
         self.n.output.terminal = reason == "end_turn"
         self.n.output.cancelled = reason == "cancelled"
@@ -201,6 +261,11 @@ class ACP:
                 return
             update = params.get("update", {})
             meta = update.get("_meta", {})
+            if update.get("sessionUpdate") in {"tool_call", "tool_call_update"} and update.get("toolCallId"):
+                self.remember_tool(update)
+            if (self.n.task["provider"] == "kimi" and update.get("sessionUpdate") in {"tool_call", "tool_call_update"}
+                    and update.get("title") == "AskUserQuestion" and update.get("toolCallId")):
+                self.kimi_questions.add(update["toolCallId"])
             if self.n.task["provider"] == "codebuddy":
                 interruption = meta.get("codebuddy.ai/interruptionRequest")
                 if isinstance(interruption, dict) and interruption.get("toolName") == "AskUserQuestion":
@@ -255,14 +320,38 @@ class ACP:
                             {"outcome": {"outcome": "cancelled"}} if method == "_codebuddy.ai/question" else {"outcome": "cancelled"})
             with self.permission_lock:
                 self.interactions[event["id"]] = (native_id, cancellation)
+                # Kimi's native AskUserQuestion shares the elicitation form
+                # wire format. Only a correlated native question is eligible
+                # for parent delegation; MCP forms and URL consent stay user-only.
+                native_question = (self.n.task["provider"] == "kimi" and method == "elicitation/create"
+                                   and params.get("mode", "form") == "form"
+                                   and params.get("toolCallId") in self.kimi_questions)
                 self.n.broker.request(native_id, self.n.output.session_id, params, answer,
-                                      interaction=kind, user_required=kind == "elicitation")
+                                      interaction=kind, user_required=kind == "elicitation" and not native_question)
         elif method == "session/request_permission":
             if params.get("sessionId") != self.n.output.session_id:
                 self.n.unknown(event)
                 return
+            params = self.described(params)
             tool = params.get("toolCall", {})
             tool_name = tool.get("_meta", {}).get("codebuddy.ai/toolName")
+            if self.n.task["provider"] == "kimi" and tool.get("title") == "AskUserQuestion":
+                # Native fallback when the form RPC is unavailable. These
+                # options are answers, never executable-tool permissions.
+                def answer_question(value):
+                    with self.permission_lock:
+                        if event["id"] not in self.interactions:
+                            raise SwarmError("interaction_not_pending", "Native question was withdrawn")
+                        response = value["response"]
+                        outcome = ({"outcome": "cancelled"} if response.get("action") == "cancel" else
+                                   {"outcome": "selected", "optionId": response["optionId"]})
+                        self.n.send({"id": event["id"], "result": {"outcome": outcome}})
+                        self.interactions.pop(event["id"], None)
+                with self.permission_lock:
+                    self.interactions[event["id"]] = (event["id"], {"outcome": {"outcome": "cancelled"}})
+                    self.n.broker.request(event["id"], self.n.output.session_id, params, answer_question,
+                                          interaction="acp-question")
+                return
             if self.n.task["provider"] == "codebuddy" and (tool_name == "AskUserQuestion" or tool.get("title") == "AskUserQuestion"):
                 self.codebuddy_question(tool, params, event["id"])
                 return

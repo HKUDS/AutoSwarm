@@ -1,9 +1,12 @@
 """Launch native agents with a bidirectional permission-capable transport."""
 from __future__ import annotations
 
+import os
 import shutil
 import socket
 import subprocess
+import re
+from pathlib import Path
 
 from .records import SwarmError
 
@@ -15,16 +18,17 @@ ALIASES = {
     "grok-build": "grok", "grok_build": "grok",
     "gemini-cli": "gemini", "google-gemini": "gemini",
     "antigravity-acp": "antigravity", "google-antigravity": "antigravity",
+    "kimi-code": "kimi", "kimi-cli": "kimi",
 }
 BINARIES = {
     "codex": "codex", "claude-code": "claude", "opencode": "opencode",
     "cursor": "cursor-agent", "copilot": "copilot", "muse": "muse", "codebuddy": "codebuddy",
-    "hermes": "hermes", "nanobot": "nanobot", "dsh": "dsh", "grok": "grok",
+    "hermes": "hermes", "nanobot": "nanobot", "dsh": "dsh", "grok": "grok", "kimi": "kimi",
     "gemini": "gemini", "antigravity": "agy_acp_server.par",
 }
 # Gemini CLI speaks ACP natively via `gemini --acp`.
 # Antigravity is Google's ACP server from the ACP registry (antigravity-acp); it takes no ACP flag.
-ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "gemini", "antigravity"}
+ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi", "gemini", "antigravity"}
 OWNED_SERVERS = ACP_PROVIDERS | {"opencode", "muse"}
 AUTH_TIMEOUT = 600  # Seconds for one ACP `authenticate`; browser sign-in can take minutes.
 
@@ -36,15 +40,75 @@ def canonical(name: str) -> str:
     return name
 
 
+def installed(binary: str) -> str | None:
+    """Where an official installer puts an agent's CLI when its folder is not on PATH (yet).
+
+    Hermes, Grok and Muse install into folders of their own; uv tools and Claude Code's native
+    installer use ~/.local/bin; npm global installs use %APPDATA%\\npm on Windows.
+    """
+    home = Path.home()
+    if os.name == "nt":
+        local = Path(os.environ.get("LOCALAPPDATA") or home / "AppData/Local")
+        roaming = Path(os.environ.get("APPDATA") or home / "AppData/Roaming")
+        folders = [local / "hermes/bin", home / ".grok/bin", local / "Programs/muse", home / ".local/bin", roaming / "npm"]
+        names = [binary + suffix for suffix in (".exe", ".cmd", ".bat")]
+    else:
+        folders = [home / ".local/bin", home / ".grok/bin", home / ".hermes/bin", home / ".npm-global/bin"]
+        names = [binary]
+    for folder in folders:
+        for file in names:
+            if (folder / file).is_file():
+                return str(folder / file)
+    return None
+
+
 def command_for(name: str, config: dict) -> list[str]:
     name = canonical(name)
+    explicit = "command" in config.get("providers", {}).get(name, {})
     configured = config.get("providers", {}).get(name, {}).get("command", [BINARIES[name]])
     if not isinstance(configured, list) or not configured or not all(isinstance(x, str) for x in configured):
         raise SwarmError("invalid_config", "Provider command must be an argv array")
-    binary = shutil.which(configured[0])
+    binary = shutil.which(configured[0]) or (None if explicit else installed(configured[0]))
     if not binary:
         raise SwarmError("provider_unavailable", f"No callable CLI for {name}: {configured[0]}. Check the configured path/PATH; if no CLI is installed, ask the user whether to install its official CLI.")
     return [binary, *configured[1:]]
+
+
+LOOPBACK = ("localhost", "127.0.0.1", "::1")
+PROXY_VARIABLES = ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy")
+
+
+def opencode_environment(task: dict, env: dict) -> dict:
+    """OpenCode talks to its own local server; a system proxy must not carry that.
+
+    With HTTP(S)_PROXY set and localhost not excluded, OpenCode 2.x fails its
+    session/new with "Internal service failure" before any model call. Remote
+    model traffic keeps the proxy.
+    """
+    if task["provider"] != "opencode" or not any(env.get(name) for name in PROXY_VARIABLES):
+        return env
+    env = dict(env)
+    for name in ("NO_PROXY", "no_proxy"):
+        present = [item.strip() for item in (env.get(name) or "").split(",") if item.strip()]
+        env[name] = ",".join(present + [host for host in LOOPBACK if host not in present])
+    return env
+
+
+def opencode_transport(command: list[str], config: dict) -> str:
+    """V2's HTTP API is incompatible with V1; its native ACP is stable."""
+    selected = config.get("providers", {}).get("opencode", {}).get("transport", "auto")
+    if selected not in {"auto", "http", "acp"}:
+        raise SwarmError("invalid_config", "OpenCode transport must be auto, http, or acp")
+    if selected != "auto":
+        return selected
+    try:
+        version = subprocess.run([*command, "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
+        match = re.search(r"\bopencode(?:-cli)?\s+v?(\d+)\.", version.stdout, re.I)
+        if version.returncode == 0 and match and int(match.group(1)) >= 2:
+            return "acp"
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return "http"
 
 
 def invocation(task: dict, config: dict) -> list[str]:
@@ -84,6 +148,11 @@ def invocation(task: dict, config: dict) -> list[str]:
             index += 1
     if task.get("model"):
         options["model"] = task["model"]
+    # A Desk permission mode overrides native settings and config args.
+    from .permissions import launch
+    flags, settings = launch(task)
+    native_args += flags
+    options.update(settings)
     if task.get("effort"):
         options["effort"] = task["effort"]
         if name == "opencode":
@@ -101,10 +170,24 @@ def invocation(task: dict, config: dict) -> list[str]:
         if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0:
             raise SwarmError("invalid_config", f"providers.{name}.auth_timeout must be a positive number of seconds")
         task["auth_method"], task["auth_timeout"] = method, timeout
+    if name == "opencode":
+        task["native_transport"] = opencode_transport(command, config)
+        if task["native_transport"] == "acp":
+            if any(key in options for key in ("agent", "title")):
+                raise SwarmError("unsupported_native_option", "OpenCode ACP does not accept --agent/--title through the legacy HTTP options")
+            # Model/effort are configured through the advertised ACP controls.
+            if options.get("variant") and not task.get("effort"):
+                task["effort"] = options["variant"]
+                options["effort"] = options["variant"]
+            if options.get("model") and not task.get("model"):
+                task["model"] = options["model"]
+            return [*command, "acp", *native_args]
     if name == "codex":
         command += ["app-server"]
     elif name == "claude-code":
-        command += ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--permission-prompt-tool", "stdio"]
+        # Partial messages stream text as it is written (stream_event deltas); the
+        # complete assistant/result events still follow, so parsing is unchanged.
+        command += ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--permission-prompt-tool", "stdio"]
         if task.get("native_session_id"):
             command += ["--resume=" + task["native_session_id"]]
         if options.get("model"):
@@ -114,7 +197,7 @@ def invocation(task: dict, config: dict) -> list[str]:
         return [*bridge_command(command, config), *native_args,
                 *(["--model", options["model"]] if options.get("model") else []),
                 *(["--effort", options["effort"]] if options.get("effort") else [])]
-    elif name == "hermes":
+    elif name in {"hermes", "kimi"}:
         return [*command, "acp", *native_args]
     elif name == "dsh":
         return [*command, "--profile", "acp", *native_args]

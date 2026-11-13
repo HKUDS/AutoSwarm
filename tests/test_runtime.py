@@ -67,6 +67,26 @@ class RuntimeTests(unittest.TestCase):
                 self.assertNotEqual(value["call_id"], call_id)
                 self.assertEqual(read_json(self.records.call(call_id) / "result.json"), result)
 
+    def test_optional_capture_covers_stdio_and_sse_without_changing_results(self):
+        config = self.records.config()
+        config['events'] = {'capture': True}
+        write_json(self.records.home/'config.json', config)
+        for provider in ['codex', 'claude-code', 'cursor', 'muse', 'opencode']:
+            with self.subTest(provider=provider):
+                cid = self.start(provider, 'capture check')
+                result = engine.wait(self.records, [cid])[0]
+                self.assertEqual(result['outcome'], 'completed')
+                path = self.records.call(cid)/'events.jsonl'
+                self.assertTrue(path.is_file())
+                rows = [json.loads(line) for line in path.read_text(encoding='utf8').splitlines()]
+                self.assertTrue(rows, provider)
+                self.assertTrue(all(isinstance(row,dict) for row in rows))
+
+    def test_capture_remains_disabled_by_default(self):
+        cid = self.start('codex', 'no capture')
+        engine.wait(self.records, [cid])
+        self.assertFalse((self.records.call(cid)/'events.jsonl').exists())
+
     def test_resumed_turn_reports_execution_before_returning(self):
         for provider in ("codex", "claude-code"):
             with self.subTest(provider=provider):
@@ -169,6 +189,29 @@ class RuntimeTests(unittest.TestCase):
                 engine.cancel(self.records, held)
                 result = engine.wait(self.records, [held])[0]
                 self.assertEqual(result["outcome"], "cancelled", {"result": result, "runner_log": (self.records.call(held) / "runner.log").read_text(errors="replace")})
+
+    def test_kimi_cancellation_stops_detached_native_tool_before_server_exit(self):
+        marker = self.root / "detached-kimi-tool"
+        call_id = self.start("kimi", "detached-tool:" + str(marker))
+        end = time.monotonic() + 10  # Fixture startup only.
+        while not marker.exists() and time.monotonic() < end:
+            time.sleep(.01)
+        self.assertTrue(marker.exists())
+        pid = int(marker.read_text())
+        identity = platform.identity(pid)
+        self.assertIsNotNone(identity)
+        def cleanup():
+            if platform.identity(pid) == identity:
+                import signal
+                os.kill(pid, signal.SIGTERM)
+        self.addCleanup(cleanup)
+        engine.cancel(self.records, call_id)
+        result = engine.wait(self.records, [call_id])[0]
+        self.assertEqual(result["outcome"], "cancelled", result)
+        self.assertIsNone(result["error"])
+        self.assertTrue(Path(str(marker) + ".cancelled").exists())
+        self.assertTrue(Path(str(marker) + ".closed").exists())
+        self.assertNotEqual(platform.identity(pid), identity)
 
     def test_acp_final_content_excludes_commentary_before_tools(self):
         for provider in sorted(ACP_PROVIDERS):
@@ -444,3 +487,15 @@ class RuntimeTests(unittest.TestCase):
         data = json.loads(output.stdout)["data"]
         self.ids.append(data["call_id"])
         self.assertEqual(data["content"], "relocated|session=fixture-session")
+
+
+class MessageGuidanceTests(unittest.TestCase):
+    # Found with real Cursor: a child reported completion by message, its owner
+    # acknowledged it, and each reply woke the other side again.
+    def test_agents_are_told_not_to_ping_pong_status_messages(self):
+        task = {"agent_id": "call_child", "communication": {"peers": [], "rules": ""}}
+        self.assertIn("final answer reaches your parent automatically", messages.context(task))
+        for values in ([{"kind": "agent_message", "content": "Done"}], [{"kind": "user_message", "content": "hi"}]):
+            text = messages.envelope(task, values)
+            self.assertIn("Do not acknowledge status updates", text)
+        self.assertIn("Incoming messages (preserve sender identity; answer questions using reply):\n", messages.envelope(task, [{"kind": "agent_message"}]))

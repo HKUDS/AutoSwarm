@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src file:; base-uri 'none'; form-action 'none'">
+  <title>AutoSwarm Desk</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="titlebar">
+    <div class="brand"><img class="swarm-mark autoswarm-logo" src="../assets/logo-128.png" width="20" height="20" alt=""><span class="brand-name">AutoSwarm</span><span class="brand-desk">Desk</span><button class="titlebar-toggle" data-action="sidebar" title="Collapse or expand the sidebar" aria-label="Collapse or expand the sidebar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></svg></button></div>
+    <div class="window-buttons"><button data-window="minimize" aria-label="Minimize"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 6h9"/></svg></button><button data-window="maximize" aria-label="Maximize"><svg viewBox="0 0 12 12" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="9"/></svg></button><button data-window="close" aria-label="Close"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="m1.5 1.5 9 9m0-9-9 9"/></svg></button></div>
+  </header>
+  <div class="window-body">
+    <div id="app" class="app"><div class="loading">Opening AutoSwarm Desk…<noscript><p>Enable JavaScript, or run the desktop app AutoSwarm Desk.exe.</p></noscript></div></div>
+    <aside id="preview" class="preview-pane" hidden aria-label="Preview"></aside>
+  </div>
+  <dialog id="settings"><div class="dialog-heading"><div><span class="eyebrow">AUTOSWARM DESK</span><h2>Connection &amp; settings</h2></div><button data-close="settings" class="icon-button" aria-label="Close settings">×</button></div><div id="settings-content"></div></dialog>
+  <dialog id="detail"><div id="detail-content"></div></dialog>
+  <div id="toast" role="status"></div>
+  <script src="./startup.js" defer></script>
+  <script src="./app.js" defer></script>
+</body>
+</html>

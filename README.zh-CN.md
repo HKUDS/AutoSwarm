@@ -16,6 +16,11 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
 
 [![Paper](https://img.shields.io/badge/Paper-arXiv-B31B1B?style=flat&logo=arxiv&logoColor=white)](https://arxiv.org/abs/2610.33048) [![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat)](./COMMUNICATION.md) [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
 
+[![下载 AutoSwarm Desk Windows 版](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-AutoSwarm%20Desk%20Windows%20%E7%89%88-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-Setup.exe) [![下载 AutoSwarm Desk macOS 版（Apple 芯片）](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-macOS%20%E7%89%88%EF%BC%88Apple%20%E8%8A%AF%E7%89%87%EF%BC%89-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-arm64.dmg) [![下载 AutoSwarm Desk macOS 版（Intel）](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-macOS%20%E7%89%88%EF%BC%88Intel%EF%BC%89-4176E6?style=for-the-badge)](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-x64.dmg)
+
+**新：AutoSwarm Desk 桌面版（Windows 和 macOS）。** 私人助理、所有 Agent、它们的工作进展和审批，都在一个窗口里。<br>
+运行安装程序即可开始：自带 Python，Windows 版会自动更新。[了解功能](desktop/README.zh-CN.md)
+
 </div>
 
 ## ✨ 三个适合 AutoSwarm 的场景
@@ -57,14 +62,20 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
     <td align="center" width="25%"><p><img src="docs/assets/agents/nanobot.png" width="48" height="48" alt=""><br><strong>Nanobot</strong></p></td>
     <td align="center" width="25%"><p><img src="docs/assets/agents/dsh.svg" width="48" height="48" alt=""><br><strong>DeepSeek Harness</strong></p></td>
     <td align="center" width="25%"><p><img src="docs/assets/agents/grok.svg" width="48" height="48" alt=""><br><strong>Grok Build</strong></p></td>
-    <td align="center" width="25%"><p><a href="#后续计划"><img src="docs/assets/agents/more.svg" width="48" height="48" alt=""><br><strong>更多 agent，持续接入</strong></a></p></td>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/kimi.png" width="48" height="48" alt="Kimi Code logo"><br><strong>Kimi Code</strong></p></td>
   </tr>
 </table>
 
 支持 Windows、macOS、Linux。可在支持 Skill 和本地命令执行的 App、CLI 或 IDE 扩展中使用；被调用的 agent 需有可用的本地 CLI。
 
+## 🖥️ AutoSwarm Desk 应用界面
+
+<p align="center"><img src="docs/assets/desk/desk-zh.png" width="880" alt="AutoSwarm Desk 应用界面"></p>
+
 ## 📰 News
 
+- **AutoSwarm Desk macOS 版发布**：同一个应用，支持 Apple 芯片和 Intel 芯片的 Mac，自带 Python。[Apple 芯片版](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-arm64.dmg) · [Intel 版](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-mac-x64.dmg) · [使用说明](desktop/README.zh-CN.md)
+- **AutoSwarm Desk（Windows 桌面版）发布**：在一个窗口里和私人助理对话，用已支持的十二个 Agent 开会话，查看它们如何分工协作，并处理审批。一个安装程序，自带 Python，自动更新。[下载](https://github.com/HKUDS/AutoSwarm/releases/latest/download/AutoSwarm-Desk-Setup.exe) · [使用说明](desktop/README.zh-CN.md)
 - **OpenOPC → AutoSwarm**：v2 将 swarm 能力带入用户已有的 agent。旧版完整实现保留在 [v1.0.0 归档](autoswarm-v1.0.0/ARCHIVE.md)中。
 
 ## 后续计划
@@ -102,7 +113,7 @@ If you find this work helpful to your research, please kindly consider citing ou
    autoswarm setup --host codex
    ```
 
-   其他宿主标识：`claude-code`、`opencode`、`cursor`、`copilot`、`muse`、`codebuddy`、`hermes`、`nanobot`、`dsh`、`grok`。没有 uv 时，在专用 Python 3.10+ 环境执行 `python -m pip install .`，保留该解释器，不复用归档 v1 环境。
+   其他宿主标识：`claude-code`、`opencode`、`cursor`、`copilot`、`muse`、`codebuddy`、`hermes`、`nanobot`、`dsh`、`grok`、`kimi`。没有 uv 时，在专用 Python 3.10+ 环境执行 `python -m pip install .`，保留该解释器，不复用归档 v1 环境。
 3. 读取 setup 返回路径下的 `SKILL.md`，其中包含完整启动参数与使用方法。App 找不到 `autoswarm` 时使用该启动器。在实际宿主环境运行 `agents`；已有 CLI 不在 PATH 时，将其绝对 argv 合并到返回的 AutoSwarm home/config.json 的 `providers.<provider>.command`，保留无关配置。
 4. 在实际项目中验证所需 agent，按实际情况替换示例产品与目录：
 

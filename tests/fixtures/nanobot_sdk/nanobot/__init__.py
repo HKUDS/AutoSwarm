@@ -60,12 +60,14 @@ class Stream:
         self.bot,self.text,self.key,self.channel=bot,text,key,channel
         self.cancelled=False
     async def stream_events(self):
-        yield NS(type='tool.started',tool_call_id='native-tool',name='fixture-native-tool')
+        yield NS(type='reasoning.delta',delta='planning')
+        yield NS(type='tool.started',tool_call_id='native-tool',name='exec',arguments={'command':'echo fixture'})
         gate = self.text.partition('gate:')[2].splitlines()[0] if self.text.startswith('gate:') else ''
         while gate and not Path(gate).exists() and not self.cancelled:
             await asyncio.sleep(.01)
         if self.cancelled:
             raise asyncio.CancelledError()
+        yield NS(type='tool.completed',tool_call_id='native-tool',name='exec',arguments={'command':'echo fixture'},error=None)
     async def wait(self):
         if self.cancelled:
             raise asyncio.CancelledError()

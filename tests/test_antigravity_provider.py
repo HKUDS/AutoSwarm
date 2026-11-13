@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest import mock
 
 from autoswarm.providers import ACP_PROVIDERS, OWNED_SERVERS, canonical, invocation
-from autoswarm.records import Records
+from autoswarm.records import Records, SwarmError
 from autoswarm.setup import install
 
 
@@ -48,8 +48,8 @@ class AntigravityProviderTest(unittest.TestCase):
 
     def test_setup_needs_explicit_skill_directory(self):
         with tempfile.TemporaryDirectory() as home:
-            with self.assertRaises(ValueError):
-                install(Records(home), "antigravity")
+            with self.assertRaises(SwarmError):
+                install(Records(home), "antigravity", discover_agents=False)
 
 
 if __name__ == "__main__":

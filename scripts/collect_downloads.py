@@ -117,6 +117,20 @@ def merge_history(history: dict | None, snapshot: dict, since: str | None = None
     return history
 
 
+def asset_kind(name: str) -> str:
+    """AutoSwarm Desk uploads its installer twice: AutoSwarm-Desk-Setup.exe for people, and
+    AutoSwarm-Desk-Update.exe with latest.yml and a .blockmap read only by Desk's automatic update."""
+    if name.endswith((".yml", ".yaml", ".blockmap")):
+        return "update_metadata"
+    if name.startswith("AutoSwarm-Desk-Update"):
+        return "desk_update"
+    return "desk_download" if name.startswith("AutoSwarm-Desk") else "download"
+
+
+def downloads(history: dict, *kinds: str) -> int:
+    return sum(max(0, count(a["count"]) - count(a["baseline"])) for a in history["release_assets"].values() if asset_kind(a["name"]) in kinds)
+
+
 def totals(history: dict) -> dict:
     days = {day: row for day, row in history["clones"].items() if day >= history["since"]}
     missing = []
@@ -130,7 +144,10 @@ def totals(history: dict) -> dict:
         "clones": sum(count(row["count"]) for row in days.values()) if days else None,
         "latest_clone_day": max(history["clones"], default=None),
         "missing_clone_dates": missing,
-        "release_downloads": sum(max(0, count(a["count"]) - count(a["baseline"])) for a in history["release_assets"].values()),
+        # Downloads by people; automatic updates and the files they read are counted apart.
+        "release_downloads": downloads(history, "download", "desk_download"),
+        "desk_downloads": downloads(history, "desk_download"),
+        "desk_updates": downloads(history, "desk_update"),
     }
 
 
@@ -152,9 +169,11 @@ def outputs(history: dict) -> dict[str, str]:
         "| Metric | Recorded count |\n| --- | ---: |\n"
         f"| Full repository clones since {history['since']} | {clones} |\n"
         f"| Release asset downloads since the baseline | {values['release_downloads']:,} |\n"
+        f"| of which AutoSwarm Desk (installer and ZIP) | {values['desk_downloads']:,} |\n"
+        f"| AutoSwarm Desk automatic updates (not included above) | {values['desk_updates']:,} |\n"
         + missing_note + "\n"
         "Daily clone records are merged by UTC date, including later corrections. Dates not returned by GitHub are not filled with zero; data after the latest reported date is pending. Daily unique cloners remain separate and are never summed into lifetime users.\n\n"
-        "Release counters are retained by asset ID, even after removal. Assets created before the start date begin at their first observed counter; earlier downloads cannot be dated. New assets created on/after the start date include their full counter. Re-uploading creates a separate asset.\n\n"
+        "Release counters are retained by asset ID, even after removal. Assets created before the start date begin at their first observed counter; earlier downloads cannot be dated. New assets created on/after the start date include their full counter. Re-uploading creates a separate asset. AutoSwarm Desk's automatic update downloads its own copy of the installer (AutoSwarm-Desk-Update.exe); those downloads and the update files it reads (latest.yml, .blockmap) are not counted as release downloads.\n\n"
         "These are separate acquisition metrics, not a count of installations or users. Git fetch/pull, raw files, automatic source archives and PyPI downloads are outside these counters.\n\n"
         "[Machine-readable history](history.json) · [Collector documentation](https://github.com/" + history["repository"] + "/blob/main/docs/download-statistics.md)\n"
     )

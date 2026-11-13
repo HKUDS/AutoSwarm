@@ -105,6 +105,11 @@ class SelectionTests(unittest.TestCase):
                     self.assertEqual(argv[argv.index("--model") + 1], model)
                     self.assertEqual(argv[argv.index("--reasoning-effort") + 1], "deep-native")
                     self.assertFalse(any(event.get("method", "").startswith("session/set") for event in events))
+                elif provider == "nanobot":
+                    # The bridge takes the selection at launch and advertises its model; it has no setters.
+                    self.assertEqual(argv[argv.index("--model") + 1], model)
+                    self.assertEqual(argv[argv.index("--effort") + 1], "deep-native")
+                    self.assertFalse(any(event.get("method", "").startswith("session/set") for event in events))
                 elif provider == "cursor":
                     init = next(event for event in events if event.get("method") == "initialize")
                     self.assertTrue(init["params"]["clientCapabilities"]["_meta"]["parameterizedModelPicker"])

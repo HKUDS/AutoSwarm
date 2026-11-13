@@ -7,6 +7,7 @@ import base64
 import sys
 import threading
 import time
+import subprocess
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from http_peer import LocalHTTPServer
@@ -37,13 +38,22 @@ def emit(value):
     print(json.dumps(value, ensure_ascii=False), flush=True)
 
 
+mentioned = ""
+
+
 def prepare(prompt):
+    # A leading Skill mention ("/autoswarm " or "$autoswarm ") is echoed in the reply, not acted on.
+    global mentioned
+    match = re.match(r"[/$]autoswarm ", prompt)
+    mentioned, prompt = (match.group(0), prompt[match.end():]) if match else ("", prompt)
     if prompt.startswith("gate:"):
         gate, prompt = prompt[5:].split("\n", 1)
         while not Path(gate).exists():
             time.sleep(0.01)
     if prompt.startswith("hold:"):
         Path(prompt[5:]).write_text("started")
+        if provider == "kimi":
+            return prompt  # Remain responsive to the native cancellation RPC.
         while True:
             time.sleep(0.01)
     return prompt
@@ -54,7 +64,7 @@ def finished(prompt):
     if provider == "codex":
         emit({"method": "item/completed", "params": {"threadId": session, "item": {"type": "agentMessage", "text": text}}})
         emit({"method": "turn/completed", "params": {"threadId": session, "turn": {"id": "native-turn", "status": "failed" if prompt == "fail" else "completed"}}})
-    elif provider in {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "gemini", "antigravity"}:
+    elif provider in {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi", "gemini", "antigravity"}:
         if prompt == "with-tools":
             emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "INTERIM COMMENTARY"}}}})
             emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "tool_call", "toolCallId": "tool-1", "title": "fixture tool"}}})
@@ -75,7 +85,7 @@ def content(prompt):
         return match.group(1)
     if prompt.startswith("What exact phrase"):
         return memory.read_text(encoding="utf-8")
-    return prompt + "|session=" + session
+    return mentioned + prompt + "|session=" + session
 
 
 if provider == "opencode":
@@ -161,7 +171,7 @@ if provider == "opencode":
             elif path.endswith("/message"):
                 prompt = prepare(body["parts"][0]["text"])
                 if prompt.startswith("approval:"):
-                    marker = prompt[9:]
+                    marker = prompt[9:].split("\n", 1)[0]
                     request_id = "native-approval"
                     decisions[request_id] = [None, threading.Event()]
                     props = {"id": request_id, "sessionID": session, "permission": "bash", "patterns": ["test-command"], "always": ["test-command"], "metadata": {"command": "test-command", "marker": marker}}
@@ -186,11 +196,12 @@ if provider == "opencode":
     server.daemon_threads = True
     print("Native service ready (changed banner)", file=sys.stderr, flush=True)
     server.serve_forever()
-elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot", "dsh", "grok", "gemini", "antigravity"}:
+elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot", "dsh", "grok", "kimi", "gemini", "antigravity"}:
     marker = None
     prompt_id = None
     unsupported_replied = False
     signed_in = False
+    detached_tool = None
     for raw in sys.stdin:
         value = json.loads(raw)
         trace(value)
@@ -220,7 +231,11 @@ elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot",
             result = {"session": {"sessionId": session}} if provider == "muse" else {"sessionId": session}
             if "selection-catalog" in args and provider != "muse":
                 result.update({"models": {"currentModelId": "native-model", "availableModels": [{"modelId": "native-model", "name": "Native Model"}]}, "configOptions": [{"id": "model", "category": "model", "options": [{"value": "native-model"}]}, {"id": "reasoning" if provider == "cursor" else "thought_level", "category": "thought_level", "options": [{"name": "Native choices", "options": [{"value": "deep-native"}, {"value": "light-native"}]}]}]})
+            if provider == "cursor":
+                result["modes"] = {"currentModeId": "agent", "availableModes": [{"id": "agent", "name": "Agent"}, {"id": "plan", "name": "Plan"}, {"id": "ask", "name": "Ask"}]}
             emit({"id": value["id"], "result": result})
+        elif method == "session/set_mode":
+            emit({"id": value["id"], "result": {}})
         elif method in {"session/set_model", "session/set_config_option", "session/setModel", "session/setReasoningEffort"}:
             if "reject-selection" in args:
                 emit({"id": value["id"], "error": {"code": -32602, "message": "Native model/effort selection was rejected"}})
@@ -235,14 +250,41 @@ elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot",
                 assert uuid.UUID(params["commandId"]).version == 7
                 emit({"id": value["id"], "result": {}})
             prompt = prepare(params["input" if provider == "muse" else "prompt"][0]["text"])
+            if provider == "kimi" and prompt.startswith("hold:"):
+                marker = prompt[5:].split(chr(10), 1)[0]
+                continue
+            if provider == "kimi" and prompt.startswith("detached-tool:"):
+                marker = prompt[len("detached-tool:"):].split(chr(10), 1)[0]
+                detached_tool = subprocess.Popen([sys.executable, "-c",
+                    "import os,sys,time;from pathlib import Path;Path(sys.argv[1]).write_text(str(os.getpid()));time.sleep(60)", marker],
+                    # Not this process's stdin: on Windows a child that inherits a pipe with a pending
+                    # read (the ACP loop) cannot start until another line arrives.
+                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    **({"start_new_session": True} if os.name != "nt" else {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}))
+                continue
             if prompt.startswith("approval:"):
-                marker = prompt[9:]
+                marker = prompt[9:].split("\n", 1)[0]
                 if provider == "muse":
                     emit({"id": "native-approval", "method": "approval/request", "params": {"sessionId": session, "approvalId": "native-approval", "currentRequirementId": {"approvalId": "native-approval", "sourceIndex": 0}, "availableChoices": [{"choiceId": "persist", "decision": "approved", "scope": "localPersistent"}, {"choiceId": "yes", "decision": "approved", "scope": "once"}, {"choiceId": "no", "decision": "abort" if "abort-only" in args else "denied", "scope": "once", "acceptsFeedback": True}], "command": "test-command", "marker": marker}})
+                elif "sparse-permission" in args:
+                    # DSH: the tool call describes itself first; the request names it by id only.
+                    emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "tool_call", "toolCallId": "tool-1", "title": "pwsh", "kind": "other", "status": "in_progress", "rawInput": {"command": "test-command", "description": "Run the test", "marker": marker}}}})
+                    emit({"id": "native-approval", "method": "session/request_permission", "params": {"sessionId": session, "toolCall": {"toolCallId": "tool-1"}, "options": [{"optionId": "yes", "kind": "allow_once", "name": "Allow once"}, {"optionId": "no", "kind": "reject_once", "name": "Reject once"}]}})
                 else:
                     emit({"id": "native-approval", "method": "session/request_permission", "params": {"sessionId": session, "toolCall": {"toolCallId": "tool-1", "title": "test-command", "kind": "execute", "rawInput": {"marker": marker}}, "options": [{"optionId": "yes", "kind": "allow_once", "name": "Allow once"}, {"optionId": "always", "kind": "allow_always", "name": "Allow always"}, {"optionId": "no", "kind": "reject_once", "name": "Reject once"}]}})
             else:
                 finished(prompt)
+        elif method == "session/cancel" and provider == "kimi":
+            if marker:
+                Path(marker + ".cancelled").write_text("native turn stopped")
+            emit({"id": prompt_id, "result": {"stopReason": "cancelled"}})
+        elif method == "session/close" and provider == "kimi":
+            if detached_tool:
+                detached_tool.terminate()
+                detached_tool.wait()
+            if marker:
+                Path(marker + ".closed").write_text("native background tools stopped")
+            emit({"id": value["id"], "result": {}})
         elif method == "approval/decide" or (value.get("id") == "native-approval" and "result" in value and provider != "muse"):
             allowed = params.get("choiceId") == "yes" if provider == "muse" else value["result"]["outcome"].get("optionId") == "yes"
             if method:
@@ -267,9 +309,10 @@ else:
                 emit({"id": value["id"], "result": {"thread": {"id": session}}})
             elif method == "turn/start":
                 emit({"id": value["id"], "result": {"turn": {"id": "native-turn"}}})
-                prompt = prepare(value["params"]["input"][0]["text"])
+                # A native skill input item reads as the "$name " a user would type.
+                prompt = prepare("".join("$" + item["name"] + " " for item in value["params"]["input"][1:] if item.get("type") == "skill") + value["params"]["input"][0]["text"])
                 if prompt.startswith("approval:"):
-                    marker = prompt[9:]
+                    marker = prompt[9:].split("\n", 1)[0]
                     pending_prompt = prompt
                     emit({"id": "native-approval", "method": "item/commandExecution/requestApproval", "params": {"threadId": session, "turnId": "native-turn", "itemId": "native-item", "command": "test-command", "cwd": os.getcwd()}})
                 else:
@@ -287,10 +330,14 @@ else:
                 emit({"type": "system", "subtype": "init", "session_id": session})
                 prompt = prepare(value["message"]["content"])
                 if prompt.startswith("approval:"):
-                    marker = prompt[9:]
+                    marker = prompt[9:].split("\n", 1)[0]
                     emit({"type": "control_request", "request_id": "native-approval", "request": {"subtype": "can_use_tool", "tool_name": "Bash", "input": {"command": "test-command", "marker": marker}, "tool_use_id": "native-tool"}})
+                elif prompt.startswith("write:"):
+                    # Same shape as Claude Code 2.1's Write permission request.
+                    marker = prompt[len("write:"):].split("\n", 1)[0]
+                    emit({"type": "control_request", "request_id": "native-approval", "request": {"subtype": "can_use_tool", "tool_name": "Write", "display_name": "Write", "input": {"file_path": marker, "content": "FIXTURE_WRITE\n"}, "description": Path(marker).name, "tool_use_id": "native-tool"}})
                 elif prompt.startswith("question:"):
-                    marker = prompt[len("question:"):]
+                    marker = prompt[len("question:"):].split("\n", 1)[0]
                     emit({"type": "control_request", "request_id": "native-question", "request": {"subtype": "can_use_tool", "tool_name": "AskUserQuestion", "input": {"questions": [{"question": "Choose scope?", "options": [{"label": "本地"}, {"label": "Shared"}], "multiSelect": False}]}}})
                 else:
                     finished(prompt)
