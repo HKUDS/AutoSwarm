@@ -1165,6 +1165,7 @@ button.meta-chip:hover { background: var(--fill-strong); color: var(--text); }
 .local-model-heading { display: block; margin-top: 20px; }
 .local-model-row > span { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
 .local-model-row small { color: var(--text-3); }
+.model-source-row .permission-agent { overflow-wrap: anywhere; }
 .permission-options { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .permission-option { height: 28px; padding: 0 11px; border-radius: 999px; background: var(--surface-raised); box-shadow: inset 0 0 0 .5px var(--line-4); font-size: 12.5px; color: var(--text-2); white-space: nowrap; }
 .permission-option:hover { color: var(--text); }

@@ -26,14 +26,37 @@
     return node;
   }
 
+  function sourceName(source, zh, agents = []) {
+    const key = source.key || '';
+    if (key.startsWith('local:')) {
+      const model = source.models?.[0] || key.slice(6);
+      return /^deepseek/i.test(model)
+        ? (zh ? `DeepSeek · ${model}（本机）` : `DeepSeek · ${model} (local)`)
+        : (zh ? `${model}（Ollama 本机模型）` : `${model} (local Ollama model)`);
+    }
+    if (key === 'chatgpt') return 'ChatGPT';
+    if (key === 'claude') return 'Claude';
+    if (key === 'deepseek') return zh ? 'DeepSeek 在线模型' : 'DeepSeek hosted models';
+    if (key === 'provider:opencode') return zh ? 'OpenCode 模型服务' : 'OpenCode model service';
+    if (key.startsWith('provider:')) {
+      const value = key.slice(9);
+      return value ? value[0].toUpperCase() + value.slice(1) : value;
+    }
+    if (key.startsWith('agent:')) {
+      const id = key.slice(6);
+      return agents.find(agent => agent.provider === id)?.name || id;
+    }
+    return source.name || key;
+  }
+
   async function refresh(force = false) {
     if (!dialog.open || (pendingProvider && !force)) return;
     const id = ++sequence;
     const node = section();
     const zh = isZh();
     node.replaceChildren(el('label', '', zh ? 'Agent 工具' : 'Agent tools'), el('p', '', zh
-      ? 'OpenCode 是执行任务的 Agent。下方单独显示 Ollama 本地模型。关闭 Agent 会阻止新调用，已启动的会话继续运行。'
-      : 'OpenCode is an agent that performs tasks. Local Ollama models appear separately below. Turning off an agent blocks new calls; active sessions continue.'));
+      ? 'OpenCode、DeepSeek Harness 等各自是独立工具。关闭某个工具只阻止 AutoSwarm 新建该工具的会话，已启动的会话继续运行。'
+      : 'OpenCode, DeepSeek Harness and other tools are independent. Turning one off blocks new AutoSwarm sessions with it; active sessions continue.'));
     try {
       const result = await window.desk.agentSwitches();
       if (id !== sequence || !dialog.open || !node.isConnected) return;
@@ -85,16 +108,45 @@
         });
         node.append(row);
       }
-      node.append(el('label', 'local-model-heading', zh ? '本地模型（Ollama）' : 'Local models (Ollama)'));
-      node.append(el('p', '', zh ? '模型由 OpenCode 等 Agent 使用；Agent 开关不会安装或卸载模型。' : 'Agents such as OpenCode use these models. Agent switches do not install or remove models.'));
-      if (!result.localModels?.length) {
-        node.append(el('p', 'agent-switch-empty', zh ? '未检测到本机已安装的 Ollama 模型。' : 'No installed Ollama models detected.'));
+      node.append(el('label', 'local-model-heading', zh ? '模型与服务' : 'Models and providers'));
+      node.append(el('p', '', zh
+        ? 'DeepSeek、Claude、ChatGPT、本地模型等按各自名称独立控制。这里的开关只控制 AutoSwarm Desk 新任务能否使用，不修改 OpenCode 或其他工具的原生设置，也不卸载模型；已启动的会话继续运行。'
+        : 'DeepSeek, Claude, ChatGPT and local models are controlled under their own names. These switches control new AutoSwarm Desk tasks only; they do not edit native agent settings or uninstall models. Active sessions continue.'));
+      if (!result.modelSources?.length) {
+        node.append(el('p', 'agent-switch-empty', zh ? '尚未检测到模型服务。打开一次会话的模型列表后，这里会显示该 Agent 已报告的模型。' : 'No model providers detected yet. Open an agent model list once to show the models it reports here.'));
       } else {
-        for (const model of result.localModels) {
-          const row = el('div', 'permission-row agent-switch-row local-model-row');
-          const name = el('span', '', model);
-          name.append(el('small', '', zh ? 'Ollama · 已安装在本机' : 'Ollama · installed locally'));
-          row.append(name);
+        for (const source of result.modelSources) {
+          const row = el('div', 'permission-row agent-switch-row model-source-row');
+          const identity = el('div', 'permission-agent');
+          const name = sourceName(source, zh, result.agents);
+          const title = el('span', '', name);
+          const agents = (source.agents || []).map(id => result.agents.find(agent => agent.provider === id)?.name || id);
+          const details = [];
+          if (source.installed) details.push(zh ? 'Ollama · 已安装在本机' : 'Ollama · installed locally');
+          else if (source.key.startsWith('local:')) details.push(zh ? 'Ollama 模型路由' : 'Ollama model route');
+          if (agents.length) details.push((zh ? '可由 ' : 'Available through ') + [...new Set(agents)].join('、'));
+          if (source.models?.length) details.push(source.models.slice(0, 3).join('、') + (source.models.length > 3 ? (zh ? ` 等 ${source.models.length} 个` : ` and ${source.models.length - 3} more`) : ''));
+          title.append(el('small', '', details.join(' · ') || (zh ? '已检测到' : 'Detected')));
+          identity.append(title);
+          const control = el('label', 'check-row agent-switch-control');
+          const input = document.createElement('input');
+          input.type = 'checkbox';
+          input.checked = source.enabled;
+          input.disabled = !!result.demo;
+          input.setAttribute('aria-label', (zh ? '启用 ' : 'Enable ') + name);
+          const controlText = el('span', '', source.enabled ? (zh ? '开启' : 'On') : (zh ? '关闭' : 'Off'));
+          control.append(input, controlText);
+          row.append(identity, control);
+          input.addEventListener('change', async () => {
+            pendingProvider = 'model:' + source.key;
+            node.querySelectorAll('input[type="checkbox"]').forEach(item => { item.disabled = true; });
+            let failure = null;
+            try { await window.desk.modelSourceToggle(source.key); }
+            catch (error) { failure = error; }
+            finally { pendingProvider = ''; }
+            await refresh(true);
+            if (failure && node.isConnected) node.append(el('p', 'error-text', failure.message || String(failure)));
+          });
           node.append(row);
         }
       }
