@@ -558,16 +558,31 @@ app.whenReady().then(async () => {
   });
   handle('desk:demo', async () => { demo = true; await connect(); });
   handle('desk:reconnect', async () => { demo = false; await connect(); });
+  function localModels() {
+    const fallback = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Ollama', 'ollama.exe');
+    const executable = process.platform === 'win32' && fs.existsSync(fallback) ? fallback : 'ollama';
+    return new Promise(resolve => {
+      const child = spawn(executable, ['list'], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+      let output = '';
+      const timer = setTimeout(() => child.kill(), 5000);
+      child.stdout.on('data', chunk => { output = (output + chunk.toString('utf8')).slice(0, 32768); });
+      child.on('error', () => { clearTimeout(timer); resolve([]); });
+      child.on('close', code => {
+        clearTimeout(timer);
+        resolve(code === 0 ? output.split(/\r?\n/).slice(1).map(line => line.trim().split(/\s+/)[0]).filter(Boolean) : []);
+      });
+    });
+  }
   async function listAgentSwitches() {
     const home = preferences.home || controlHome;
-    if (demo) return { agents: [], home: home || null, demo: true };
+    if (demo) return { agents: [], localModels: [], home: home || null, demo: true };
     if (!home) throw Error(i18n.t('请先连接本地记录目录'));
     const inventory = await cli(['agents'], '', home);
     const agents = (inventory.agents || []).filter(agent => agent.available || agent.configured).map(agent => {
       const provider = agent.provider;
       return { provider, name: AGENT_NAMES[provider] || provider, available: !!agent.available, version: agent.version || '', enabled: agent.enabled !== false, manageable: true, error: agent.error || '' };
     });
-    return { agents, home, demo: false };
+    return { agents, localModels: await localModels(), home, demo: false };
   }
   handle('desk:agent-switches', () => listAgentSwitches());
   handle('desk:agent-toggle', async provider => {

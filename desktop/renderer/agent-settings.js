@@ -31,15 +31,14 @@
     const id = ++sequence;
     const node = section();
     const zh = isZh();
-    node.replaceChildren(el('label', '', zh ? '已识别的 Agent' : 'Detected agents'), el('p', '', zh
-      ? '自动列出当前可用或已接入的 Agent。关闭会阻止新的 AutoSwarm 调用，已启动的会话会继续运行。'
-      : 'Agents available or configured in this AutoSwarm home appear here. Turning one off blocks new calls; active sessions continue.'));
+    node.replaceChildren(el('label', '', zh ? 'Agent 工具' : 'Agent tools'), el('p', '', zh
+      ? 'OpenCode 是执行任务的 Agent。下方单独显示 Ollama 本地模型。关闭 Agent 会阻止新调用，已启动的会话继续运行。'
+      : 'OpenCode is an agent that performs tasks. Local Ollama models appear separately below. Turning off an agent blocks new calls; active sessions continue.'));
     try {
       const result = await window.desk.agentSwitches();
       if (id !== sequence || !dialog.open || !node.isConnected) return;
       if (!result.agents.length) {
         node.append(el('p', 'agent-switch-empty', zh ? '当前没有检测到可用或已接入的 Agent。' : 'No available or configured agents were detected.'));
-        return;
       }
       for (const agent of result.agents) {
         const row = el('div', 'permission-row agent-switch-row');
@@ -85,6 +84,19 @@
           if (failure && node.isConnected) node.append(el('p', 'error-text', failure.message || String(failure)));
         });
         node.append(row);
+      }
+      node.append(el('label', 'local-model-heading', zh ? '本地模型（Ollama）' : 'Local models (Ollama)'));
+      node.append(el('p', '', zh ? '模型由 OpenCode 等 Agent 使用；Agent 开关不会安装或卸载模型。' : 'Agents such as OpenCode use these models. Agent switches do not install or remove models.'));
+      if (!result.localModels?.length) {
+        node.append(el('p', 'agent-switch-empty', zh ? '未检测到正在运行的 Ollama 中的本地模型。' : 'No local models detected from a running Ollama instance.'));
+      } else {
+        for (const model of result.localModels) {
+          const row = el('div', 'permission-row agent-switch-row local-model-row');
+          const name = el('span', '', model);
+          name.append(el('small', '', zh ? 'Ollama · 本地模型' : 'Ollama · local model'));
+          row.append(name);
+          node.append(row);
+        }
       }
     } catch (error) {
       if (id === sequence && dialog.open && node.isConnected) node.append(el('p', 'error-text', error.message || String(error)));
