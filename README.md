@@ -2,15 +2,15 @@
 
 Repository: [HKUDS/AutoSwarm](https://github.com/HKUDS/AutoSwarm)  
 Counting from: **2026-10-10 (UTC)**  
-Last collected: 2026-11-08T10:24:51.626128+00:00  
-Latest clone date returned by GitHub: 2026-11-07
+Last collected: 2026-11-15T10:55:19.350664+00:00  
+Latest clone date returned by GitHub: 2026-11-14
 
 | Metric | Recorded count |
 | --- | ---: |
-| Full repository clones since 2026-10-10 | 5,627 |
-| Release asset downloads since the baseline | 56 |
-| of which AutoSwarm Desk (installer and ZIP) | 56 |
-| AutoSwarm Desk automatic updates (not included above) | 6 |
+| Full repository clones since 2026-10-10 | 8,373 |
+| Release asset downloads since the baseline | 300 |
+| of which AutoSwarm Desk (installer and ZIP) | 300 |
+| AutoSwarm Desk automatic updates (not included above) | 7 |
 
 Daily clone records are merged by UTC date, including later corrections. Dates not returned by GitHub are not filled with zero; data after the latest reported date is pending. Daily unique cloners remain separate and are never summed into lifetime users.
 
