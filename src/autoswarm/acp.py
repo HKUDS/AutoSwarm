@@ -3,6 +3,7 @@ import os
 import threading
 import time
 
+from . import __version__
 from .records import SwarmError
 
 # Agents whose stdin must keep receiving input on Windows (see ACP.keepalive).
@@ -35,7 +36,7 @@ class ACP:
         capabilities = {"fs": {"readTextFile": False, "writeTextFile": False}, "terminal": False, "elicitation": {"form": {}, "url": {}}}
         if self.n.task["provider"] == "cursor":
             capabilities["_meta"] = {"parameterizedModelPicker": True}
-        self.n.request("initialize", {"protocolVersion": 1, "clientInfo": {"name": "autoswarm", "version": "2.0.0.dev0"}, "clientCapabilities": capabilities}, self.initialized)
+        self.n.request("initialize", {"protocolVersion": 1, "clientInfo": {"name": "autoswarm", "version": __version__}, "clientCapabilities": capabilities}, self.initialized)
 
     TOOL_FIELDS = ("title", "kind", "rawInput", "locations", "content")
 

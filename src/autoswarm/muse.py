@@ -3,6 +3,7 @@ import json
 import time
 import uuid
 
+from . import __version__
 from .records import SwarmError
 
 
@@ -22,7 +23,7 @@ class Muse:
 
     def start(self):
         self.n.stage("handshake")
-        self.n.request("initialize", {"clientInfo": {"name": "autoswarm", "version": "2.0.0.dev0"}, "capabilities": {"userInputDialogs": True}}, self.initialized)
+        self.n.request("initialize", {"clientInfo": {"name": "autoswarm", "version": __version__}, "capabilities": {"userInputDialogs": True}}, self.initialized)
 
     def initialized(self, result):
         if result.get("schema", {}).get("version") != 1:

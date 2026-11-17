@@ -9,6 +9,7 @@ import urllib.request
 import urllib.error
 from dataclasses import dataclass, field
 
+from . import __version__
 from .approvals import Broker
 from .records import SwarmError
 
@@ -272,7 +273,7 @@ class Native:
                 self.session(value["thread"]["id"])
                 self.continue_turn(self.initial_prompt())
 
-            self.request("initialize", {"clientInfo": {"name": "autoswarm-child", "version": "2.0.0.dev0"}}, initialized)
+            self.request("initialize", {"clientInfo": {"name": "autoswarm-child", "version": __version__}}, initialized)
         elif self.task["provider"] == "claude-code":
             self.send({"type": "control_request", "request_id": "autoswarm_initialize", "request": {"subtype": "initialize"}})
         else:
