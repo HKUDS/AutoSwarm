@@ -71,6 +71,27 @@ class RunnerLeaseTests(unittest.TestCase):
                 with self.assertRaises(OSError):
                     platform.session_lease(Path(temporary) / "runner.lock")
 
+    def test_bookkeeping_lease_waits_for_a_short_holder(self):
+        # A runner holds its agent's dispatch.lock just after publishing a result; Desk's
+        # permission change and message dispatch must wait for it, not fail as session_busy.
+        import threading
+        from autoswarm.records import SwarmError
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "dispatch.lock"
+            held = platform.session_lease(path)
+            with self.assertRaises(SwarmError):
+                platform.session_lease(path)
+            acquired = threading.Event()
+            def waiter():
+                with platform.bookkeeping_lease(path):
+                    acquired.set()
+            thread = threading.Thread(target=waiter, daemon=True)
+            thread.start()
+            self.assertFalse(acquired.wait(0.2), "the lease was taken while held")
+            held.close()
+            self.assertTrue(acquired.wait(10), "the lease was not taken after release")
+            thread.join(10)
+
 
 @unittest.skipUnless(os.name == "nt", "Windows process tree contracts")
 class WindowsProcessTests(unittest.TestCase):
@@ -153,6 +174,59 @@ class WindowsProcessTests(unittest.TestCase):
             platform.stop_child(process)
         self.assertIsNone(sibling.poll())
         self.assertIsNone(platform.identity(child))
+
+    def deny_terminate(self, pid, before=None):
+        """Make opening `pid` with terminate rights fail as for a protected process."""
+        import ctypes
+        from autoswarm import _winprocess
+        kernel, _ = _winprocess._api()
+        original = kernel.OpenProcess
+        def open_process(access, inherit, target):
+            if target == pid and access & 0x1:
+                if before:
+                    before()
+                ctypes.set_last_error(5)
+                return None
+            return original(access, inherit, target)
+        return patch.object(kernel, "OpenProcess", side_effect=open_process)
+
+    def test_protected_process_with_reused_parent_pid_is_not_a_failure(self):
+        # Its terminate rights are denied even to administrators; its start time shows it is unrelated.
+        from autoswarm import _winprocess
+        sibling, _ = self.tree()
+        process, child = self.tree()
+        original = _winprocess._snapshot
+        def snapshot(*args):
+            cutoff, rows = original(*args)
+            return cutoff, [(pid, process.pid if pid == sibling.pid else parent) for pid, parent in rows]
+        with patch.object(_winprocess, "_snapshot", side_effect=snapshot), self.deny_terminate(sibling.pid):
+            platform.stop_child(process)
+        self.assertIsNone(sibling.poll())
+        self.assertIsNone(platform.identity(child))
+
+    def test_exiting_member_that_denies_terminate_rights_is_awaited(self):
+        import ctypes
+        from autoswarm import _winprocess
+        process, child = self.tree()
+        kernel, _ = _winprocess._api()
+        open_process = kernel.OpenProcess
+        def exiting():
+            handle = open_process(0x1, False, child)
+            kernel.TerminateProcess(handle, 1)
+            kernel.CloseHandle(handle)
+        with self.deny_terminate(child, before=exiting):
+            platform.stop_child(process)
+        self.assertIsNotNone(process.poll())
+        self.assertIsNone(platform.identity(child))
+
+    def test_running_member_that_denies_terminate_rights_remains_an_error(self):
+        from autoswarm import _winprocess
+        process, child = self.tree()
+        with self.deny_terminate(child), patch.object(_winprocess, "EXIT_GRACE_MS", 100):
+            with self.assertRaises(OSError) as error:
+                platform.stop_child(process)
+        self.assertEqual(error.exception.winerror, 5)
+        self.assertIsNotNone(platform.identity(child))
 
     def test_pid_reused_after_snapshot_is_not_terminated(self):
         from autoswarm import _winprocess
