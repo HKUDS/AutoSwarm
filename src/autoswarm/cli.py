@@ -214,7 +214,7 @@ def dispatch(args, records: Records):
     if name == "_message":
         return messages.deliver_to_host(records, args.message_id)
     if name == "approvals":
-        ids = [args.call_id] if args.call_id else [task["call_id"] for _, task in records.calls()]
+        ids = [args.call_id] if args.call_id else [task["call_id"] for _, task in records.calls(skip_unreadable=True)]
         return [request for call_id in ids for request in approvals.pending(records, call_id)]
     if name == "answer":
         try:
@@ -248,7 +248,7 @@ def dispatch(args, records: Records):
             lease.close()
     if name == "calls":
         values = []
-        for directory, task in records.calls():
+        for directory, task in records.calls(skip_unreadable=True):
             parent = task.get("parent") or {}
             if args.host and parent.get("host") != args.host:
                 continue

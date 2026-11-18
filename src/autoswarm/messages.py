@@ -391,7 +391,7 @@ def wait(records, message_id, *, sender=None, mark=True, block=True):
         values = list({value["message_id"]: value for value in [*replies, *incoming]}.values())
         # Waiting on a peer never hides approvals owned by this parent.
         from .approvals import pending as approvals_pending
-        for _, task in records.calls():
+        for _, task in records.calls(skip_unreadable=True):
             if task.get("controller_id") == sender:
                 values.extend(approvals_pending(records, task["call_id"]))
         delivery = read_json(location(records, message_id) / "delivery.json", {})

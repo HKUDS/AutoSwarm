@@ -49,6 +49,32 @@ class AtomicRecordTests(unittest.TestCase):
                 self.assertEqual(engine.receive(records, ["call_02"], controller=controller), [result])
             self.assertTrue((directory / "received.json").exists())
 
+    def test_listing_and_peer_wait_skip_unreadable_unrelated_history(self):
+        from autoswarm import cli
+        with tempfile.TemporaryDirectory() as temporary:
+            records = Records(temporary)
+            controller = "main_" + "a" * 32
+            write_json(messages.agent_path(records, controller) / "agent.json", {"agent_id": controller})
+            peer, message_id = "main_" + "c" * 32, "msg_" + "b" * 32
+            sent = {"kind": "agent_message", "message_id": message_id, "from": controller, "to": peer, "content": "question", "interrupt": False, "reply_to": None, "created_at": "2026-11-18T00:00:00+00:00"}
+            write_json(messages.agent_path(records, peer) / "messages" / message_id / "message.json", sent)
+            private = records.call("call_01")
+            directory = records.call("call_02")
+            write_json(private / "task.json", {"call_id": "call_01"})
+            write_json(directory / "task.json", {"call_id": "call_02", "provider": "codex", "workspace": temporary, "controller_id": controller})
+            write_json(directory / "result.json", {"call_id": "call_02", "outcome": "completed", "content": "listed"})
+            original = read_json
+            def read_with_private_history(path, default=None):
+                if path.parent == private:
+                    raise PermissionError("[WinError 5] Access is denied")
+                return original(path, default)
+            with patch("autoswarm.records.read_json", side_effect=read_with_private_history):
+                self.assertEqual([value["call_id"] for value in cli.dispatch(cli.parse_args(["calls"]), records)], ["call_02"])
+                self.assertEqual(cli.dispatch(cli.parse_args(["approvals"]), records), [])
+                self.assertEqual(messages.wait(records, message_id, sender=controller, block=False), [])
+                with self.assertRaises(PermissionError):
+                    cli.dispatch(cli.parse_args(["approvals", "call_01"]), records)
+
     def test_open_reader_keeps_snapshot_without_blocking_atomic_publication(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "结果🐝.json"
