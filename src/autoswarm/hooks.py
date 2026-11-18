@@ -16,7 +16,7 @@ from .records import Records, SwarmError, now, read_json, write_json
 
 
 def pending_calls(records: Records, session_id: str, *, include_submitted: bool = False):
-    for directory, task in records.calls():
+    for directory, task in records.calls(skip_unreadable=True):
         parent = task.get("parent") or {}
         if parent.get("host") != "claude-code" or parent.get("session_id") != session_id:
             continue
