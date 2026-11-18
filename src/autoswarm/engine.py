@@ -77,14 +77,7 @@ def start_call(records: Records, provider: str, prompt: str, workspace: str | Pa
     task["command"] = invocation(task, records.config())
     lease = None
     if not _dispatch_locked:
-        while True:
-            try:
-                lease = platform.session_lease(messages.agent_path(records, task["agent_id"]) / "dispatch.lock")
-                break
-            except SwarmError as error:
-                if error.code != "session_busy":
-                    raise
-                time.sleep(0.01)  # Serialize short dispatch/finish bookkeeping.
+        lease = platform.bookkeeping_lease(messages.agent_path(records, task["agent_id"]) / "dispatch.lock")
     directory = records.call(call_id)
     try:
         if agent_id and messages.agent(records, agent_id).get("call_id"):
