@@ -7,6 +7,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from .records import SwarmError
@@ -160,3 +161,16 @@ def session_lease(path: Path):
         if error.errno not in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
             raise
         raise SwarmError("session_busy", "Another AutoSwarm call owns this native session") from error
+
+
+def bookkeeping_lease(path: Path):
+    """session_lease for a lock only ever held for short bookkeeping, such as an agent's
+    dispatch.lock: wait for the holder instead of failing. A runner holds that lock just
+    after publishing its result, so a caller that has seen the result can still meet it."""
+    while True:
+        try:
+            return session_lease(path)
+        except SwarmError as error:
+            if error.code != "session_busy":
+                raise
+            time.sleep(0.01)

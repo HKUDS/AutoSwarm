@@ -51,7 +51,8 @@ def prepare(prompt):
         while not Path(gate).exists():
             time.sleep(0.01)
     if prompt.startswith("hold:"):
-        Path(prompt[5:]).write_text("started")
+        # Only the first line names the file; a conversation's first turn appends its AutoSwarm communication context.
+        Path(prompt[5:].split("\n", 1)[0]).write_text("started")
         if provider == "kimi":
             return prompt  # Remain responsive to the native cancellation RPC.
         while True:

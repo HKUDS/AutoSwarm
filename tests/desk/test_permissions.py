@@ -205,10 +205,25 @@ class DeskPermissionTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "Windows permissions")
     def test_call_folders_inherit_the_records_folder_permissions_on_windows(self):
         # Owner-only folders made by another account (an agent's sandbox) would be unreadable to the user.
+        # A call folder gets what any folder made there gets, including an entry granted on the records
+        # folder; an owner-only one (mode 0o700) would lack it. Whether icacls marks inherited entries
+        # "(I)" depends on the folders above (GitHub's Windows runners do not), so that mark is ignored.
+        def entries(path):
+            listing = subprocess.run(["icacls", path.name], cwd=path.parent, capture_output=True, text=True, errors="replace").stdout
+            return {line.removeprefix(path.name).strip().replace("(I)", "") for line in listing.splitlines() if ":(" in line}
+        calls = self.records.home / "calls"
+        calls.mkdir(parents=True, exist_ok=True)
+        before = entries(calls)
+        subprocess.run(["icacls", calls.name, "/grant", "*S-1-5-32-545:(OI)(CI)(RX)"], cwd=calls.parent, check=True, capture_output=True)
+        granted = entries(calls) - before  # Read access for BUILTIN\Users, by SID so any language works.
+        self.assertTrue(granted)
         info = engine.start_call(self.records, "claude-code", "work", self.root, controller=self.controller)
         engine.wait(self.records, [info["call_id"]])
-        acl = subprocess.run(["icacls", str(self.records.call(info["call_id"]))], capture_output=True, text=True, errors="replace").stdout
-        self.assertIn("(I)", acl, acl)
+        plain = calls / "plain"
+        plain.mkdir()
+        call = entries(self.records.call(info["call_id"]))
+        self.assertLessEqual(granted, call, call)
+        self.assertEqual(call, entries(plain))
 
 
 if __name__ == "__main__":

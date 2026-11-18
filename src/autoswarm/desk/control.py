@@ -254,7 +254,7 @@ def assistant(records: Records, controller: str | None, prompt: str, *, provider
             # Refresh parent-authorized context through this CLI, retaining all
             # dispatch bookkeeping. The native context remains in agent.json.
             agent_dir = messages.agent_path(records, agent["agent_id"])
-            with platform.session_lease(agent_dir / "dispatch.lock"):
+            with platform.bookkeeping_lease(agent_dir / "dispatch.lock"):
                 latest = messages.agent(records, agent["agent_id"])
                 if latest.get("rules") != context or latest.get("peers") != peers:
                     write_json(agent_dir / "agent.json", {**latest, "rules": context, "peers": peers})
@@ -270,7 +270,7 @@ def assistant(records: Records, controller: str | None, prompt: str, *, provider
                                      permissions=permissions)
             # The conversation's title, as its list shows it to Desk and to the assistant on other agents.
             agent_dir = messages.agent_path(records, info["agent_id"])
-            with platform.session_lease(agent_dir / "dispatch.lock"):
+            with platform.bookkeeping_lease(agent_dir / "dispatch.lock"):
                 write_json(agent_dir / "agent.json", {**messages.agent(records, info["agent_id"]), "title": _title(prompt)})
         return {**info, "desk": status(records, controller, info.get("provider"))}
 
@@ -339,7 +339,7 @@ def permission(records, controller, target, mode):
         raise SwarmError("permission_unmanaged", "Only conversations started in Desk have a Desk permission mode")
     access.check(task["provider"], mode)
     path = messages.agent_path(records, value["agent_id"])
-    with platform.session_lease(path / "dispatch.lock"):
+    with platform.bookkeeping_lease(path / "dispatch.lock"):
         write_json(path / "agent.json", {**messages.agent(records, value["agent_id"]), "permission": mode})
     return {"agent_id": value["agent_id"], "permission": mode}
 

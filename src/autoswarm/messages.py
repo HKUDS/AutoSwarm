@@ -315,12 +315,7 @@ def wake(records, target):
 
 def finished(records, task):
     path = agent_path(records, task["agent_id"])
-    while True:
-        try:
-            lease = platform.session_lease(path / "dispatch.lock")
-            break
-        except SwarmError:
-            time.sleep(0.02)
+    lease = platform.bookkeeping_lease(path / "dispatch.lock")
     try:
         value = agent(records, task["agent_id"])
         if value.get("call_id") == task["call_id"]:
