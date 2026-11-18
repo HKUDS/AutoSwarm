@@ -1,0 +1,46 @@
+{
+  "collected_by": {
+    "commit": "68463dd562640ada92a9dbbb1a1a5091b0811866",
+    "environment": "github-actions",
+    "event": "workflow_dispatch",
+    "run_attempt": "1",
+    "run_id": "44272916694",
+    "run_url": "https://github.com/HKUDS/AutoSwarm/actions/runs/44272916694",
+    "runner_environment": "github-hosted",
+    "workflow_ref": "HKUDS/AutoSwarm/.github/workflows/download-statistics.yml@refs/heads/main"
+  },
+  "note": "Each response file holds the exact bytes returned by the GitHub REST API. Published releases are kept as their asset lists; the release list itself is not kept because it can include unpublished drafts. attestation.sigstore.json is the Sigstore attestation issued to the workflow run for these files.",
+  "observed_at": "2026-11-18T09:07:20.101564+00:00",
+  "repository": "HKUDS/AutoSwarm",
+  "responses": [
+    {
+      "bytes": 919,
+      "date": "Wed, 18 Nov 2026 09:07:19 GMT",
+      "file": "traffic-clones.json",
+      "request_id": "33C0:3C1D88:EC30DC:FAC44E:6AFD6AC7",
+      "sha256": "de0cb1a3f15973fefa354923ba6466801d5ca2b7833d9d50519391fcfc4cdd94",
+      "status": 200,
+      "url": "https://api.github.com/repos/HKUDS/AutoSwarm/traffic/clones?per=day"
+    },
+    {
+      "bytes": 14370,
+      "date": "Wed, 18 Nov 2026 09:07:20 GMT",
+      "file": "release-436134320-assets-1.json",
+      "release_id": 436134320,
+      "request_id": "33C2:3A7FA8:ED0E30:FB95CE:6AFD6AC7",
+      "sha256": "b59bfc020a8f47a06db2c527e00f7553115e3372b91524f7af519506e0f38e56",
+      "status": 200,
+      "tag": "desk-v0.1.0",
+      "url": "https://api.github.com/repos/HKUDS/AutoSwarm/releases/436134320/assets?per_page=100&page=1"
+    }
+  ],
+  "schema_version": 1,
+  "totals_after_merge": {
+    "clones": 8789,
+    "desk_downloads": 518,
+    "desk_updates": 10,
+    "latest_clone_day": "2026-11-17",
+    "missing_clone_dates": [],
+    "release_downloads": 518
+  }
+}
