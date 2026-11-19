@@ -14,6 +14,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python: ["3.10", "3.12"]
+        # GitHub's macOS runners are scarce, and queued jobs are sometimes cancelled
+        # unstarted. macOS runs the current Python only; 3.10 is covered on the others.
+        exclude:
+          - os: macos-latest
+            python: "3.10"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
