@@ -363,9 +363,27 @@ function updateButton() {
   const tip = ready ? t('新版本已下载，退出 Desk 时自动安装；有 Agent 正在运行时等到下次退出。') : t('打开新版本的下载页面');
   return `<button class="settings-button update-button" data-action="${ready ? 'update-install' : 'update-open'}" title="${escape(tip)}">${icon('download')}<span class="sidebar-text">${text}</span></button>`;
 }
+/** Settings: the running version and its update check in one row, with the one action that fits. */
+function versionRow() {
+  if (!update || isDemo) return '';
+  const u = update, next = escape(u.version || '');
+  const at = u.checked_at ? new Date(u.checked_at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+  const status = u.kind === 'off' ? t('开发版本，不检查更新')
+    : u.checking ? t('正在检查更新…')
+    : u.kind === 'ready' ? t('{version} 已下载，退出 Desk 时安装', { version: next })
+    : u.kind === 'downloading' ? t('正在下载 {version}…', { version: next })
+    : u.kind === 'available' ? t('有新版本 {version}', { version: next })
+    : u.error ? t('检查更新失败，稍后会自动再试')
+    : u.kind === 'current' ? (at ? t('已是最新 · {time} 检查', { time: at }) : t('已是最新'))
+    : t('启动后会自动检查更新');
+  const [action, label] = u.kind === 'ready' ? ['update-install', '重启并更新'] : u.kind === 'available' && u.page ? ['update-open', '去下载'] : u.kind === 'off' ? [] : ['update-check', '检查更新'];
+  return `<div class="settings-row" id="version-row"><span class="settings-row-label">${t('版本')}<small ${u.error ? `title="${escape(u.error)}"` : ''}>AutoSwarm Desk ${escape(u.current || '')} · ${status}</small></span>${action ? `<button type="button" class="secondary" data-action="${action}" ${u.checking || u.kind === 'downloading' ? 'disabled' : ''}>${t(label)}</button>` : ''}</div>`;
+}
+const refreshVersionRow = () => { const row = document.querySelector('#version-row'); if (row) row.outerHTML = versionRow(); };
 const appearanceSection = () => `<div class="settings-section appearance"><label>${t('外观')}</label><div class="theme-choices" role="radiogroup" aria-label="${t('外观')}">${[['system','跟随系统','monitor'],['light','浅色','sun'],['dark','深色','moon']].map(([value,text,glyph])=>`<button type="button" role="radio" aria-checked="${themeChoice===value}" data-theme-choice="${value}">${icon(glyph)}<span>${t(text)}</span></button>`).join('')}</div><p>${t(mac ? '深色模式也会用于窗口背景，跟随系统时随 macOS 的外观切换。' : '深色模式也会用于窗口背景，跟随系统时随 Windows 的应用主题切换。')}</p>`
   + `<div class="settings-row"><span class="settings-row-label">${t('语言')}<small>${t('只改变 Desk 自己的界面；Agent 写什么语言就显示什么语言。')}</small></span><div class="segmented" role="radiogroup" aria-label="${t('语言')}">${LANGUAGES.map(([value, name]) => `<button type="button" role="radio" aria-checked="${language() === value}" data-language="${value}" lang="${value === 'zh' ? 'zh-CN' : 'en'}">${name}</button>`).join('')}</div></div>`
   + (desk.zoom ? `<div class="settings-row"><span class="settings-row-label">${t('缩放')}<small>${t(mac ? '⌘ + = 放大，⌘ + - 缩小，⌘ + 0 还原' : 'Ctrl + = 放大，Ctrl + - 缩小，Ctrl + 0 还原')}</small></span><div class="zoom-control"><button type="button" class="zoom-step" data-zoom="-1" aria-label="${t('缩小')}" ${zoomFactor <= 0.8 ? 'disabled' : ''}>−</button><output class="zoom-value" aria-live="polite">${Math.round(zoomFactor * 100)}%</output><button type="button" class="zoom-step" data-zoom="1" aria-label="${t('放大')}" ${zoomFactor >= 2 ? 'disabled' : ''}>+</button><button type="button" class="text-button" data-zoom="0" ${zoomFactor === 1 ? 'disabled' : ''}>${t('还原')}</button></div></div>` : '')
+  + versionRow()
   + '</div>';
 const showToast = text => { const el = document.querySelector('#toast'); el.textContent = text; el.classList.add('visible'); setTimeout(() => el.classList.remove('visible'), 2800); };
 
@@ -975,6 +993,7 @@ document.addEventListener('click', async event => {
       case 'exit-demo': settings.close(); selected = null; overview = true; composing = false; workerId = null; await desk.reconnect(); break;
       case 'demo': settings.close(); await desk.demo(); break;
       case 'update-open': if (update?.page) await desk.openExternal(update.page); break;
+      case 'update-check': await desk.update('check'); break;
       case 'update-install': {
         const result = await desk.update('install');
         if (result?.busy) showToast(result.busy > 0 ? t('有 {count} 个 Agent 进程正在用 Desk 自带的 Python，现在安装会中断它们。等它们结束再更新，或之后退出 Desk 时自动安装。', { count: result.busy }) : t('无法确认是否有 Agent 正在运行，这次不安装。退出 Desk 时会再检查。'));
@@ -1015,7 +1034,9 @@ function receive(frame) {
   if (frame.event === 'connecting') { streamEpoch++; nativeCache.clear(); streamCache.clear(); loaded.clear(); reading.clear(); assistantSubmitting = false; assistantError = ''; }
   if (frame.theme && frame.theme !== themeChoice) { themeChoice = frame.theme; applyTheme(); }
   isDemo = frame.demo; python = frame.python; assistantSettings = frame.assistantSettings || {};
-  sessionDefaults = frame.sessionDefaults || {}; available = frame.available || null; shellPrefs = frame.shell || {}; permissionPrefs = frame.permissions || {}; update = frame.update || null;
+  sessionDefaults = frame.sessionDefaults || {}; available = frame.available || null; shellPrefs = frame.shell || {}; permissionPrefs = frame.permissions || {};
+  const priorUpdate = JSON.stringify(update); update = frame.update || null;
+  if (settings.open && JSON.stringify(update) !== priorUpdate) refreshVersionRow();
   if (frame.zoom) zoomFactor = frame.zoom;
   if (frame.language && frame.language !== language()) { setLanguage(frame.language); applyStaticText(); if (data) view = project(data); }
   skills = frame.skills || (frame.demo ? DEMO_SKILLS : null);
