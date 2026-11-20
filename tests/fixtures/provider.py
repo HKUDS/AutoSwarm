@@ -31,7 +31,8 @@ def trace(value):
             stream.write(json.dumps(value, ensure_ascii=False) + "\n")
 
 
-trace({"argv": args, **({"config_dir": os.environ.get("CURSOR_CONFIG_DIR")} if provider == "cursor" else {})})
+trace({"argv": args, **({"config_dir": os.environ.get("CURSOR_CONFIG_DIR")} if provider == "cursor" else {}),
+       "permission_env": {key: os.environ[key] for key in ("DSH_PERMISSION_MODE", "HERMES_YOLO_MODE", "OPENCODE_CONFIG_CONTENT") if key in os.environ}})
 
 
 def emit(value):
@@ -221,8 +222,11 @@ elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot",
             result = {"session": {"sessionId": session}} if provider == "muse" else {"sessionId": session}
             if "selection-catalog" in args and provider != "muse":
                 result.update({"models": {"currentModelId": "native-model", "availableModels": [{"modelId": "native-model", "name": "Native Model"}]}, "configOptions": [{"id": "model", "category": "model", "options": [{"value": "native-model"}]}, {"id": "reasoning" if provider == "cursor" else "thought_level", "category": "thought_level", "options": [{"name": "Native choices", "options": [{"value": "deep-native"}, {"value": "light-native"}]}]}]})
-            if provider == "cursor":
-                result["modes"] = {"currentModeId": "agent", "availableModes": [{"id": "agent", "name": "Agent"}, {"id": "plan", "name": "Plan"}, {"id": "ask", "name": "Ask"}]}
+            # Session modes as the real agents name them (Copilot by URL).
+            native_modes = {"cursor": ["agent", "plan", "ask"], "kimi": ["default", "plan", "auto", "yolo"], "hermes": ["default", "accept_edits", "dont_ask"],
+                            "copilot": ["https://agentclientprotocol.com/protocol/session-modes#" + name for name in ("agent", "plan", "autopilot")]}.get(provider)
+            if native_modes and "no-modes" not in args:  # An update that dropped its modes
+                result["modes"] = {"currentModeId": native_modes[0], "availableModes": [{"id": name, "name": name} for name in native_modes]}
             emit({"id": value["id"], "result": result})
         elif method == "session/set_mode":
             emit({"id": value["id"], "result": {}})

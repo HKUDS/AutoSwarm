@@ -690,9 +690,11 @@ app.whenReady().then(async () => {
     if (typeof target !== 'string' || !/^(?:call|main)_[a-f0-9]{32}$/.test(target) || !frame?.data?.agents?.[target]) throw Error(i18n.t('找不到要停止的会话'));
     return cli(['desk','cancel',target],'',controlHome,settingsFor(controlHome).binding.controller_id);
   });
+  // One agent's default, or a whole table at once ({agent: mode}, e.g. every agent's automatic mode).
   handle('desk:permissions', (provider, mode) => {
-    if (!PROVIDERS.includes(provider) || typeof mode !== 'string' || !/^[\w-]{1,40}$/.test(mode)) throw Error(i18n.t('权限模式无效'));
-    preferences.permissions = { ...(preferences.permissions || {}), [provider]: mode }; save(); refresh();
+    const table = provider && typeof provider === 'object' && !Array.isArray(provider) ? provider : { [provider]: mode };
+    for (const [id, value] of Object.entries(table)) if (!PROVIDERS.includes(id) || typeof value !== 'string' || !/^[\w-]{1,40}$/.test(value)) throw Error(i18n.t('权限模式无效'));
+    preferences.permissions = { ...(preferences.permissions || {}), ...table }; save(); refresh();
   });
   // One conversation's own mode, from its next turn.
   handle('desk:permission', async (agentId, mode) => {

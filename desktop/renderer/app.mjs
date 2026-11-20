@@ -66,7 +66,8 @@ function wantSkill(provider) {
   return true;
 }
 // Desk's permission mode per agent, named as each agent names its own (src/autoswarm/permissions.py
-// keeps the same ids, order and defaults). A conversation may override it; its workers stay within it.
+// keeps the same ids, order and AUTO choices). Every agent starts in Follow: its own settings.
+// A conversation may override it; a worker starts in its own agent's choice.
 const PERMISSION_MODES = {
   'claude-code': [
     ['plan', 'Plan', '只读：研究和出方案，不改文件'],
@@ -83,17 +84,51 @@ const PERMISSION_MODES = {
     ['plan', 'Plan', '只读：分析和出方案，不改文件、不运行命令'],
     ['allowlist', 'Allowlist', '白名单里的命令直接运行，其余问你'],
     ['run-everything', 'Run Everything', '所有命令直接运行，不问你']],
+  'codebuddy': [
+    ['plan', 'Plan', '只读：研究和出方案，不改文件'],
+    ['default', 'Default', '改文件、运行命令前都问你'],
+    ['acceptEdits', 'Accept Edits', '直接改工作目录里的文件，运行命令前问你'],
+    ['auto', 'Auto', 'CodeBuddy 自动判断每个操作，有风险的才问你'],
+    ['bypassPermissions', 'Bypass Permissions', '跳过权限确认，高风险操作仍会问你']],
+  'kimi': [
+    ['plan', 'Plan', '只读：出方案，不执行工具'],
+    ['default', 'Default', '执行工具前都问你'],
+    ['auto', 'Auto', '安全的操作自动批准，其余问你'],
+    ['yolo', 'YOLO', '所有操作都自动批准，不问你']],
+  'copilot': [
+    ['plan', 'Plan', '先出多步计划再执行'],
+    ['agent', 'Agent', '运行工具、访问路径和网址前问你'],
+    ['allow-all', 'Allow all', '所有工具、路径和网址都直接允许，不问你']],
+  'hermes': [
+    ['default', 'Default', '改文件前问你；危险命令也会问'],
+    ['accept_edits', 'Accept Edits', '直接改工作目录和临时目录里的文件；敏感路径和危险命令仍会问'],
+    ['dont_ask', "Don't Ask", '这个会话里改文件都不问（敏感路径除外）；危险命令仍会问'],
+    ['yolo', 'YOLO', '改文件和运行命令都不问；Hermes 的硬性保护仍然有效']],
+  'dsh': [
+    ['read-only', 'Read Only', '只能查看；其他操作都问你'],
+    ['workspace-write', 'Workspace Write', '在工作目录里修改；超出沙箱的操作问你'],
+    ['danger-full-access', 'Full access', '不受沙箱限制，也不再问你']],
+  'grok': [
+    ['always-approve', 'Always approve', '所有工具直接执行，不问你']],
+  'opencode': [
+    ['ask', 'Ask', '每个工具调用前都问你'],
+    ['allow', 'Allow', '所有工具直接允许，不问你']],
 };
-const PERMISSION_DEFAULTS = { 'claude-code': 'acceptEdits', 'codex': 'ask', 'cursor': 'allowlist' };
+// "Auto or above": the agent's own automatic reviewer, or the mode that stops asking when it has none.
+const PERMISSION_AUTO = { 'claude-code': 'auto', 'codex': 'approve-for-me', 'cursor': 'run-everything', 'codebuddy': 'auto', 'kimi': 'auto', 'copilot': 'allow-all', 'hermes': 'yolo', 'dsh': 'danger-full-access', 'grok': 'always-approve', 'opencode': 'allow' };
+const FOLLOW = 'follow';
+/** Follow, then the agent's own modes, as [id, label, note] with label and note in the current language. */
+const permissionModes = provider => PERMISSION_MODES[provider] ? [[FOLLOW, t('跟随设置'), t('用 {agent} 自己的设置，Desk 不改', { agent: providers[provider] || provider })],
+  ...PERMISSION_MODES[provider].map(([id, label, note]) => [id, label, t(note)])] : [];
 let permissionPrefs = {};
-const permissionDefault = provider => permissionPrefs[provider] || PERMISSION_DEFAULTS[provider];
+const permissionDefault = provider => permissionPrefs[provider] || FOLLOW;
 const draftPermission = provider => sessionDraft.permission || permissionDefault(provider);
-/** A chip showing one agent's mode, with a menu of that agent's own modes. */
+/** A chip showing one agent's mode, with a menu of Follow and that agent's own modes. */
 function permissionChip(provider, mode, menu, place, heading) {
-  const found = PERMISSION_MODES[provider]?.find(([id]) => id === mode);
+  const modes = permissionModes(provider), found = modes.find(([id]) => id === mode);
   if (!found) return '';
-  const list = PERMISSION_MODES[provider].map(([id, label, note]) => menuItem(`data-pick-permission="${id}" data-provider="${escape(provider)}" data-menu-id="${menu}"`, '', label, t(note), id === mode)).join('');
-  return `<div class="menu-anchor"><button type="button" class="permission-chip" data-menu="${menu}" aria-haspopup="menu" aria-expanded="${openMenu === menu}" title="${escape(t('{agent} 权限 · {mode}：{note}', { agent: providers[provider] || provider, mode: found[1], note: t(found[2]) }))}">${icon('shield')}<span>${escape(found[1])}</span>${icon('down')}</button>${openMenu === menu ? `<div class="menu-pop ${place} permission-menu" role="menu" aria-label="${t('权限')}"><div class="menu-label">${escape(heading)}</div>${list}</div>` : ''}</div>`;
+  const list = modes.map(([id, label, note]) => menuItem(`data-pick-permission="${id}" data-provider="${escape(provider)}" data-menu-id="${menu}"`, '', label, note, id === mode)).join('');
+  return `<div class="menu-anchor"><button type="button" class="permission-chip" data-menu="${menu}" aria-haspopup="menu" aria-expanded="${openMenu === menu}" title="${escape(t('{agent} 权限 · {mode}：{note}', { agent: providers[provider] || provider, mode: found[1], note: found[2] }))}">${icon('shield')}<span>${escape(found[1])}</span>${icon('down')}</button>${openMenu === menu ? `<div class="menu-pop ${place} permission-menu" role="menu" aria-label="${t('权限')}"><div class="menu-label">${escape(heading)}</div>${list}</div>` : ''}</div>`;
 }
 /** The official AutoSwarm logo (docs/assets/autoswarm), wherever Desk shows its own mark. */
 const brand = (size, cls = '') => `<img class="autoswarm-logo ${cls}" src="../assets/logo-128.png" width="${size}" height="${size}" alt="">`;
@@ -691,11 +726,13 @@ function demoStop(target) {
 function permissionSection() {
   // Every mode is a pill in the row (no pop-up menu), so the dialog never clips a choice.
   const row = id => {
-    const mode = permissionDefault(id), found = PERMISSION_MODES[id].find(([m]) => m === mode) || PERMISSION_MODES[id][0];
-    const name = providers[id] || id, missing = available && available[id]?.available !== true;
-    return `<div class="permission-row"><div class="permission-agent">${logo(id, '')}<span>${escape(name)}${missing ? `<small>${t('本机未检测到')}</small>` : ''}</span></div><div class="permission-options" role="radiogroup" aria-label="${escape(t('{agent} 在新会话里的默认权限', { agent: name }))}">${PERMISSION_MODES[id].map(([m, label, note]) => `<button type="button" role="radio" class="permission-option" aria-checked="${m === found[0]}" data-default-permission="${m}" data-provider="${id}" title="${escape(t(note))}">${escape(label)}</button>`).join('')}</div><p class="permission-note">${escape(t(found[2]))}</p></div>`;
+    const modes = permissionModes(id), mode = permissionDefault(id), found = modes.find(([m]) => m === mode) || modes[0];
+    const name = providers[id] || id;
+    return `<div class="permission-row"><div class="permission-agent">${logo(id, '')}<span>${escape(name)}</span></div><div class="permission-options" role="radiogroup" aria-label="${escape(t('{agent} 在新会话里的默认权限', { agent: name }))}">${modes.map(([m, label, note]) => `<button type="button" role="radio" class="permission-option" aria-checked="${m === found[0]}" data-default-permission="${m}" data-provider="${id}" title="${escape(note)}">${escape(label)}</button>`).join('')}</div><p class="permission-note">${escape(found[2])}</p></div>`;
   };
-  return `<div class="settings-section permission-settings"><label>${t('Agent 权限')}</label><p>${t('每个 Agent 在新会话里默认用的权限，名字和它自己的一样。只在 Desk 里生效，不改 Agent 自己的设置；单个会话可以另选。子 Agent 用它自己的默认，但不会超过派它的 Agent；它的审批先由派它的 Agent 决定，拿不准时再问你。')}</p>${Object.keys(PERMISSION_MODES).map(row).join('')}</div>`;
+  // Agents known to be missing on this computer are left out (as in the agent menu).
+  const listed = Object.keys(PERMISSION_MODES).filter(id => !(available?.[id] && !available[id].available));
+  return `<div class="settings-section permission-settings"><label>${t('Agent 权限')}</label><p>${t('每个 Agent 在新会话里默认用的权限。默认跟随 Agent 自己的设置；也可以选它自己的某个模式，名字和它自己的一样，只在 Desk 里生效，不改 Agent 的配置。单个会话可以另选。子 Agent 用它自己那个 Agent 的选择；它的审批先由派它的 Agent 决定，拿不准时再问你。')}</p><div class="permission-bulk"><button type="button" class="secondary" data-bulk-permission="auto" title="${escape(t('有自动审核的 Agent 用自动审核；没有的设为不询问'))}">${t('全部设为自动')}</button><button type="button" class="secondary" data-bulk-permission="follow">${t('全部跟随 Agent 设置')}</button><p class="permission-note">${t('全部设为自动：Claude Code、Codex、CodeBuddy、Kimi 用自己的自动审核；Cursor、DSH、Hermes、Copilot、Grok、OpenCode 在 Desk 里没有自动审核，会设为不询问。')}</p></div>${listed.map(row).join('')}${listed.length ? '' : `<p class="permission-note">${t('本机还没有检测到可设置权限的 Agent。')}</p>`}</div>`;
 }
 async function pickPermission(menu, provider, mode) {
   openMenu = null;
@@ -712,6 +749,14 @@ async function pickPermission(menu, provider, mode) {
   if (desk.permissions) await desk.permissions(provider, mode);
   permissionPrefs = { ...permissionPrefs, [provider]: mode };
   renderSettings();
+}
+/** Every agent's default at once: its "auto or above" mode, or Follow. */
+async function bulkPermission(kind) {
+  const table = Object.fromEntries(Object.keys(PERMISSION_MODES).map(id => [id, kind === 'auto' ? PERMISSION_AUTO[id] : FOLLOW]));
+  if (desk.permissions) await desk.permissions(table);
+  permissionPrefs = { ...permissionPrefs, ...table };
+  renderSettings();
+  showToast(t(kind === 'auto' ? '新会话里每个 Agent 都按自动权限运行' : '新会话里每个 Agent 都跟随自己的设置'));
 }
 function shellSection() {
   const row = (key, title, note = '') => `<label class="check-row"><input type="checkbox" data-pref="${key}" ${shellPrefs[key] ? 'checked' : ''} ${isDemo ? 'disabled' : ''}><span>${t(title)}${note ? `<small>${t(note)}</small>` : ''}</span></label>`;
@@ -829,6 +874,7 @@ document.addEventListener('click', async event => {
     if (button.dataset.action === 'skill-agent') { await agentInstall(button.dataset.host); return; }
     if (button.dataset.pickPermission !== undefined) { await pickPermission(button.dataset.menuId, button.dataset.provider, button.dataset.pickPermission); return; }
     if (button.dataset.defaultPermission) { await pickPermission('default', button.dataset.provider, button.dataset.defaultPermission); return; }
+    if (button.dataset.bulkPermission) { await bulkPermission(button.dataset.bulkPermission); return; }
     if (button.dataset.language) { await chooseLanguage(button.dataset.language); return; }
     if (button.dataset.zoom !== undefined) { zoomFactor = await desk.zoom(Number(button.dataset.zoom)); renderSettings(); return; }
     if (button.dataset.refreshModels) { await refreshCatalog(button.dataset.refreshModels, button.dataset.ctx); return; }

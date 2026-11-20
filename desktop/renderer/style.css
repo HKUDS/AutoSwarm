@@ -1162,6 +1162,9 @@ button.meta-chip:hover { background: var(--fill-strong); color: var(--text); }
 .permission-option:hover { color: var(--text); }
 .permission-option[aria-checked="true"] { color: var(--accent-text); background: var(--accent-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); font-weight: 500; }
 .settings-section .permission-note { grid-column: 2; margin: 0; font-size: 12.5px; line-height: 18px; color: var(--text-2); }
+.permission-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+.settings-section .permission-bulk button { margin: 0; }
+.settings-section .permission-bulk .permission-note { flex: 1 0 100%; }
 /* A label on the left, its control on the right (language, zoom). */
 .settings-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; padding-top: 10px; border-top: .5px solid var(--line-2); }
 .settings-row-label { display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; line-height: 20px; color: var(--text); }

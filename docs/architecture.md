@@ -32,10 +32,10 @@ Dependencies point one way: the Desk backend calls the core, the core never call
 
 A few things are **turned on by Desk but carried out in the core**, because they must take effect when an agent starts or a message is delivered. None of them does anything without Desk:
 
-- Permission levels (`permissions.py`): translated into each product's native settings only when a call carries Desk's permission table (`desk start/assistant --permissions`); otherwise `apply` returns at once and agents keep their own settings.
+- Permission levels (`permissions.py`): translated into each product's native settings only when a call carries Desk's permission table (`desk start/assistant --permissions`); otherwise `apply` returns at once and agents keep their own settings. Follow, every agent's default, passes nothing either; the other modes become launch flags, environment variables (DSH, Hermes YOLO, OpenCode) or ACP session modes.
 - Keeping process events (`capture.py`): `events.capture` is off by default; Desk sets it to `auto`, which keeps events only for agents without readable local records.
 - Human input (message kind `user_message`): produced only by `desk message`, delivered by continuing the original conversation.
-- ACP session modes (such as Cursor's Plan): set only from a Desk permission level.
+- ACP session modes (such as Cursor's Plan, Kimi's Auto, Copilot's Plan, Hermes' Accept Edits): set only from a Desk permission level.
 
 The `models` and `skills` commands and the fixes described below (Windows sandbox accounts, job objects, Hermes stalling, completing permission requests and so on) apply to both ways of use. `setup` copies the whole package, `desk/` included, into each host's Skill. `desk/` is never called in plugin use; keeping it lets the private assistant read its other conversations (`desk transcript`) through any launcher.
 

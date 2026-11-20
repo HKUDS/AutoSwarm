@@ -144,7 +144,7 @@ def invocation(task: dict, config: dict) -> list[str]:
         options["model"] = task["model"]
     # A Desk permission mode overrides native settings and config args.
     from .permissions import launch
-    flags, settings = launch(task)
+    flags, settings, _ = launch(task)
     native_args += flags
     options.update(settings)
     if task.get("effort"):

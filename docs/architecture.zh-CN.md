@@ -32,10 +32,10 @@ MCP 不作为当前依赖。CLI 已经给支持命令工具的宿主提供统一
 
 **由 Desk 开启、在核心里执行**的几处必须在启动 agent 或收发消息时生效，所以放在核心；不用 Desk 时它们都不起作用：
 
-- 权限级别（`permissions.py`）：只有调用带着 Desk 的权限表（`desk start/assistant --permissions`）时才换算成各家的原生参数；否则 `apply` 直接返回，agent 沿用自己的设置。
+- 权限级别（`permissions.py`）：只有调用带着 Desk 的权限表（`desk start/assistant --permissions`）时才换算成各家的原生参数；否则 `apply` 直接返回，agent 沿用自己的设置。每个 agent 的默认值「跟随设置」同样什么都不传；其他模式换算成启动参数、环境变量（DSH、Hermes YOLO、OpenCode）或 ACP 会话模式。
 - 过程记录另存（`capture.py`）：`events.capture` 默认关闭；Desk 设为 `auto`，只为没有可读本地记录的 agent 保存。
 - 人工输入（消息种类 `user_message`）：只由 `desk message` 产生，按原会话续接。
-- ACP 会话模式（如 Cursor 的 Plan）：只由 Desk 的权限级别设置。
+- ACP 会话模式（如 Cursor 的 Plan、Kimi 的 Auto、Copilot 的 Plan、Hermes 的 Accept Edits）：只由 Desk 的权限级别设置。
 
 `models`、`skills` 两个命令和下文的各项修复（Windows 沙箱账户、作业对象、Hermes 卡住、补全权限请求等）对两种用法同样生效。`setup` 把整个包（含 `desk/`）复制进各宿主的 Skill；`desk/` 在插件式里不会被调用，保留它使私人助理经任一启动器都能读取其他助理会话（`desk transcript`）。
 

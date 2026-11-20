@@ -53,6 +53,8 @@ def _execute(records: Records, call_id: str) -> int:
             env["AUTOSWARM_HOME"] = str(records.home)
             from .providers import opencode_environment
             env = opencode_environment(task, env)
+            from .permissions import environment as permission_environment
+            env = permission_environment(task, env)
             from .selection import native_environment
             env = environment.enter_context(native_environment(task, env))
             from .capture import Capture

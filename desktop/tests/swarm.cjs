@@ -65,7 +65,8 @@ const until = (predicate, what, timeout = 60000) => helpers.until(predicate, wha
     assert.equal(off.skill, undefined);
 
     // Permission modes through Desk's IPC: the agent's Desk default, this conversation's choice, a later change.
-    assert.equal(on.permission, 'acceptEdits', "Claude Code's Desk default");
+    assert.equal(on.permission, 'follow', 'Claude Code follows its own settings by default');
+    assert.ok(!on.command.includes('--permission-mode'), 'Following passes nothing');
     // Let both turns finish first: a frame re-rendering the page between mouse down and up drops a click.
     await until(() => [on, off].every(task => fs.existsSync(path.join(home, 'calls', task.call_id, 'result.json'))), 'the earlier turns');
     await page.evaluate(() => window.desk.permissions('claude-code', 'plan'));
