@@ -169,7 +169,7 @@ If you find this work helpful to your research, please kindly consider citing ou
    ```
 
    Other host IDs: `claude-code`, `opencode`, `cursor`, `copilot`, `muse`, `codebuddy`, `hermes`, `nanobot`, `dsh`, `grok`, `kimi`. Without uv, use a dedicated Python 3.10+ environment and `python -m pip install .`; keep its interpreter available. Do not reuse the archived v1 environment.
-3. Read the installed `SKILL.md` at the path returned by setup. It contains the launcher argv and usage instructions. Use that exact launcher when the App cannot find `autoswarm`. Run `agents` in the actual host environment; if needed, merge an existing CLI's absolute argv into `providers.<provider>.command` in the reported AutoSwarm home/config.json. Preserve unrelated settings.
+3. Read the installed `SKILL.md` at the path returned by setup. It contains the launcher argv and usage instructions. Use that exact launcher when the App cannot find `autoswarm`. Run `agents` in the actual host environment; if needed, merge an existing CLI's absolute argv into `providers.<provider>.command` in the reported AutoSwarm home/config.json, using a stable entry (the installer's shim or fixed binary), never a version-specific folder that the agent's own updates delete. Preserve unrelated settings.
 4. Verify requested providers in the actual project, replacing the example provider and directory as appropriate:
 
    ```bash

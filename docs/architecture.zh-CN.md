@@ -64,7 +64,7 @@ Cursor 协商 parameterizedModelPicker，使用模型返回的参数控件设置
 
 agents/doctor 的快速发现只报告 executable 检查，invocation_verified 默认 false。显式 doctor --agent NAME --probe 使用正常调用和 resume，在当前 AutoSwarm 配置、实际项目目录及原生环境中验证回复和会话记忆；不换成丢失项目配置的临时环境。验证是一次事实，不是永久认证状态。已安装运行时的模板使用普通文件名，并清理旧版嵌套 SKILL.md；从已安装启动器再次安装仍然可用。
 
-命令不在 PATH 时（安装后尚未重新登录等），再查官方安装器的默认目录：Hermes（`%LOCALAPPDATA%\hermes\bin`）、Grok（`~/.grok/bin`）、Muse（`%LOCALAPPDATA%\Programs\muse`）、`~/.local/bin`、`%APPDATA%\npm`；用户显式配置的命令照用，不猜。
+命令不在 PATH 时（安装后尚未重新登录等），再查官方安装器的默认目录：Hermes（`%LOCALAPPDATA%\hermes\bin`）、Grok（`~/.grok/bin`）、Muse（`%LOCALAPPDATA%\Programs\muse`）、`~/.local/bin`、`%APPDATA%\npm`。每个版本单独一个文件夹的 agent 在每次启动时取最新的完整版本，因为更新会新建文件夹并删除旧的：Cursor Agent（官方安装器或 Cursor App 自带的 `versions/<YYYY.MM.DD-commit>`，用该版本自己的 node 和入口脚本启动）和 Codex App（`%LOCALAPPDATA%\OpenAI\Codex\bin\<id>\codex.exe`）。版本路径从不写进配置。用户显式配置的命令照用，不猜。
 
 runner 记录自己运行的系统账户。原生沙箱可能以另一个账户执行主 agent 的命令（Codex 在 Windows 上用 `CodexSandbox*` 账户）；从那里派出的 agent 会缺少用户的环境变量、登录和网络，因此账户不同时拒绝派出并说明原因，由主 agent 使用自己的提权方式在沙箱外重跑同一命令，不关闭或绕过沙箱。Windows 上 runner 与消息投递进程请求离开父进程的作业对象（只在作业允许时生效），避免 agent 在命令结束时连同后台 runner 一起结束。
 
