@@ -52,7 +52,7 @@ Claude Code, Codex, Cursor, OpenCode, Copilot CLI, Muse, CodeBuddy, Hermes, Nano
 
 ## Data and security
 
-- Desk never copies agents' full histories: the process of Claude Code, Codex and Cursor is read from their own session records; for other agents AutoSwarm keeps it while they run in `calls/<id>/events.jsonl` (up to 64 MB per call).
+- Desk never copies agents' full histories: each call's process is read from that agent's own session records. Only calls Desk cannot read (OpenCode 1; DeepSeek Harness with a Python below 3.14, which lacks zstd) are kept by AutoSwarm while they run in `calls/<id>/events.jsonl` (up to 64 MB per call).
 - Preferences and `triggers.json` live in Desk's data folder (its path is shown under Trigger rules in Settings); only AutoSwarm writes the record directory.
 - The interface has no Node access and can call only a fixed set of operations; replies are sanitized before display; pages in the side panel get no permissions; Desk never approves a request automatically.
 - On Windows, Desk adds the current user environment from the registry when it starts agents, so agents installed or API keys set after Desk started work without signing out.

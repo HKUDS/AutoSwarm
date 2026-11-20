@@ -58,7 +58,7 @@ def _execute(records: Records, call_id: str) -> int:
             from .selection import native_environment
             env = environment.enter_context(native_environment(task, env))
             from .capture import Capture
-            capture = Capture(directory, records.config(), task["provider"])
+            capture = Capture(directory, records.config(), task["provider"], task.get("native_transport"))
             environment.callback(capture.close)
             with (directory / "stderr.log").open("wb") as stderr, (directory / "stdout.log").open("wb") as stdout_log:
                 process = subprocess.Popen(task["command"], cwd=task["workspace"], env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr, **platform.detached_options())

@@ -254,7 +254,9 @@ class NanobotBridgeTests(unittest.TestCase):
         self.assertEqual(len(list((self.native/'native-sessions').glob('*.json'))),2)
 
     def test_desk_sees_what_nanobot_tools_run(self):
-        write_json(self.records.home/'config.json',{**read_json(self.records.home/'config.json'),'events':{'capture':'auto'}})
+        # Desk reads a finished call from Nanobot's own records; the bridge's events are what it shows while the call runs
+        # (live.jsonl) and what a kept copy holds, so keep one here.
+        write_json(self.records.home/'config.json',{**read_json(self.records.home/'config.json'),'events':{'capture':True}})
         call=self.start('remember:x')
         self.assertEqual(self.final(call)['outcome'],'completed')
         from autoswarm.desk.streams import page

@@ -52,7 +52,7 @@ Claude Code、Codex、Cursor、OpenCode、Copilot CLI、Muse、CodeBuddy、Herme
 
 ## 数据与安全
 
-- Desk 不复制各 Agent 的完整历史：Claude Code、Codex、Cursor 的过程直接读取它们自己的会话记录；其他 Agent 的过程由 AutoSwarm 在运行时保存到 `calls/<id>/events.jsonl`（单个调用超过 64 MB 后不再保存）。
+- Desk 不复制各 Agent 的完整历史：每次调用的过程直接读取该 Agent 自己的会话记录。只有读不了的调用（OpenCode 1；用低于 3.14、没有 zstd 的 Python 时的 DeepSeek Harness）由 AutoSwarm 在运行时保存到 `calls/<id>/events.jsonl`（单个调用超过 64 MB 后不再保存）。
 - 偏好和 `triggers.json` 保存在 Desk 的数据目录（路径显示在设置的「触发规则」里）；记录目录只由 AutoSwarm 写入。
 - 界面进程没有 Node 权限，只能调用固定的几个操作；回复内容经过清理后显示；右侧面板里的网页没有任何权限；Desk 不会自动批准任何请求。
 - 在 Windows 上，Desk 启动 Agent 时会补上注册表里当前的用户环境，所以之后才装的 Agent、之后才设置的 API 密钥不需要重新登录就能用。

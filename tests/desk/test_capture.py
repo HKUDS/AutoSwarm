@@ -27,8 +27,18 @@ class CaptureTests(unittest.TestCase):
 
     def test_auto_keeps_a_copy_only_for_agents_desk_cannot_read(self):
         config = {"events": {"capture": "auto"}}
-        self.assertEqual({p: capture.captures(config, p) for p in ("claude-code", "codex", "cursor", "opencode", "copilot")},
-                         {"claude-code": False, "codex": False, "cursor": False, "opencode": True, "copilot": True})
+        for provider in ("claude-code", "codex", "cursor", "codebuddy", "copilot", "kimi", "grok", "hermes", "nanobot", "muse"):
+            self.assertFalse(capture.captures(config, provider), provider)
+            self.assertTrue(capture.live(config, provider), provider)
+        self.assertFalse(capture.captures(config, "opencode", "acp"), "OpenCode 2 is read from its database")
+        self.assertTrue(capture.captures(config, "opencode", "http"), "OpenCode 1 keeps a different store")
+        self.assertTrue(capture.captures(config, "opencode"))
+        try:
+            from compression import zstd  # noqa: F401
+            readable = True
+        except ImportError:
+            readable = False
+        self.assertEqual(capture.captures(config, "dsh"), not readable, "DeepSeek Harness compresses its logs with zstd")
         self.assertTrue(capture.captures({"events": {"capture": True}}, "codex"))
         self.assertFalse(capture.captures({}, "opencode"), "off unless asked")
 

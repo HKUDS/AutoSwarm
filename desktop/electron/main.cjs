@@ -21,7 +21,7 @@ if (process.platform === 'darwin') app.on('activate', () => desktop?.showMain())
 let win, desktop, watcher, probe, generation = 0, frame, preferences = {}, demo = process.argv.includes('--demo');
 // Started at login: tray only. macOS starts login items without arguments, so it says so itself (see whenReady).
 let background = process.argv.includes('--background');
-// captureAll: also keep a copy of Claude Code / Codex / Cursor process events (they are read from the agents' own records).
+// captureAll: also keep a copy of every agent's process events (Desk reads them from the agents' own records).
 const i18n = require('./i18n.cjs');
 const userEnv = require('./user-env.cjs');
 const updates = require('./updates.cjs');
@@ -313,7 +313,7 @@ async function initializeControl(home, token) {
       const call = Object.values(lastSnapshot?.data?.calls || {}).find(c => c.task.workspace && fs.existsSync(c.task.workspace));
       settings.workspace = call?.task.workspace || (app.isPackaged ? '' : path.resolve(__dirname, '../..'));
     }
-    // Claude Code, Codex and Cursor are read from their own session records; only other agents need a copy.
+    // Calls are read from the agents' own session records; only those Desk cannot read get a copy.
     await cli(['config', '--capture-events', preferences.captureAll ? 'on' : 'auto'], '', home);
     if (token !== generation) return;
     controlHome = home; controlError = ''; save(); refresh();

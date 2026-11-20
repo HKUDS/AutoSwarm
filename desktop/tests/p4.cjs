@@ -123,7 +123,7 @@ let app;
     await section.locator('[data-action="open-rules"]').click();
     assert.deepEqual(await app.evaluate(() => globalThis.__opened), [rulesFile]);
 
-    // 6. Process records: Claude Code, Codex and Cursor are read from their own records; Desk keeps a copy only when asked.
+    // 6. Process records: every agent is read from its own records; Desk keeps a copy only when asked.
     const events = page.locator('#settings .events-settings');
     const heading = events.locator('> label:not(.check-row)');
     assert.match(await heading.innerText(), /全部由 Desk 另存一份/);
@@ -131,8 +131,8 @@ let app;
     assert.equal(await page.locator('#settings [data-events], #settings [data-action="prune-events"]').count(), 0, 'no deletion settings');
     await shot(page, 'settings-events');
     await events.locator('[data-pref="captureAll"]').uncheck();
-    await until(() => read(path.join(home, 'config.json')).events.capture === 'auto', 'copy only for agents without their own records');
-    await until(async () => /其他 Agent 由 Desk 保存/.test(await heading.innerText()), 'capture mode shown');
+    await until(() => read(path.join(home, 'config.json')).events.capture === 'auto', 'a copy only for calls Desk cannot read');
+    await until(async () => /读取各 Agent 自己的记录/.test(await heading.innerText()), 'capture mode shown');
     await page.locator('[data-close="settings"]').click();
 
     // 7. A turn whose agent record and copy are both gone says so; the later turn shows its copy.

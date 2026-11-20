@@ -1,10 +1,11 @@
 """Optional best-effort native event tee; never changes native execution.
 
-Desk reads Claude Code, Codex and Cursor calls from those agents' own session
-records, so it sets events.capture to "auto": only other agents keep their
-native output in calls/<id>/events.jsonl, which stays with its call directory.
-The three read natively write a temporary live.jsonl while they run (the text
-as it is typed) that is removed when the call ends. events.max_call_mb caps
+Desk reads every agent's calls from that agent's own session records, so it
+sets events.capture to "auto": only a call Desk cannot read (OpenCode 1, whose
+store differs; DeepSeek Harness without Python 3.14's zstd) keeps its native
+output in calls/<id>/events.jsonl, which stays with its call directory. Calls
+read natively write a temporary live.jsonl while they run (the text as it is
+typed) that is removed when the call ends. events.max_call_mb caps
 one call's file so a runaway terminal stream cannot fill the disk.
 """
 from __future__ import annotations
@@ -21,7 +22,21 @@ MB = 1024 * 1024
 DEFAULT_CALL_MB = 64
 MAX_CALL_MB = 1048576
 # Agents whose own session records Desk reads; capture "auto" skips them.
-NATIVE_RECORDS = ("claude-code", "codex", "cursor")
+NATIVE_RECORDS = ("claude-code", "codex", "cursor", "codebuddy", "copilot", "kimi", "grok", "opencode", "hermes", "dsh", "nanobot", "muse")
+
+
+def reads_native(provider, transport=None) -> bool:
+    """Whether Desk reads this call from the agent's own records (desk/native_calls, desk/agent_records)."""
+    if provider not in NATIVE_RECORDS:
+        return False
+    if provider == "opencode":
+        return transport == "acp"  # OpenCode 2 keeps opencode.db; OpenCode 1 (HTTP) a different store.
+    if provider == "dsh":
+        try:  # Its logs are Zstandard frames: Python 3.14's standard library reads them (Desk bundles 3.14).
+            from compression import zstd  # noqa: F401
+        except ImportError:
+            return False
+    return True
 CAPTURE = (True, False, "auto")
 
 
@@ -43,10 +58,10 @@ def settings(config) -> dict:
     return {"capture": events.get("capture") if events.get("capture") in ("auto", True) else False, "max_call_mb": limit}
 
 
-def captures(config, provider) -> bool:
+def captures(config, provider, transport=None) -> bool:
     """Whether a call of `provider` keeps its native events in events.jsonl."""
     capture = settings(config)["capture"]
-    return capture is True or (capture == "auto" and provider not in NATIVE_RECORDS)
+    return capture is True or (capture == "auto" and not reads_native(provider, transport))
 
 
 def configure(records: Records, *, capture=None, max_call_mb=None) -> dict:
@@ -69,12 +84,12 @@ def configure(records: Records, *, capture=None, max_call_mb=None) -> dict:
     return settings(records.config())
 
 
-def live(config, provider) -> bool:
+def live(config, provider, transport=None) -> bool:
     """Whether a call keeps a temporary live.jsonl while it runs: agents Desk
     reads from their own records write those records whole, so the text as it
     is typed only exists in the protocol stream. The file is removed when the
     call ends; the native record is the history."""
-    return settings(config)["capture"] == "auto" and provider in NATIVE_RECORDS
+    return settings(config)["capture"] == "auto" and reads_native(provider, transport)
 
 
 class Capture:
@@ -84,14 +99,14 @@ class Capture:
     The line that would cross events.max_call_mb is replaced by a single
     {"autoswarm": "capture_truncated"} marker and capture stops for this call.
     """
-    def __init__(self, directory, config, provider=None):
+    def __init__(self, directory, config, provider=None, transport=None):
         self.stream = None
         self.lock = threading.Lock()
         self.limit = None
         self.written = 0
         self.at_line_start = True
         self.temporary = None
-        name = "events.jsonl" if captures(config, provider) else "live.jsonl" if live(config, provider) else None
+        name = "events.jsonl" if captures(config, provider, transport) else "live.jsonl" if live(config, provider, transport) else None
         if name:
             mb = settings(config)["max_call_mb"]
             self.limit = int(mb * MB) if mb else None

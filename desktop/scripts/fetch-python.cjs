@@ -3,10 +3,11 @@
 // Runs on the build machine only (npm run pack / dist). AutoSwarm needs nothing beyond the standard library.
 const { spawnSync } = require('node:child_process');
 const crypto = require('node:crypto'), fs = require('node:fs'), path = require('node:path');
-const PYTHON = { version: '3.13.18', release: '20261026',
-  'win32-x64': { target: 'x86_64-pc-windows-msvc', sha256: '7369f7a35f261222a6ac8b3a87c1c88eeebee8af945d85346202591a64038dd3' },
-  'darwin-arm64': { target: 'aarch64-apple-darwin', sha256: '8392b6ea51d94391befb2c31ebe75463f045d0b69dfcf5e1bb3234e1f5fa3405' },
-  'darwin-x64': { target: 'x86_64-apple-darwin', sha256: '7412c19d896c99431b74a18a5643e110449a7f9590fbab179c3e5ab27b9aa9e3' } };
+// 3.14 for its standard zstd (compression.zstd): DeepSeek Harness keeps its session records in Zstandard frames.
+const PYTHON = { version: '3.14.10', release: '20261026',
+  'win32-x64': { target: 'x86_64-pc-windows-msvc', sha256: 'c1876a9795d3a94ee49a1499a69cd91e26ca3e2829593f93fa6e4db90d05402b' },
+  'darwin-arm64': { target: 'aarch64-apple-darwin', sha256: '95eb8c87d16af37c54e9765e31d8c56c0d8ffa9968ea0f704f73a9b83f84e9f9' },
+  'darwin-x64': { target: 'x86_64-apple-darwin', sha256: '2fd8becd48cf0ff5f0a15df3c0db7cae7aa708dcaacf901bd30d6cdd6229370b' } };
 // The architecture to package for, this machine's unless given (a Mac builds the Apple silicon and Intel apps in turn).
 const arch = process.argv[2] || process.arch;
 const pin = PYTHON[`${process.platform}-${arch}`];
