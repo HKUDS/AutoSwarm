@@ -1,4 +1,5 @@
 """One ACP client shared by native agents and the local nanobot SDK shim."""
+import json
 import os
 import threading
 import time
@@ -27,6 +28,11 @@ class ACP:
         self.cancelled_request = None
         self.retry_prompt = None
         self.prompt_text = None
+        self.auth_methods = []
+        self.auth_attempted = False
+        self.auth_done = False
+        self.auth_lock = threading.Lock()
+        self.auth_timer = None
 
     def start(self):
         if self.n.task["provider"] in KEEPALIVE:
@@ -88,8 +94,52 @@ class ACP:
             else:
                 raise SwarmError("session_unavailable", "This native ACP server advertises neither session/load nor session/resume")
             params["sessionId"] = session
+        self.auth_methods = [item["id"] for item in result.get("authMethods") or [] if isinstance(item, dict) and isinstance(item.get("id"), str)]
+        self.session_call = (method, params)
         self.n.stage("session")
-        self.n.request(method, params, self.started)
+        self.open_session()
+
+    def open_session(self):
+        self.n.request(*self.session_call, self.started, self.session_refused)
+
+    def session_refused(self, error):
+        from .native import auth_required, rpc_error
+        if not (auth_required(error) and self.auth_methods) or self.auth_attempted:
+            raise rpc_error(error)  # One authenticate per run: never loop on sign-in.
+        method, key = self.n.task.get("auth_method"), "providers." + self.n.task["provider"] + ".auth_method"
+        if method not in self.auth_methods:
+            raise SwarmError("native_auth_required", f"ACP server requires sign-in; set {key} in config.json to one of the advertised methods: "
+                             + ", ".join(self.auth_methods) + (f" (configured {method!r} is not advertised)" if method else ""))
+        self.auth_attempted = True
+        timeout = self.n.task.get("auth_timeout") or 600
+        self.n.progress("session", diagnostic=f"Waiting up to {timeout}s for native sign-in with ACP auth method {method}")
+        # A timed-out or failed authenticate can make some servers (Antigravity)
+        # clear their stored credential, so only one sign-in should run at a time.
+        self.auth_timer = threading.Timer(timeout, self.auth_expired, (method, timeout))
+        self.auth_timer.daemon = True
+        self.auth_timer.start()
+        self.n.request("authenticate", {"methodId": method}, self.authenticated, self.auth_failed)
+
+    def auth_settled(self):
+        with self.auth_lock:
+            settled, self.auth_done = self.auth_done, True
+        self.auth_timer.cancel()
+        return not settled
+
+    def auth_expired(self, method, timeout):
+        if self.auth_settled():
+            self.n.output.error_code = "native_auth_timeout"
+            self.n.broker.errors.append(f"ACP authenticate with method {method} did not finish within {timeout}s; "
+                                        "complete the native sign-in, or raise auth_timeout, and run one sign-in at a time")
+
+    def authenticated(self, _):
+        if self.auth_settled():
+            self.n.progress("session", diagnostic=None)
+            self.open_session()
+
+    def auth_failed(self, error):
+        if self.auth_settled():
+            raise SwarmError("native_auth_failed", "ACP authenticate failed: " + json.dumps(error, ensure_ascii=False))
 
     def started(self, result):
         self.n.session(result.get("sessionId") or self.n.task.get("native_session_id"))
