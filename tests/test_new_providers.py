@@ -70,7 +70,9 @@ class ProviderLaunchTests(unittest.TestCase):
                 official, bundled = local / 'cursor-agent/versions', roaming / 'Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli/.local/share/cursor-agent/versions'
                 entry = lambda folder: [folder / 'node.exe', folder / 'index.js']
             else:
-                official, bundled = home / '.local/share/cursor-agent/versions', home / '.config/Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli/.local/share/cursor-agent/versions'
+                # The Cursor app keeps its data in Application Support on macOS, in ~/.config on Linux.
+                app_data = home / ('Library/Application Support' if sys.platform == 'darwin' else '.config')
+                official, bundled = home / '.local/share/cursor-agent/versions', app_data / 'Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli/.local/share/cursor-agent/versions'
                 entry = lambda folder: [folder / 'cursor-agent']
 
             def version(root, name, complete=True):
