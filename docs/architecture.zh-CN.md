@@ -25,17 +25,18 @@ MCP 不作为当前依赖。CLI 已经给支持命令工具的宿主提供统一
 | 层 | 位置 | 内容 |
 | --- | --- | --- |
 | 插件核心 | `src/autoswarm/`（不含 `desk/`） | 上表各层：Skill、CLI、原生适配、批准、消息、执行与记录。插件式用法只需要这一层 |
-| Desk 后端 | `src/autoswarm/desk/` | Desk 的身份与私人助理（`control.py`）、`autoswarm desk …` 子命令（`cli.py`）、给窗口的记录快照（`watch.py`）、过程记录解析（`lens.py`、`streams.py`）、读取 Claude Code/Codex/Cursor 自己的会话记录（`native_history.py`、`native_calls.py`）、读取 Windows 当前用户环境（`environment.py`） |
+| Desk 后端 | `src/autoswarm/desk/` | Desk 的身份与私人助理（`control.py`）、`autoswarm desk …` 子命令（`cli.py`）、给窗口的记录快照（`watch.py`）、过程记录解析（`lens.py`、`streams.py`）、读取各 agent 自己的会话记录（Claude Code/Codex/Cursor 用 `native_history.py`、`native_calls.py`，其他用 `agent_records.py`）、读取 Windows 当前用户环境（`environment.py`） |
 | Desk 应用 | `desktop/` | Electron 主进程（`electron/`）与界面（`renderer/`）；Agent 名单在 `renderer/agents.json` |
 
 依赖是单向的：Desk 后端调用核心，核心不调用 Desk 后端；唯一的接点是 `cli.py` 注册 `desk` 子命令（定义与分发都在 `desk/cli.py`）。Desk 应用只通过 CLI（`python -m autoswarm …`）和 `autoswarm.desk.watch` 进程使用 AutoSwarm，不直接读写记录目录。
 
 **由 Desk 开启、在核心里执行**的几处必须在启动 agent 或收发消息时生效，所以放在核心；不用 Desk 时它们都不起作用：
 
-- 权限级别（`permissions.py`）：只有调用带着 Desk 的权限表（`desk start/assistant --permissions`）时才换算成各家的原生参数；否则 `apply` 直接返回，agent 沿用自己的设置。
-- 过程记录另存（`capture.py`）：`events.capture` 默认关闭；Desk 设为 `auto`，只为没有可读本地记录的 agent 保存。
+- 权限级别（`permissions.py`）：只有调用带着 Desk 的权限表（`desk start/assistant --permissions`）时才换算成各家的原生参数；否则 `apply` 直接返回，agent 沿用自己的设置。每个 agent 的默认值「跟随设置」同样什么都不传；其他模式换算成启动参数、环境变量（DSH、Hermes YOLO、OpenCode）或 ACP 会话模式。
+- 过程记录另存（`capture.py`）：`events.capture` 默认关闭；Desk 设为 `auto`，只为读不了 agent 自己记录的调用保存（OpenCode 1；Python 没有 3.14 的 zstd 时的 DeepSeek Harness）。
 - 人工输入（消息种类 `user_message`）：只由 `desk message` 产生，按原会话续接。
-- ACP 会话模式（如 Cursor 的 Plan）：只由 Desk 的权限级别设置。
+- 附件（`attachments.py`）：`desk start/message/assistant --attach` 把用户的图片和文件复制到 `<home>/attachments/<id>/`。任务或消息里写到这类路径时就带上该附件，主 agent 正是这样把附件交给子 agent。能收图片的 agent 用各自的原生方式收到图片（Claude Code 图片块、Codex `localImage`、OpenCode data URL 文件部分、声明 `promptCapabilities.image` 的 ACP agent 图片块）；每个 agent 都会得到保存路径，其他文件用自己的工具打开；Claude Code 通过 `--add-dir` 获得这些文件夹。不收图片的 agent 在调用上记录 `images_as_paths`。
+- ACP 会话模式（如 Cursor 的 Plan、Kimi 的 Auto、Copilot 的 Plan、Hermes 的 Accept Edits）：只由 Desk 的权限级别设置。
 
 `models`、`skills` 两个命令和下文的各项修复（Windows 沙箱账户、作业对象、Hermes 卡住、补全权限请求等）对两种用法同样生效。`setup` 把整个包（含 `desk/`）复制进各宿主的 Skill；`desk/` 在插件式里不会被调用，保留它使私人助理经任一启动器都能读取其他助理会话（`desk transcript`）。
 
@@ -64,7 +65,7 @@ Cursor 协商 parameterizedModelPicker，使用模型返回的参数控件设置
 
 agents/doctor 的快速发现只报告 executable 检查，invocation_verified 默认 false。显式 doctor --agent NAME --probe 使用正常调用和 resume，在当前 AutoSwarm 配置、实际项目目录及原生环境中验证回复和会话记忆；不换成丢失项目配置的临时环境。验证是一次事实，不是永久认证状态。已安装运行时的模板使用普通文件名，并清理旧版嵌套 SKILL.md；从已安装启动器再次安装仍然可用。
 
-命令不在 PATH 时（安装后尚未重新登录等），再查官方安装器的默认目录：Hermes（`%LOCALAPPDATA%\hermes\bin`）、Grok（`~/.grok/bin`）、Muse（`%LOCALAPPDATA%\Programs\muse`）、`~/.local/bin`、`%APPDATA%\npm`；用户显式配置的命令照用，不猜。
+命令不在 PATH 时（安装后尚未重新登录等），再查官方安装器的默认目录：Hermes（`%LOCALAPPDATA%\hermes\bin`）、Grok（`~/.grok/bin`）、Muse（`%LOCALAPPDATA%\Programs\muse`）、`~/.local/bin`、`%APPDATA%\npm`。每个版本单独一个文件夹的 agent 在每次启动时取最新的完整版本，因为更新会新建文件夹并删除旧的：Cursor Agent（官方安装器或 Cursor App 自带的 `versions/<YYYY.MM.DD-commit>`，用该版本自己的 node 和入口脚本启动）和 Codex App（`%LOCALAPPDATA%\OpenAI\Codex\bin\<id>\codex.exe`）。版本路径从不写进配置。用户显式配置的命令照用，不猜。
 
 runner 记录自己运行的系统账户。原生沙箱可能以另一个账户执行主 agent 的命令（Codex 在 Windows 上用 `CodexSandbox*` 账户）；从那里派出的 agent 会缺少用户的环境变量、登录和网络，因此账户不同时拒绝派出并说明原因，由主 agent 使用自己的提权方式在沙箱外重跑同一命令，不关闭或绕过沙箱。Windows 上 runner 与消息投递进程请求离开父进程的作业对象（只在作业允许时生效），避免 agent 在命令结束时连同后台 runner 一起结束。
 

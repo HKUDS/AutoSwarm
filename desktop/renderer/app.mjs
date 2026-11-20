@@ -66,7 +66,8 @@ function wantSkill(provider) {
   return true;
 }
 // Desk's permission mode per agent, named as each agent names its own (src/autoswarm/permissions.py
-// keeps the same ids, order and defaults). A conversation may override it; its workers stay within it.
+// keeps the same ids, order and AUTO choices). Every agent starts in Follow: its own settings.
+// A conversation may override it; a worker starts in its own agent's choice.
 const PERMISSION_MODES = {
   'claude-code': [
     ['plan', 'Plan', '只读：研究和出方案，不改文件'],
@@ -83,17 +84,51 @@ const PERMISSION_MODES = {
     ['plan', 'Plan', '只读：分析和出方案，不改文件、不运行命令'],
     ['allowlist', 'Allowlist', '白名单里的命令直接运行，其余问你'],
     ['run-everything', 'Run Everything', '所有命令直接运行，不问你']],
+  'codebuddy': [
+    ['plan', 'Plan', '只读：研究和出方案，不改文件'],
+    ['default', 'Default', '改文件、运行命令前都问你'],
+    ['acceptEdits', 'Accept Edits', '直接改工作目录里的文件，运行命令前问你'],
+    ['auto', 'Auto', 'CodeBuddy 自动判断每个操作，有风险的才问你'],
+    ['bypassPermissions', 'Bypass Permissions', '跳过权限确认，高风险操作仍会问你']],
+  'kimi': [
+    ['plan', 'Plan', '只读：出方案，不执行工具'],
+    ['default', 'Default', '执行工具前都问你'],
+    ['auto', 'Auto', '安全的操作自动批准，其余问你'],
+    ['yolo', 'YOLO', '所有操作都自动批准，不问你']],
+  'copilot': [
+    ['plan', 'Plan', '先出多步计划再执行'],
+    ['agent', 'Agent', '运行工具、访问路径和网址前问你'],
+    ['allow-all', 'Allow all', '所有工具、路径和网址都直接允许，不问你']],
+  'hermes': [
+    ['default', 'Default', '改文件前问你；危险命令也会问'],
+    ['accept_edits', 'Accept Edits', '直接改工作目录和临时目录里的文件；敏感路径和危险命令仍会问'],
+    ['dont_ask', "Don't Ask", '这个会话里改文件都不问（敏感路径除外）；危险命令仍会问'],
+    ['yolo', 'YOLO', '改文件和运行命令都不问；Hermes 的硬性保护仍然有效']],
+  'dsh': [
+    ['read-only', 'Read Only', '只能查看；其他操作都问你'],
+    ['workspace-write', 'Workspace Write', '在工作目录里修改；超出沙箱的操作问你'],
+    ['danger-full-access', 'Full access', '不受沙箱限制，也不再问你']],
+  'grok': [
+    ['always-approve', 'Always approve', '所有工具直接执行，不问你']],
+  'opencode': [
+    ['ask', 'Ask', '每个工具调用前都问你'],
+    ['allow', 'Allow', '所有工具直接允许，不问你']],
 };
-const PERMISSION_DEFAULTS = { 'claude-code': 'acceptEdits', 'codex': 'ask', 'cursor': 'allowlist' };
+// "Auto or above": the agent's own automatic reviewer, or the mode that stops asking when it has none.
+const PERMISSION_AUTO = { 'claude-code': 'auto', 'codex': 'approve-for-me', 'cursor': 'run-everything', 'codebuddy': 'auto', 'kimi': 'auto', 'copilot': 'allow-all', 'hermes': 'yolo', 'dsh': 'danger-full-access', 'grok': 'always-approve', 'opencode': 'allow' };
+const FOLLOW = 'follow';
+/** Follow, then the agent's own modes, as [id, label, note] with label and note in the current language. */
+const permissionModes = provider => PERMISSION_MODES[provider] ? [[FOLLOW, t('跟随设置'), t('用 {agent} 自己的设置，Desk 不改', { agent: providers[provider] || provider })],
+  ...PERMISSION_MODES[provider].map(([id, label, note]) => [id, label, t(note)])] : [];
 let permissionPrefs = {};
-const permissionDefault = provider => permissionPrefs[provider] || PERMISSION_DEFAULTS[provider];
+const permissionDefault = provider => permissionPrefs[provider] || FOLLOW;
 const draftPermission = provider => sessionDraft.permission || permissionDefault(provider);
-/** A chip showing one agent's mode, with a menu of that agent's own modes. */
+/** A chip showing one agent's mode, with a menu of Follow and that agent's own modes. */
 function permissionChip(provider, mode, menu, place, heading) {
-  const found = PERMISSION_MODES[provider]?.find(([id]) => id === mode);
+  const modes = permissionModes(provider), found = modes.find(([id]) => id === mode);
   if (!found) return '';
-  const list = PERMISSION_MODES[provider].map(([id, label, note]) => menuItem(`data-pick-permission="${id}" data-provider="${escape(provider)}" data-menu-id="${menu}"`, '', label, t(note), id === mode)).join('');
-  return `<div class="menu-anchor"><button type="button" class="permission-chip" data-menu="${menu}" aria-haspopup="menu" aria-expanded="${openMenu === menu}" title="${escape(t('{agent} 权限 · {mode}：{note}', { agent: providers[provider] || provider, mode: found[1], note: t(found[2]) }))}">${icon('shield')}<span>${escape(found[1])}</span>${icon('down')}</button>${openMenu === menu ? `<div class="menu-pop ${place} permission-menu" role="menu" aria-label="${t('权限')}"><div class="menu-label">${escape(heading)}</div>${list}</div>` : ''}</div>`;
+  const list = modes.map(([id, label, note]) => menuItem(`data-pick-permission="${id}" data-provider="${escape(provider)}" data-menu-id="${menu}"`, '', label, note, id === mode)).join('');
+  return `<div class="menu-anchor"><button type="button" class="permission-chip" data-menu="${menu}" aria-haspopup="menu" aria-expanded="${openMenu === menu}" title="${escape(t('{agent} 权限 · {mode}：{note}', { agent: providers[provider] || provider, mode: found[1], note: found[2] }))}">${icon('shield')}<span>${escape(found[1])}</span>${icon('down')}</button>${openMenu === menu ? `<div class="menu-pop ${place} permission-menu" role="menu" aria-label="${t('权限')}"><div class="menu-label">${escape(heading)}</div>${list}</div>` : ''}</div>`;
 }
 /** The official AutoSwarm logo (docs/assets/autoswarm), wherever Desk shows its own mark. */
 const brand = (size, cls = '') => `<img class="autoswarm-logo ${cls}" src="../assets/logo-128.png" width="${size}" height="${size}" alt="">`;
@@ -314,6 +349,12 @@ async function chooseLanguage(value) {
   view = project(data); applyStaticText(); render(); if (settings.open) renderSettings();
   if (desk.language) { try { await desk.language(language()); } catch (failure) { showToast(failure.message); } }
 }
+/** Failures Desk explains in the user's language by their code; the original text stays in the record and the tooltip. */
+const KNOWN_ERRORS = {
+  native_session_busy: '这个对话正在另一个 Codex 窗口或进程里打开（Codex App、编辑器插件，或上一轮没退出的 Codex）。关掉它后再发一次消息。',
+  stopped: '已停止，这条消息没有送到 Agent。需要的话再发一次。',
+};
+const knownError = (code, text) => Object.hasOwn(KNOWN_ERRORS, code || '') ? t(KNOWN_ERRORS[code]) : text;
 /** A newer Desk: downloaded (installs when Desk quits, or restart now) or, for a ZIP copy, a link to it. */
 function updateButton() {
   if (!update || isDemo || !['ready', 'available'].includes(update.kind)) return '';
@@ -322,9 +363,27 @@ function updateButton() {
   const tip = ready ? t('新版本已下载，退出 Desk 时自动安装；有 Agent 正在运行时等到下次退出。') : t('打开新版本的下载页面');
   return `<button class="settings-button update-button" data-action="${ready ? 'update-install' : 'update-open'}" title="${escape(tip)}">${icon('download')}<span class="sidebar-text">${text}</span></button>`;
 }
+/** Settings: the running version and its update check in one row, with the one action that fits. */
+function versionRow() {
+  if (!update || isDemo) return '';
+  const u = update, next = escape(u.version || '');
+  const at = u.checked_at ? new Date(u.checked_at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+  const status = u.kind === 'off' ? t('开发版本，不检查更新')
+    : u.checking ? t('正在检查更新…')
+    : u.kind === 'ready' ? t('{version} 已下载，退出 Desk 时安装', { version: next })
+    : u.kind === 'downloading' ? t('正在下载 {version}…', { version: next })
+    : u.kind === 'available' ? t('有新版本 {version}', { version: next })
+    : u.error ? t('检查更新失败，稍后会自动再试')
+    : u.kind === 'current' ? (at ? t('已是最新 · {time} 检查', { time: at }) : t('已是最新'))
+    : t('启动后会自动检查更新');
+  const [action, label] = u.kind === 'ready' ? ['update-install', '重启并更新'] : u.kind === 'available' && u.page ? ['update-open', '去下载'] : u.kind === 'off' ? [] : ['update-check', '检查更新'];
+  return `<div class="settings-row" id="version-row"><span class="settings-row-label">${t('版本')}<small ${u.error ? `title="${escape(u.error)}"` : ''}>AutoSwarm Desk ${escape(u.current || '')} · ${status}</small></span>${action ? `<button type="button" class="secondary" data-action="${action}" ${u.checking || u.kind === 'downloading' ? 'disabled' : ''}>${t(label)}</button>` : ''}</div>`;
+}
+const refreshVersionRow = () => { const row = document.querySelector('#version-row'); if (row) row.outerHTML = versionRow(); };
 const appearanceSection = () => `<div class="settings-section appearance"><label>${t('外观')}</label><div class="theme-choices" role="radiogroup" aria-label="${t('外观')}">${[['system','跟随系统','monitor'],['light','浅色','sun'],['dark','深色','moon']].map(([value,text,glyph])=>`<button type="button" role="radio" aria-checked="${themeChoice===value}" data-theme-choice="${value}">${icon(glyph)}<span>${t(text)}</span></button>`).join('')}</div><p>${t(mac ? '深色模式也会用于窗口背景，跟随系统时随 macOS 的外观切换。' : '深色模式也会用于窗口背景，跟随系统时随 Windows 的应用主题切换。')}</p>`
   + `<div class="settings-row"><span class="settings-row-label">${t('语言')}<small>${t('只改变 Desk 自己的界面；Agent 写什么语言就显示什么语言。')}</small></span><div class="segmented" role="radiogroup" aria-label="${t('语言')}">${LANGUAGES.map(([value, name]) => `<button type="button" role="radio" aria-checked="${language() === value}" data-language="${value}" lang="${value === 'zh' ? 'zh-CN' : 'en'}">${name}</button>`).join('')}</div></div>`
   + (desk.zoom ? `<div class="settings-row"><span class="settings-row-label">${t('缩放')}<small>${t(mac ? '⌘ + = 放大，⌘ + - 缩小，⌘ + 0 还原' : 'Ctrl + = 放大，Ctrl + - 缩小，Ctrl + 0 还原')}</small></span><div class="zoom-control"><button type="button" class="zoom-step" data-zoom="-1" aria-label="${t('缩小')}" ${zoomFactor <= 0.8 ? 'disabled' : ''}>−</button><output class="zoom-value" aria-live="polite">${Math.round(zoomFactor * 100)}%</output><button type="button" class="zoom-step" data-zoom="1" aria-label="${t('放大')}" ${zoomFactor >= 2 ? 'disabled' : ''}>+</button><button type="button" class="text-button" data-zoom="0" ${zoomFactor === 1 ? 'disabled' : ''}>${t('还原')}</button></div></div>` : '')
+  + versionRow()
   + '</div>';
 const showToast = text => { const el = document.querySelector('#toast'); el.textContent = text; el.classList.add('visible'); setTimeout(() => el.classList.remove('visible'), 2800); };
 
@@ -455,9 +514,43 @@ async function copyText(text) {
     const ok = document.execCommand('copy'); area.remove(); if (!ok) throw Error(t('复制失败'));
   }
 }
-function userBubble(text, at, receipt = '') {
+/** Attachments waiting in a composer (new session, a conversation, the assistant): picked, dropped or pasted. */
+const attachDrafts = new Map(), ATTACH_LIMIT = 10;
+const composerKey = form => form.id === 'session-form' ? 'session' : form.id === 'assistant-form' ? 'assistant:' + data.home : 'chat:' + draftKey(form.dataset.target);
+const attachmentsOf = key => attachDrafts.get(key) || [];
+const attachButton = key => `<button type="button" class="attach-button" data-attach-pick="${escape(key)}" title="${t('添加图片或文件（也可以粘贴或拖进来）')}" aria-label="${t('添加图片或文件')}">${icon('paperclip')}</button>`;
+function attachTray(key) {
+  const list = attachmentsOf(key);
+  return list.length ? `<div class="attach-tray">${list.map((item, index) => `<span class="attach-chip" title="${escape(item.path)}">${item.preview ? `<img src="${escape(item.preview)}" alt="">` : icon('file')}<span class="attach-name">${escape(item.name)}</span><button type="button" class="attach-remove" data-attach-remove="${index}" data-attach-key="${escape(key)}" aria-label="${escape(t('移除 {name}', { name: item.name }))}">${icon('close')}</button></span>`).join('')}</div>` : '';
+}
+function addAttachments(key, items) {
+  const list = [...attachmentsOf(key)];
+  for (const item of items) if (!list.some(known => known.path === item.path)) list.push(item);
+  if (list.length > ATTACH_LIMIT) { list.length = ATTACH_LIMIT; showToast(t('一次最多添加 {count} 个附件', { count: ATTACH_LIMIT })); }
+  attachDrafts.set(key, list); render(true);
+}
+/** Files from a paste or a drop: images on the clipboard are saved by Desk first; files on disk go by their path. */
+async function attachFiles(key, files) {
+  if (isDemo) { showToast(t('这是界面演示，不能添加附件。')); return; }
+  const items = [];
+  try {
+    for (const file of files) {
+      const onDisk = desk.pathForFile?.(file);
+      if (onDisk) items.push(...await desk.attachDescribe([onDisk]));
+      else if (file.type.startsWith('image/')) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = ''; for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        items.push(await desk.attachPaste(btoa(binary), file.type));
+      }
+    }
+  } catch (failure) { showToast(failure.message); }
+  if (items.length) addAttachments(key, items);
+}
+/** Attachments in the history: each opens with the system's app. */
+const attachmentChips = list => list?.length ? `<div class="message-attachments">${list.map(item => `<button type="button" class="attach-chip sent" data-open-attachment="${escape(item.path)}" title="${escape(item.path)}">${icon(item.kind === 'image' ? 'image' : 'file')}<span class="attach-name">${escape(item.name)}</span></button>`).join('')}</div>` : '';
+function userBubble(text, at, receipt = '', attachments = []) {
   const when = at ? (typeof at === 'number' ? clock(at) : stamp(at)) : '';
-  return `<div class="chat-user"><div class="user-message">${escape(text)}</div><div class="message-actions user-actions">${when || receipt ? `<span class="action-meta">${escape([when, receipt].filter(Boolean).join(' · '))}</span>` : ''}${copyButton(text)}</div></div>`;
+  return `<div class="chat-user"><div class="user-message">${escape(text)}</div>${attachmentChips(attachments)}<div class="message-actions user-actions">${when || receipt ? `<span class="action-meta">${escape([when, receipt].filter(Boolean).join(' · '))}</span>` : ''}${copyButton(text)}</div></div>`;
 }
 /** One agent turn: a single header, then the body (process row, live line, reply, actions). */
 function agentTurn({ body }) {
@@ -506,7 +599,7 @@ function systemNote(text) {
   return auto ? `<div class="system-note">${brand(16)}<span><strong>${auto[2] ? t('Desk 规则「{name}」', { name: escape(auto[2]) }) : t('Desk 自动唤醒助理')}</strong>${escape(String(text).slice(auto[0].length))}</span></div>` : '';
 }
 function userMail(node, call) {
-  return Object.values(data.messages).filter(m => m.message.kind === 'user_message' && m.message.to === (node.target || node.id) && (call ? m.delivery?.call_id === call.id : !m.delivery?.call_id)).sort((a,b)=>a.message.created_at.localeCompare(b.message.created_at)).map(m => `${systemNote(m.message.content) || userBubble(m.message.content,m.message.created_at,t((m.delivery?.mechanism==='native_input' && m.delivery?.state==='submitted' ? '已插入本轮' : m.delivery?.mechanism==='native_followup' ? (m.message.interrupt ? '打断后送达' : '本轮结束后送达') : ({submitted:'已送达',delivered:'已送达',needs_attention:'未送达'})[m.delivery?.state]) || (m.delivery?.reason==='native_turn_active' ? '等待本轮结束' : '等待送达')))}${m.delivery?.state === 'needs_attention' ? `<p class="chat-error" role="alert">${escape(t(m.delivery.error || '发送未成功，请重试。'))}</p>` : ''}`).join('');
+  return Object.values(data.messages).filter(m => m.message.kind === 'user_message' && m.message.to === (node.target || node.id) && (call ? m.delivery?.call_id === call.id : !m.delivery?.call_id)).sort((a,b)=>a.message.created_at.localeCompare(b.message.created_at)).map(m => `${systemNote(m.message.content) || userBubble(m.message.content,m.message.created_at,t((m.delivery?.mechanism==='native_input' && m.delivery?.state==='submitted' ? '已插入本轮' : m.delivery?.mechanism==='native_followup' ? (m.message.interrupt ? '打断后送达' : '本轮结束后送达') : ({submitted:'已送达',delivered:'已送达',needs_attention:'未送达'})[m.delivery?.state]) || (m.delivery?.reason==='native_turn_active' ? '等待本轮结束' : '等待送达')),m.message.attachments)}${m.delivery?.state === 'needs_attention' ? `<p class="chat-error" role="alert" ${m.delivery.error ? `title="${escape(m.delivery.error)}"` : ''}>${escape(knownError(m.delivery.error_code, t(m.delivery.error || '发送未成功，请重试。')))}</p>` : ''}`).join('');
 }
 /** AutoSwarm calls: one turn per call, process folded, result.json as the reply. */
 function conversation(node, worker = false) {
@@ -516,7 +609,7 @@ function conversation(node, worker = false) {
     const stream = streamCache.get(call.id) || call.stream;
     const prompt = assistant && AUTOMATIC.test(call.task.prompt) ? systemNote(call.task.prompt)
       : !call.task.message_only && !(worker && i === 0)
-      ? (i === 0 && node.owner === view.assistant?.id ? `<div class="handoff-note"><div>${brand(16)}<strong>${t('私人助理')}</strong><span>${t('交给 {agent} · {time}', { agent: escape(providers[node.provider] || node.provider), time: escape(stamp(call.task.created_at)) })}</span></div><p>${escape(call.task.prompt)}</p></div>` : userBubble(call.task.prompt, call.task.created_at))
+      ? (i === 0 && node.owner === view.assistant?.id ? `<div class="handoff-note"><div>${brand(16)}<strong>${t('私人助理')}</strong><span>${t('交给 {agent} · {time}', { agent: escape(providers[node.provider] || node.provider), time: escape(stamp(call.task.created_at)) })}</span></div><p>${escape(call.task.prompt)}</p>${attachmentChips(call.task.attachments)}</div>` : userBubble(call.task.prompt, call.task.created_at, '', call.task.attachments))
       : '';
     const state = call.id === node.latest.id ? node.state : call.state;
     // While the turn's steps are on screen, the status line need not repeat the latest one.
@@ -526,12 +619,14 @@ function conversation(node, worker = false) {
     const errorText = call.result?.error ? (typeof call.result.error === 'string' ? call.result.error : JSON.stringify(call.result.error)) : '';
     // A stopped turn ends by closing the native process; that closure is not a failure to report.
     const halted = call.result?.outcome === 'cancelled';
-    const error = errorText && !halted ? `<div class="error-text">${escape(errorText)}</div>` : '';
+    const explained = knownError(call.result?.error_code, errorText);
+    const error = errorText && !halted ? `<div class="error-text" ${explained !== errorText ? `title="${escape(errorText)}"` : ''}>${escape(explained)}</div>` : '';
     const reply = call.result?.content ? `<div class="markdown turn-reply">${markdown(call.result.content)}</div>` : '';
     const stopped = halted ? `<div class="turn-note" ${errorText ? `title="${escape(t('运行记录：{log}', { log: errorText }))}"` : ''}>${icon('stop')}<span>${call.result.content ? t('这一轮已停止。发消息可以在原会话里接着做。') : t('这一轮已停止，没有最终回复。发消息可以在原会话里接着做。')}</span></div>` : '';
     const actions = call.result ? replyActions(call.result.content, [clock(call.task.created_at), took !== '—' ? t('用时 {time}', { time: took }) : ''].filter(Boolean).join(' · '), call) : '';
     const body = `${processView(call, stream, worker, limits.get(call.id) || 0, { markdown })}${!call.task.message_only ? userMail(node, call) : ''}${live}${reply}${stopped}${error}${assistant ? handoffs(call) : ''}${actions}`;
-    return `<section class="turn" id="turn-${escape(call.id)}">${prompt}${call.task.message_only ? userMail(node, call) : ''}${agentTurn({ provider: call.task.provider, assistant, role, at: call.task.created_at, body })}</section>`;
+    const asPaths = call.handle?.images_as_paths ? `<p class="attach-note">${icon('info')}<span>${t('{agent} 不能直接看图片，已把图片的位置告诉它', { agent: escape(providers[call.task.provider] || call.task.provider) })}</span></p>` : '';
+    return `<section class="turn" id="turn-${escape(call.id)}">${prompt}${call.task.message_only ? userMail(node, call) : ''}${asPaths}${agentTurn({ provider: call.task.provider, assistant, role, at: call.task.created_at, body })}</section>`;
   }).join('') + userMail(node);
 }
 
@@ -576,7 +671,7 @@ function composer(node, worker = false) {
   const mode = chatModes.get(key) || defaultMode(recipient);
   const live = LIVE_INPUT.has(recipient.provider);
   const busy = ['running','waiting','delegated'].includes(recipient.state) || recipient.native?.busy === true;
-  return `<form id="chat-form" class="chat-composer composer-card" data-target="${escape(target)}"><textarea id="chat-input" aria-label="${escape(placeholder)}" placeholder="${escape(placeholder)}" rows="2">${escape(chatDrafts.get(key) || '')}</textarea>${chatErrors.has(key) ? `<p class="chat-error" role="alert">${escape(chatErrors.get(key))}</p>` : ''}<div class="composer-row">${!worker && workers.length ? `<select id="chat-recipient" aria-label="${t('选择对话 Agent')}"><option value="${escape(node.target || node.id)}">@ ${t('主控 · ')}${escape(providers[node.provider] || node.provider)}</option>${workers.map(n=>`<option value="${escape(n.id)}" ${n.id===target?'selected':''}>@ ${escape(providers[n.provider] || n.provider)} · ${escape(n.name)}</option>`).join('')}</select>` : ''}${busy ? `<div class="delivery-modes" role="radiogroup" aria-label="${t('送达方式')}"><label><input type="radio" name="delivery-mode" value="after_turn" ${mode==='after_turn'?'checked':''}>${t('本轮结束后发送')}</label><label title="${live ? t('插进正在进行的这一轮，Agent 不中断，读到后照顾你的要求继续做') : t('先停下正在进行的这一轮，处理你的消息，再接着做原来的任务')}"><input type="radio" name="delivery-mode" value="immediate" ${mode==='immediate'?'checked':''}>${live ? t('立即插话') : t('打断并插话')}</label></div>` : ''}<span class="row-spacer"></span>${stopControl(target)}<button type="submit" class="send-button" aria-label="${t('发送消息')}" ${chatPending.has(key)?'disabled':''}>${icon('arrow-up')}</button></div></form>`;
+  return `<form id="chat-form" class="chat-composer composer-card" data-target="${escape(target)}">${attachTray('chat:' + key)}<textarea id="chat-input" aria-label="${escape(placeholder)}" placeholder="${escape(placeholder)}" rows="2">${escape(chatDrafts.get(key) || '')}</textarea>${chatErrors.has(key) ? `<p class="chat-error" role="alert">${escape(chatErrors.get(key))}</p>` : ''}<div class="composer-row">${attachButton('chat:' + key)}${!worker && workers.length ? `<select id="chat-recipient" aria-label="${t('选择对话 Agent')}"><option value="${escape(node.target || node.id)}">@ ${t('主控 · ')}${escape(providers[node.provider] || node.provider)}</option>${workers.map(n=>`<option value="${escape(n.id)}" ${n.id===target?'selected':''}>@ ${escape(providers[n.provider] || n.provider)} · ${escape(n.name)}</option>`).join('')}</select>` : ''}${busy ? `<div class="delivery-modes" role="radiogroup" aria-label="${t('送达方式')}"><label><input type="radio" name="delivery-mode" value="after_turn" ${mode==='after_turn'?'checked':''}>${t('本轮结束后发送')}</label><label title="${live ? t('插进正在进行的这一轮，Agent 不中断，读到后照顾你的要求继续做') : t('先停下正在进行的这一轮，处理你的消息，再接着做原来的任务')}"><input type="radio" name="delivery-mode" value="immediate" ${mode==='immediate'?'checked':''}>${live ? t('立即插话') : t('打断并插话')}</label></div>` : ''}<span class="row-spacer"></span>${stopControl(target)}<button type="submit" class="send-button" aria-label="${t('发送消息')}" ${chatPending.has(key)?'disabled':''}>${icon('arrow-up')}</button></div></form>`;
 }
 /** The AutoSwarm switch on the new-session page: on, off, or locked until this agent has the Skill. */
 function swarmPill(provider) {
@@ -641,7 +736,7 @@ function overviewPage() {
   const busy = active || assistantSubmitting || assistantSettings.busy;
   const ready = isDemo || (status === 'ready' && assistantSettings.ready && !assistantSettings.error);
   const sessions = view.sessions;
-  return `<div class="conversation-scroll assistant-conversation"><div class="reading-column">${tabOf() === 'trace' ? traceView([view.assistant]) : view.assistant ? conversation(view.assistant) : `<div class="assistant-welcome"><span class="assistant-welcome-mark">${brand(48)}</span><h2>${t('有事情，交给我。')}</h2><p>${t('我会把新工作交给一个主 Agent；主 Agent 再组织子任务。<br>已有会话的进展和需要你决定的事项，都在这里。')}</p><div class="welcome-examples"><button data-example="${escape(t('看看当前会话的进展，有什么需要我决定的？'))}">${t('看看各会话的进展 ↗')}</button><button data-example="${escape(t('帮我规划一个新任务，先问清目标和工作目录。'))}">${t('开始一项新工作 ↗')}</button></div></div>`}${requests.length ? `<div class="assistant-notice">${brand(24, 'assistant-icon')}<div><strong>${t('需要你决定')}</strong><p>${t('下面 {count} 件事正在等你，处理后会在对应会话中同步。', { count: requests.length })}</p></div></div>${requests.map(requestCard).join('')}` : ''}${assistantSettings.error || assistantError ? `<div class="error-text" role="alert">${escape(t(assistantError || assistantSettings.error))}</div>` : ''}</div></div><div class="bottom-area assistant-bottom">${sessionDock(sessions, requests.length)}<form id="assistant-form" class="assistant-composer composer-card"><textarea id="assistant-input" aria-label="${t('对私人助理说')}" placeholder="${busy ? t('助理正在处理本轮，完成后可以继续聊…') : t('对私人助理说… 它会交给合适的会话，或新建一个')}" rows="2">${escape(assistantDraft)}</textarea><div class="composer-row">${!ready ? `<span class="composer-status">${t('正在准备私人助理…')}</span>` : !isDemo && !assistantSettings.workspace ? `<button type="button" class="meta-chip" data-action="settings">${t('先在设置中选择工作目录')}</button>` : ''}<span class="row-spacer"></span><button type="submit" class="send-button" aria-label="${t('发送给私人助理')}" ${!ready || busy ? 'disabled' : ''}>${icon('arrow-up')}</button></div></form>${statsLine(view.assistant)}</div>`;
+  return `<div class="conversation-scroll assistant-conversation"><div class="reading-column">${tabOf() === 'trace' ? traceView([view.assistant]) : view.assistant ? conversation(view.assistant) : `<div class="assistant-welcome"><span class="assistant-welcome-mark">${brand(48)}</span><h2>${t('有事情，交给我。')}</h2><p>${t('我会把新工作交给一个主 Agent；主 Agent 再组织子任务。<br>已有会话的进展和需要你决定的事项，都在这里。')}</p><div class="welcome-examples"><button data-example="${escape(t('看看当前会话的进展，有什么需要我决定的？'))}">${t('看看各会话的进展 ↗')}</button><button data-example="${escape(t('帮我规划一个新任务，先问清目标和工作目录。'))}">${t('开始一项新工作 ↗')}</button></div></div>`}${requests.length ? `<div class="assistant-notice">${brand(24, 'assistant-icon')}<div><strong>${t('需要你决定')}</strong><p>${t('下面 {count} 件事正在等你，处理后会在对应会话中同步。', { count: requests.length })}</p></div></div>${requests.map(requestCard).join('')}` : ''}${assistantSettings.error || assistantError ? `<div class="error-text" role="alert">${escape(t(assistantError || assistantSettings.error))}</div>` : ''}</div></div><div class="bottom-area assistant-bottom">${sessionDock(sessions, requests.length)}<form id="assistant-form" class="assistant-composer composer-card">${attachTray('assistant:' + data.home)}<textarea id="assistant-input" aria-label="${t('对私人助理说')}" placeholder="${busy ? t('助理正在处理本轮，完成后可以继续聊…') : t('对私人助理说… 它会交给合适的会话，或新建一个')}" rows="2">${escape(assistantDraft)}</textarea><div class="composer-row">${attachButton('assistant:' + data.home)}${!ready ? `<span class="composer-status">${t('正在准备私人助理…')}</span>` : !isDemo && !assistantSettings.workspace ? `<button type="button" class="meta-chip" data-action="settings">${t('先在设置中选择工作目录')}</button>` : ''}<span class="row-spacer"></span><button type="submit" class="send-button" aria-label="${t('发送给私人助理')}" ${!ready || busy ? 'disabled' : ''}>${icon('arrow-up')}</button></div></form>${statsLine(view.assistant)}</div>`;
 }
 
 /** 新会话: a main agent started directly by the user, with the native provider/model/effort. */
@@ -659,9 +754,9 @@ function newSessionPage() {
         <div class="menu-anchor"><button type="button" class="context-chip" id="session-agent" data-menu="agent" aria-expanded="${openMenu === 'agent'}" title="${t('主 Agent')}">${logo(provider, '')}<span>${escape(name)}</span>${icon('down')}</button>${openMenu === 'agent' ? agentMenu(provider) : ''}</div>
       </div>
       <div class="composer-card">
-        <textarea id="session-input" aria-label="${t('新会话的任务')}" placeholder="${t('描述要交给 {agent} 的工作', { agent: escape(name) })}" rows="3">${escape(sessionDraft.prompt || '')}</textarea>
+        ${attachTray('session')}<textarea id="session-input" aria-label="${t('新会话的任务')}" placeholder="${t('描述要交给 {agent} 的工作', { agent: escape(name) })}" rows="3">${escape(sessionDraft.prompt || '')}</textarea>
         ${sessionError ? `<p class="chat-error" role="alert">${escape(t(sessionError))}</p>` : ''}
-        <div class="composer-row">${swarmPill(provider)}${permissionChip(provider, draftPermission(provider), 'permission', 'menu-down-left', t('这个会话里 {agent} 的权限 · 默认值在设置里改', { agent: name }))}${note ? `<span class="composer-status">${escape(note)}</span>` : ''}<span class="row-spacer"></span><div class="menu-anchor"><button type="button" class="model-chip" id="session-model-chip" data-menu="model" aria-expanded="${openMenu === 'model'}" title="${t('模型与思考强度')}">${escape(chip.name)}${chip.level ? `<span class="model-level">${escape(chip.level)}</span>` : ''}${icon('down')}</button>${openMenu === 'model' ? modelMenu(provider, model, effort, 'menu-down') : ''}</div><button type="submit" class="send-button" aria-label="${t('开始新会话')}" ${!ready || busy ? 'disabled' : ''}>${icon('arrow-up')}</button></div>
+        <div class="composer-row">${attachButton('session')}${swarmPill(provider)}${permissionChip(provider, draftPermission(provider), 'permission', 'menu-down-left', t('这个会话里 {agent} 的权限 · 默认值在设置里改', { agent: name }))}${note ? `<span class="composer-status">${escape(note)}</span>` : ''}<span class="row-spacer"></span><div class="menu-anchor"><button type="button" class="model-chip" id="session-model-chip" data-menu="model" aria-expanded="${openMenu === 'model'}" title="${t('模型与思考强度')}">${escape(chip.name)}${chip.level ? `<span class="model-level">${escape(chip.level)}</span>` : ''}${icon('down')}</button>${openMenu === 'model' ? modelMenu(provider, model, effort, 'menu-down') : ''}</div><button type="submit" class="send-button" aria-label="${t('开始新会话')}" ${!ready || busy ? 'disabled' : ''}>${icon('arrow-up')}</button></div>
       </div>
     </form>
   </div></div>`;
@@ -691,11 +786,13 @@ function demoStop(target) {
 function permissionSection() {
   // Every mode is a pill in the row (no pop-up menu), so the dialog never clips a choice.
   const row = id => {
-    const mode = permissionDefault(id), found = PERMISSION_MODES[id].find(([m]) => m === mode) || PERMISSION_MODES[id][0];
-    const name = providers[id] || id, missing = available && available[id]?.available !== true;
-    return `<div class="permission-row"><div class="permission-agent">${logo(id, '')}<span>${escape(name)}${missing ? `<small>${t('本机未检测到')}</small>` : ''}</span></div><div class="permission-options" role="radiogroup" aria-label="${escape(t('{agent} 在新会话里的默认权限', { agent: name }))}">${PERMISSION_MODES[id].map(([m, label, note]) => `<button type="button" role="radio" class="permission-option" aria-checked="${m === found[0]}" data-default-permission="${m}" data-provider="${id}" title="${escape(t(note))}">${escape(label)}</button>`).join('')}</div><p class="permission-note">${escape(t(found[2]))}</p></div>`;
+    const modes = permissionModes(id), mode = permissionDefault(id), found = modes.find(([m]) => m === mode) || modes[0];
+    const name = providers[id] || id;
+    return `<div class="permission-row"><div class="permission-agent">${logo(id, '')}<span>${escape(name)}</span></div><div class="permission-options" role="radiogroup" aria-label="${escape(t('{agent} 在新会话里的默认权限', { agent: name }))}">${modes.map(([m, label, note]) => `<button type="button" role="radio" class="permission-option" aria-checked="${m === found[0]}" data-default-permission="${m}" data-provider="${id}" title="${escape(note)}">${escape(label)}</button>`).join('')}</div><p class="permission-note">${escape(found[2])}</p></div>`;
   };
-  return `<div class="settings-section permission-settings"><label>${t('Agent 权限')}</label><p>${t('每个 Agent 在新会话里默认用的权限，名字和它自己的一样。只在 Desk 里生效，不改 Agent 自己的设置；单个会话可以另选。子 Agent 用它自己的默认，但不会超过派它的 Agent；它的审批先由派它的 Agent 决定，拿不准时再问你。')}</p>${Object.keys(PERMISSION_MODES).map(row).join('')}</div>`;
+  // Agents known to be missing on this computer are left out (as in the agent menu).
+  const listed = Object.keys(PERMISSION_MODES).filter(id => !(available?.[id] && !available[id].available));
+  return `<div class="settings-section permission-settings"><label>${t('Agent 权限')}</label><p>${t('每个 Agent 在新会话里默认用的权限。默认跟随 Agent 自己的设置；也可以选它自己的某个模式，名字和它自己的一样，只在 Desk 里生效，不改 Agent 的配置。单个会话可以另选。子 Agent 用它自己那个 Agent 的选择；它的审批先由派它的 Agent 决定，拿不准时再问你。')}</p><div class="permission-bulk"><button type="button" class="secondary" data-bulk-permission="auto" title="${escape(t('有自动审核的 Agent 用自动审核；没有的设为不询问'))}">${t('全部设为自动')}</button><button type="button" class="secondary" data-bulk-permission="follow">${t('全部跟随 Agent 设置')}</button><p class="permission-note">${t('全部设为自动：Claude Code、Codex、CodeBuddy、Kimi 用自己的自动审核；Cursor、DSH、Hermes、Copilot、Grok、OpenCode 在 Desk 里没有自动审核，会设为不询问。')}</p></div>${listed.map(row).join('')}${listed.length ? '' : `<p class="permission-note">${t('本机还没有检测到可设置权限的 Agent。')}</p>`}</div>`;
 }
 async function pickPermission(menu, provider, mode) {
   openMenu = null;
@@ -713,6 +810,14 @@ async function pickPermission(menu, provider, mode) {
   permissionPrefs = { ...permissionPrefs, [provider]: mode };
   renderSettings();
 }
+/** Every agent's default at once: its "auto or above" mode, or Follow. */
+async function bulkPermission(kind) {
+  const table = Object.fromEntries(Object.keys(PERMISSION_MODES).map(id => [id, kind === 'auto' ? PERMISSION_AUTO[id] : FOLLOW]));
+  if (desk.permissions) await desk.permissions(table);
+  permissionPrefs = { ...permissionPrefs, ...table };
+  renderSettings();
+  showToast(t(kind === 'auto' ? '新会话里每个 Agent 都按自动权限运行' : '新会话里每个 Agent 都跟随自己的设置'));
+}
 function shellSection() {
   const row = (key, title, note = '') => `<label class="check-row"><input type="checkbox" data-pref="${key}" ${shellPrefs[key] ? 'checked' : ''} ${isDemo ? 'disabled' : ''}><span>${t(title)}${note ? `<small>${t(note)}</small>` : ''}</span></label>`;
   return `<div class="settings-section shell-settings"><label>${t(mac ? '菜单栏与通知' : '托盘与通知')}</label>${row('notify', '需要我决定时弹出系统通知', '审批或提问出现时提醒；点击通知直达对应卡片。主窗口在前台时只更新角标。')}${row('notifyDone', '会话完成或失败时通知')}${mac ? row('closeToTray', '关闭窗口后留在菜单栏', '继续接收提醒；右键菜单栏图标可以退出。') : row('closeToTray', '关闭窗口后留在托盘', '继续接收提醒；右键托盘图标可以退出。')}${row('openAtLogin', mac ? '开机时在菜单栏中启动' : '开机时在托盘中启动')}${row('wakeAssistant', '私人助理交出的会话全部返回时唤醒它', '助理会收取结果并告诉你结论。每次唤醒都会调用一次模型，默认关闭。')}</div>`;
@@ -727,8 +832,8 @@ function rulesSection() {
   return `<div class="settings-section rules-settings"><label>${t('触发规则 · {status}', { status: head })}</label><p>${t('每条规则写「什么时候」和「做什么」：有事等你决定、会话完成或失败时，弹你自己写的通知、不弹通知、交给私人助理处理，或给这个会话的主 Agent 发一句话。例如：')}</p><ul class="rule-examples"><li>${t('Codex 等你批准时，通知里写清是哪个会话、要做什么')}</li><li>${t('外部会话完成时不弹通知')}</li><li>${t('会话失败时，请私人助理查明原因再告诉你')}</li></ul><p>${t('点下面的按钮会生成一份带说明和这几条示例的规则文件（JSON，示例默认不启用），把想要的那条的 enabled 改成 true，保存后立即生效。交给助理和发消息会调用模型，同一条规则对同一个会话默认只触发一次。')}</p>${errors}<code class="home-path">${escape(r.path || 'triggers.json')}</code><button class="secondary" data-action="open-rules" ${isDemo ? 'disabled' : ''}>${r.exists ? t('打开规则文件') : t('创建规则文件')}</button>${log}</div>`;
 }
 function eventsSection() {
-  const mode = t(data.capture === 'auto' ? '其他 Agent 由 Desk 保存' : data.capture ? '全部由 Desk 另存一份' : '未开启保存');
-  return `<div class="settings-section events-settings"><label>${t('过程记录 · {mode}', { mode })}</label><p>${t('Claude Code、Codex、Cursor 的工具调用、命令输出和思考过程，直接读取它们自己的会话记录，不另存；只读这次调用对应的那个会话。其他 Agent 没有可读的本地记录，由 Desk 在运行时保存一份，单个调用超过 64 MB 后不再继续保存。Desk 不会删除任何记录。')}</p><label class="check-row"><input type="checkbox" data-pref="captureAll" ${shellPrefs.captureAll ? 'checked' : ''} ${isDemo || !assistantSettings.ready ? 'disabled' : ''}><span>${t('也为 Claude Code、Codex、Cursor 另存一份')}<small>${t('各家可能按自己的规则清理旧会话；另存后，即使原记录被删也还能看到过程。')}</small></span></label></div>`;
+  const mode = t(data.capture === 'auto' ? '读取各 Agent 自己的记录' : data.capture ? '全部由 Desk 另存一份' : '未开启保存');
+  return `<div class="settings-section events-settings"><label>${t('过程记录 · {mode}', { mode })}</label><p>${t('工具调用、命令输出和思考过程，直接读取各 Agent 自己的会话记录，不另存；只读这次调用对应的那个会话。读不了的（OpenCode 1；用低于 3.14 的 Python 时的 DeepSeek Harness）由 Desk 在运行时保存一份，单个调用超过 64 MB 后不再继续保存。Desk 不会删除任何记录。')}</p><label class="check-row"><input type="checkbox" data-pref="captureAll" ${shellPrefs.captureAll ? 'checked' : ''} ${isDemo || !assistantSettings.ready ? 'disabled' : ''}><span>${t('也为所有 Agent 另存一份')}<small>${t('各家可能按自己的规则清理旧会话；另存后，即使原记录被删也还能看到过程。')}</small></span></label></div>`;
 }
 /** Rule status and the capture mode change while settings is open; refresh them unless the user is in them. */
 const liveSections = new Map();
@@ -828,7 +933,19 @@ document.addEventListener('click', async event => {
     }
     if (button.dataset.action === 'skill-agent') { await agentInstall(button.dataset.host); return; }
     if (button.dataset.pickPermission !== undefined) { await pickPermission(button.dataset.menuId, button.dataset.provider, button.dataset.pickPermission); return; }
+    if (button.dataset.attachPick) {
+      if (isDemo) { showToast(t('这是界面演示，不能添加附件。')); return; }
+      try { const items = await desk.attachPick(); if (items.length) addAttachments(button.dataset.attachPick, items); } catch (failure) { showToast(failure.message); }
+      return;
+    }
+    if (button.dataset.attachRemove !== undefined) {
+      const key = button.dataset.attachKey, list = attachmentsOf(key).filter((_, index) => index !== Number(button.dataset.attachRemove));
+      if (list.length) attachDrafts.set(key, list); else attachDrafts.delete(key);
+      render(true); return;
+    }
+    if (button.dataset.openAttachment) { try { await desk.openPath(button.dataset.openAttachment); } catch (failure) { showToast(failure.message); } return; }
     if (button.dataset.defaultPermission) { await pickPermission('default', button.dataset.provider, button.dataset.defaultPermission); return; }
+    if (button.dataset.bulkPermission) { await bulkPermission(button.dataset.bulkPermission); return; }
     if (button.dataset.language) { await chooseLanguage(button.dataset.language); return; }
     if (button.dataset.zoom !== undefined) { zoomFactor = await desk.zoom(Number(button.dataset.zoom)); renderSettings(); return; }
     if (button.dataset.refreshModels) { await refreshCatalog(button.dataset.refreshModels, button.dataset.ctx); return; }
@@ -922,6 +1039,7 @@ document.addEventListener('click', async event => {
       case 'exit-demo': settings.close(); selected = null; overview = true; composing = false; workerId = null; await desk.reconnect(); break;
       case 'demo': settings.close(); await desk.demo(); break;
       case 'update-open': if (update?.page) await desk.openExternal(update.page); break;
+      case 'update-check': await desk.update('check'); break;
       case 'update-install': {
         const result = await desk.update('install');
         if (result?.busy) showToast(result.busy > 0 ? t('有 {count} 个 Agent 进程正在用 Desk 自带的 Python，现在安装会中断它们。等它们结束再更新，或之后退出 Desk 时自动安装。', { count: result.busy }) : t('无法确认是否有 Agent 正在运行，这次不安装。退出 Desk 时会再检查。'));
@@ -962,7 +1080,9 @@ function receive(frame) {
   if (frame.event === 'connecting') { streamEpoch++; nativeCache.clear(); streamCache.clear(); loaded.clear(); reading.clear(); assistantSubmitting = false; assistantError = ''; }
   if (frame.theme && frame.theme !== themeChoice) { themeChoice = frame.theme; applyTheme(); }
   isDemo = frame.demo; python = frame.python; assistantSettings = frame.assistantSettings || {};
-  sessionDefaults = frame.sessionDefaults || {}; available = frame.available || null; shellPrefs = frame.shell || {}; permissionPrefs = frame.permissions || {}; update = frame.update || null;
+  sessionDefaults = frame.sessionDefaults || {}; available = frame.available || null; shellPrefs = frame.shell || {}; permissionPrefs = frame.permissions || {};
+  const priorUpdate = JSON.stringify(update); update = frame.update || null;
+  if (settings.open && JSON.stringify(update) !== priorUpdate) refreshVersionRow();
   if (frame.zoom) zoomFactor = frame.zoom;
   if (frame.language && frame.language !== language()) { setLanguage(frame.language); applyStaticText(); if (data) view = project(data); }
   skills = frame.skills || (frame.demo ? DEMO_SKILLS : null);
@@ -1150,20 +1270,23 @@ document.addEventListener('submit', async event => {
   }
   if (event.target.id === 'chat-form') {
     event.preventDefault();
-    const target=event.target.dataset.target, key=draftKey(target), text=chatDrafts.get(key)?.trim(), home=data.home;
+    const target=event.target.dataset.target, key=draftKey(target), files=attachmentsOf('chat:'+key), text=chatDrafts.get(key)?.trim() || (files.length ? t('请看附件。') : ''), home=data.home;
     if(!text || chatPending.has(key))return;
     if(isDemo){showToast(t('示例会话不会发送消息；连接本地记录后即可直接对话。'));return;}
     chatPending.add(key);chatErrors.delete(key);render();
     try {
-      const result=await desk.message(target,text,chatModes.get(key)||defaultMode(view.nodes.get(target)));
+      const result=await desk.message(target,text,chatModes.get(key)||defaultMode(view.nodes.get(target)),files.map(item=>item.path));
       if(chatDrafts.get(key)?.trim()===text)chatDrafts.delete(key);
-      if(result.delivery?.state==='needs_attention')chatErrors.set(key,t(result.delivery.error || '消息未送达'));
+      attachDrafts.delete('chat:'+key);
+      if(result.delivery?.state==='needs_attention')chatErrors.set(key,knownError(result.delivery.error_code,t(result.delivery.error || '消息未送达')));
     }catch(failure){chatErrors.set(key,failure.message);}
     finally{chatPending.delete(key);if(data.home===home)render(true);}
     return;
   }
   if (event.target.id === 'session-form') {
     event.preventDefault();
+    const files = attachmentsOf('session');
+    if (!sessionDraft.prompt?.trim() && files.length) sessionDraft = { ...sessionDraft, prompt: t('请看附件。') };
     if (!sessionDraft.prompt?.trim() || sessionSubmitting || pendingSession) return;
     if (isDemo) { showToast(t('这是界面演示，不会启动真实 Agent。连接本地记录目录后即可新建会话。')); return; }
     const value = { prompt: sessionDraft.prompt, provider: draftValue('provider') || 'claude-code', model: draftValue('model').trim(), effort: draftValue('effort').trim(), workspace: draftValue('workspace'), skill: skills?.hosts?.[draftValue('provider') || 'claude-code']?.state === 'ready' ? draftSkill(draftValue('provider') || 'claude-code') : undefined, permission: sessionDraft.permission || undefined };
@@ -1171,9 +1294,9 @@ document.addEventListener('submit', async event => {
     const home = data.home;
     sessionSubmitting = true; sessionError = ''; render();
     try {
-      const result = await desk.sessionStart(value);
+      const result = await desk.sessionStart({ ...value, attachments: files.map(item => item.path) });
       if (data.home !== home) return;
-      sessionDraft = { prompt: '' }; pendingSession = result.agent_id; openPending();
+      sessionDraft = { prompt: '' }; attachDrafts.delete('session'); pendingSession = result.agent_id; openPending();
     } catch (failure) { if (data.home === home) sessionError = failure.message; }
     finally { sessionSubmitting = false; render(); }
     return;
@@ -1186,17 +1309,44 @@ document.addEventListener('submit', async event => {
     catch (failure) { showToast(failure.message); }
     return;
   }
+  const files = attachmentsOf('assistant:' + data.home);
+  if (!assistantDraft.trim() && files.length) assistantDraft = t('请看附件。');
   if (!assistantDraft.trim() || assistantSubmitting || view.assistant?.latest.state === 'running') return;
   if (isDemo) { showToast(t('这是界面演示。连接本地记录目录后，可与真实私人助理对话。')); return; }
   const text = assistantDraft, home = data.home, epoch = streamEpoch;
   assistantSubmitting = true; assistantError = ''; render();
   try {
-    await desk.assistantSend(text);
+    await desk.assistantSend(text, files.map(item => item.path));
+    attachDrafts.delete('assistant:' + home);
     if (assistantDrafts.get(home) === text) assistantDrafts.delete(home);
     if (data.home === home && epoch === streamEpoch && assistantDraft === text) assistantDraft = '';
   }
   catch (failure) { if (data.home === home && epoch === streamEpoch) assistantError = failure.message; }
   finally { if (data.home === home && epoch === streamEpoch) { assistantSubmitting = false; render(); } }
+});
+// Attachments by paste (an image on the clipboard, or files copied in the file manager) and by drop.
+document.addEventListener('paste', event => {
+  const form = event.target.closest?.('#chat-form,#session-form,#assistant-form');
+  const files = [...(event.clipboardData?.files || [])];
+  if (!form || !files.length) return;
+  event.preventDefault();
+  attachFiles(composerKey(form), files);
+});
+document.addEventListener('dragover', event => {
+  if (![...(event.dataTransfer?.types || [])].includes('Files')) return;
+  event.preventDefault();
+  const card = event.target.closest?.('#chat-form,#session-form .composer-card,#assistant-form');
+  event.dataTransfer.dropEffect = card ? 'copy' : 'none';
+  document.querySelectorAll('.drop-target').forEach(element => element !== card && element.classList.remove('drop-target'));
+  card?.classList.add('drop-target');
+});
+document.addEventListener('dragleave', event => { if (!event.relatedTarget) document.querySelectorAll('.drop-target').forEach(element => element.classList.remove('drop-target')); });
+document.addEventListener('drop', event => {
+  if (![...(event.dataTransfer?.types || [])].includes('Files')) return;
+  event.preventDefault();
+  document.querySelectorAll('.drop-target').forEach(element => element.classList.remove('drop-target'));
+  const form = event.target.closest?.('#chat-form,#session-form,#assistant-form');
+  if (form) attachFiles(composerKey(form), [...event.dataTransfer.files]);
 });
 function rememberQuestion(event) {
   const form = event.target.closest?.('.native-question-form'); if (!form) return;

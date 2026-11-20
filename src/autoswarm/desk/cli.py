@@ -23,6 +23,7 @@ def register(commands) -> None:
     item.add_argument("prompt", nargs="?")
     item.add_argument("--input")
     item.add_argument("--mode", choices=["after_turn", "immediate"], default="after_turn")
+    item.add_argument("--attach", action="append", default=[], metavar="PATH", help="An image or file to attach; it is saved with the records (repeat for more)")
     item = desk_commands.add_parser("assistant", help="Start or continue the private assistant in the background")
     item.add_argument("prompt", nargs="?")
     item.add_argument("--input", help="UTF-8 user message file; '-' reads stdin")
@@ -31,6 +32,7 @@ def register(commands) -> None:
     item.add_argument("--model", help="Native model ID; omitted preserves native defaults")
     item.add_argument("--effort", help="Native reasoning effort; omitted preserves native defaults")
     item.add_argument("--permissions", type=json.loads, help="Desk's default permission mode per agent, JSON {agent: mode}; it applies to this conversation and the workers it starts")
+    item.add_argument("--attach", action="append", default=[], metavar="PATH", help="An image or file to attach; it is saved with the records (repeat for more)")
     item = desk_commands.add_parser("start", help="Start a main conversation directly under the Desk identity")
     item.add_argument("prompt", nargs="?")
     item.add_argument("--input", help="UTF-8 user message file; '-' reads stdin")
@@ -41,6 +43,7 @@ def register(commands) -> None:
     item.add_argument("--skill", choices=["on", "off"], help="on mentions the installed autoswarm Skill in the first turn so the agent loads it; off hides it (Claude Code, Codex)")
     item.add_argument("--permissions", type=json.loads, help="Desk's default permission mode per agent, JSON {agent: mode}; it applies to this conversation and the workers it starts")
     item.add_argument("--permission", help="This conversation's own mode, overriding its agent's default")
+    item.add_argument("--attach", action="append", default=[], metavar="PATH", help="An image or file to attach; it is saved with the records (repeat for more)")
     item = desk_commands.add_parser("permission", help="Change a Desk conversation's permission mode from its next turn")
     item.add_argument("target", help="agent_id")
     item.add_argument("mode", help="One of the agent's own modes, e.g. acceptEdits, ask, allowlist")
@@ -57,16 +60,16 @@ def dispatch(args, records, prompt_from):
     if args.desk_command == "transcript":
         return control.transcript(records, args.controller, args.target, args.limit)
     if args.desk_command == "message":
-        return control.message(records, args.controller, args.target, prompt_from(args), mode=args.mode)
+        return control.message(records, args.controller, args.target, prompt_from(args), mode=args.mode, attachments=args.attach)
     if args.desk_command == "flush":
         return control.flush(records, args.controller)
     if args.desk_command == "start":
         return control.start(records, args.controller, prompt_from(args), provider=args.agent,
                              workspace=args.cwd, model=args.model, effort=args.effort, skill=None if args.skill is None else args.skill == "on",
-                             permission=args.permission, permissions=args.permissions)
+                             permission=args.permission, permissions=args.permissions, attachments=args.attach)
     if args.desk_command == "permission":
         return control.permission(records, args.controller, args.target, args.mode)
     if args.desk_command == "cancel":
         return control.cancel(records, args.controller, args.target)
     return control.assistant(records, args.controller, prompt_from(args), provider=args.agent,
-                             workspace=args.cwd, model=args.model, effort=args.effort, permissions=args.permissions)
+                             workspace=args.cwd, model=args.model, effort=args.effort, permissions=args.permissions, attachments=args.attach)

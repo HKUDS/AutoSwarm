@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -59,6 +60,43 @@ class ProviderLaunchTests(unittest.TestCase):
                 # A command the user configured is used as given, never replaced by a guess.
                 with self.assertRaises(SwarmError):
                     command_for('grok', {'providers': {'grok': {'command': ['grok']}}})
+
+    def test_agents_kept_in_version_folders_start_their_current_version_after_an_update(self):
+        from autoswarm.providers import command_for
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary).resolve()
+            local, roaming = home / 'AppData/Local', home / 'AppData/Roaming'
+            if os.name == 'nt':
+                official, bundled = local / 'cursor-agent/versions', roaming / 'Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli/.local/share/cursor-agent/versions'
+                entry = lambda folder: [folder / 'node.exe', folder / 'index.js']
+            else:
+                # The Cursor app keeps its data in Application Support on macOS, in ~/.config on Linux.
+                app_data = home / ('Library/Application Support' if sys.platform == 'darwin' else '.config')
+                official, bundled = home / '.local/share/cursor-agent/versions', app_data / 'Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli/.local/share/cursor-agent/versions'
+                entry = lambda folder: [folder / 'cursor-agent']
+
+            def version(root, name, complete=True):
+                (root / name).mkdir(parents=True, exist_ok=True)
+                for path in entry(root / name)[:None if complete else -1]:
+                    path.write_text('')
+                return [str(path) for path in entry(root / name)]
+            version(official, '2026.9.30-aaaa')
+            current = version(bundled, '2026.10.1-bbbb')
+            version(bundled, '2026.11.11-cccc', complete=False)  # Still being unpacked by the updater
+            with patch('autoswarm.providers.shutil.which', return_value=None), patch('autoswarm.providers.Path.home', return_value=home), \
+                    patch.dict(os.environ, {'LOCALAPPDATA': str(local), 'APPDATA': str(roaming), 'XDG_CONFIG_HOME': str(home / '.config')}):
+                self.assertEqual(command_for('cursor', {}), current, 'The newest complete version, by its date')
+                # The update finishes and removes the old folder: the next start uses the new one.
+                updated = version(bundled, '2026.11.11-cccc')
+                shutil.rmtree(bundled / '2026.10.1-bbbb')
+                self.assertEqual(command_for('cursor', {}), updated)
+                if os.name == 'nt':
+                    for name, age in (('old', 100), ('new', 200)):
+                        codex = local / 'OpenAI/Codex/bin' / name / 'codex.exe'
+                        codex.parent.mkdir(parents=True)
+                        codex.write_text('')
+                        os.utime(codex, (age, age))
+                    self.assertEqual(command_for('codex', {}), [str(local / 'OpenAI/Codex/bin/new/codex.exe')])
 
     def test_new_native_launchers_preserve_default_permissions(self):
         for provider, expected in [('hermes',['acp']),('dsh',['--profile','acp']),('grok',['agent','--no-leader','stdio']),('kimi',['acp'])]:
@@ -218,7 +256,9 @@ class NanobotBridgeTests(unittest.TestCase):
         self.assertEqual(len(list((self.native/'native-sessions').glob('*.json'))),2)
 
     def test_desk_sees_what_nanobot_tools_run(self):
-        write_json(self.records.home/'config.json',{**read_json(self.records.home/'config.json'),'events':{'capture':'auto'}})
+        # Desk reads a finished call from Nanobot's own records; the bridge's events are what it shows while the call runs
+        # (live.jsonl) and what a kept copy holds, so keep one here.
+        write_json(self.records.home/'config.json',{**read_json(self.records.home/'config.json'),'events':{'capture':True}})
         call=self.start('remember:x')
         self.assertEqual(self.final(call)['outcome'],'completed')
         from autoswarm.desk.streams import page

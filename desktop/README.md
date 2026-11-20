@@ -32,7 +32,8 @@ From source, Desk tries `AUTOSWARM_DESK_PYTHON`, `python`, `py -3` and uv's Pyth
 ## Features
 
 - **Private assistant**: change its agent at any time. Each agent has its own assistant conversation, which continues when you switch back; an agent you switch to is given the titles and session IDs of the earlier conversations and reads their latest exchanges when needed.
-- **New conversations**: choose the main agent, the working directory, the model and reasoning effort (lists the agents report themselves: the menu shows the last list at once and reads it again in the background; it can also be refreshed), the permission level (Claude Code, Codex, Cursor, named as each agent names its own) and the AutoSwarm switch (an agent gets the Skill installed the first time it is chosen).
+- **New conversations**: choose the main agent, the working directory, the model and reasoning effort (lists the agents report themselves: the menu shows the last list at once and reads it again in the background; it can also be refreshed), the permission level (Follow, the agent's own settings, by default, or one of its own modes, named as the agent names them; set for every agent with permission switches: Claude Code, Codex, Cursor, CodeBuddy, Kimi, Copilot, Hermes, DSH, Grok, OpenCode) and the AutoSwarm switch (an agent gets the Skill installed the first time it is chosen).
+- **Images and files**: paste, drop or attach them in any message box. They are saved with the records; agents that accept images see them directly, the others are told where they are saved. A main agent hands one to a worker by naming its path.
 - **Conversations and workers**: the sidebar lists main conversations; workers appear in their conversation's worker panel. While an agent runs, its text is shown and tool calls fold into one row; when it finishes, only the final reply stays. Links in replies (web pages, Markdown, HTML, PDF, files) open in tabs in the side panel.
 - **Approvals and questions**: cards show the command to run or the file to change. A worker's requests go first to the agent that started it, which asks you when unsure; Desk never approves for you.
 - **Direct messages**: write to a main conversation or any worker, also while it runs, or stop a whole conversation.
@@ -46,12 +47,12 @@ Claude Code, Codex, Cursor, OpenCode, Copilot CLI, Muse, CodeBuddy, Hermes, Nano
 
 - Model lists are asked of each agent, without a model call: an official login lists that account's models, an agent configured with your own API lists the configured models. Muse has no list; type the model instead.
 - Agents slow to list their models the first time (CodeBuddy takes about a minute) are cached afterwards.
-- Agents without Desk permission levels keep their own settings; whether they ask before running commands is up to each agent.
+- Every agent starts by following its own settings; Settings → Agent permissions can choose one of its own modes per agent, or set every agent to its automatic mode at once (its own automatic review; Cursor, DSH, Hermes, Copilot, Grok and OpenCode have none in Desk and stop asking). Nanobot and Muse keep their own settings.
 - When Codex uses its Windows sandbox, the command that starts workers must run outside the sandbox, which Codex asks you about through its own escalation.
 
 ## Data and security
 
-- Desk never copies agents' full histories: the process of Claude Code, Codex and Cursor is read from their own session records; for other agents AutoSwarm keeps it while they run in `calls/<id>/events.jsonl` (up to 64 MB per call).
+- Desk never copies agents' full histories: each call's process is read from that agent's own session records. Only calls Desk cannot read (OpenCode 1; DeepSeek Harness with a Python below 3.14, which lacks zstd) are kept by AutoSwarm while they run in `calls/<id>/events.jsonl` (up to 64 MB per call).
 - Preferences and `triggers.json` live in Desk's data folder (its path is shown under Trigger rules in Settings); only AutoSwarm writes the record directory.
 - The interface has no Node access and can call only a fixed set of operations; replies are sanitized before display; pages in the side panel get no permissions; Desk never approves a request automatically.
 - On Windows, Desk adds the current user environment from the registry when it starts agents, so agents installed or API keys set after Desk started work without signing out.

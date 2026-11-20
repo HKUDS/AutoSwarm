@@ -76,6 +76,8 @@ class ACP:
         if result.get("protocolVersion") != 1:
             raise SwarmError("native_protocol_error", "Unsupported ACP protocol version")
         self.n.progress("handshake", native_capabilities=result.get("agentCapabilities", {}))
+        # Images go in a prompt only to an agent that advertises them.
+        self.accepts_images = bool(((result.get("agentCapabilities") or {}).get("promptCapabilities") or {}).get("image"))
         session = self.n.task.get("native_session_id")
         params = {"cwd": self.n.task["workspace"], "mcpServers": []}
         method = "session/new"
@@ -102,29 +104,40 @@ class ACP:
         configure_acp(self.n, result, self.configured)
 
     def configured(self):
-        # Desk's permission mode selects a native session mode (Cursor Plan / Agent).
+        # Desk's permission mode selects a native session mode (Cursor Plan / Agent, Kimi YOLO, ...).
+        # Copilot names its modes by URL (…/session-modes#plan).
         mode = self.n.task.get("native_options", {}).get("mode")
-        if mode and self.modes.get("currentModeId") != mode:
-            if not any(item.get("id") == mode for item in self.modes.get("availableModes", [])):
-                raise SwarmError("unsupported_permission", f"{self.n.task['provider']} did not offer the {mode!r} session mode")
-            self.modes = {**self.modes, "currentModeId": mode}
-            self.n.request("session/set_mode", {"sessionId": self.n.output.session_id, "modeId": mode}, lambda _: self.configured())
-            return
+        if mode:
+            ids = [item.get("id") for item in self.modes.get("availableModes", [])]
+            native = next((value for value in ids if value == mode or str(value).endswith("#" + mode)), None)
+            if native is None:
+                # An update may rename or drop a mode. The agent keeps working in its own current
+                # mode (asking as it normally does) and the call records which choice was not applied.
+                self.n.progress(getattr(self.n, "phase", "session"), permission_unavailable=mode)
+            elif self.modes.get("currentModeId") != native:
+                self.modes = {**self.modes, "currentModeId": native}
+                self.n.request("session/set_mode", {"sessionId": self.n.output.session_id, "modeId": native}, lambda _: self.configured())
+                return
         self.n.stage("execution")
         self.n.continue_turn(self.n.initial_prompt())
 
-    def prompt(self, text):
-        self.prompt_text = text
+    def prompt(self, text, images=()):
+        """Send a turn; returns whether its images went along natively."""
+        from .attachments import data
+        self.prompt_text = (text, images)
         self.after_tool = False
         tap = getattr(self.n, "tap", None)
         if tap is not None:
             tap.mark("prompt")  # session/load replayed the old transcript before this point.
-        self.n.request("session/prompt", {"sessionId": self.n.output.session_id, "prompt": [{"type": "text", "text": text}]}, self.completed)
+        native = bool(images) and getattr(self, "accepts_images", False)
+        pictures = [{"type": "image", "mimeType": item["mime"], "data": data(item)} for item in images] if native else []
+        self.n.request("session/prompt", {"sessionId": self.n.output.session_id, "prompt": [{"type": "text", "text": text}, *pictures]}, self.completed)
+        return native
 
     def poll(self):
         if self.retry_prompt is not None:
-            text, self.retry_prompt = self.retry_prompt, None
-            self.prompt(text)
+            (text, images), self.retry_prompt = self.retry_prompt, None
+            self.prompt(text, images)
 
     def interrupt(self):
         self.interrupted_for_message = True

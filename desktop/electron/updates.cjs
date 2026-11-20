@@ -104,9 +104,9 @@ function createUpdater({ app, net, onChange = () => {}, log = { info() {}, warn:
     log.info(`Checked ${source}: ${release ? 'found ' + release.version : 'nothing newer than ' + app.getVersion()}`);
     // Checked each time: right after an update the installer may still be finishing.
     const copy = !linkOnly && isInstalled();
-    if (!release) return set({ kind: 'current', installed: copy, checked_at: Date.now() });
+    if (!release) return set({ kind: 'current', installed: copy, checked_at: Date.now(), error: '' });
     if (state.kind === 'downloading' && state.version === release.version) return;
-    if (!copy || !release.feed) return set({ kind: 'available', installed: copy, version: release.version, page: release.page });
+    if (!copy || !release.feed) return set({ kind: 'available', installed: copy, version: release.version, page: release.page, checked_at: Date.now(), error: '' });
     set({ kind: 'downloading', installed: copy, version: release.version, page: release.page, error: '' });
     const engine = updater();
     // As electron-updater's own GitHub provider: one range per request, so a differential update
@@ -116,12 +116,14 @@ function createUpdater({ app, net, onChange = () => {}, log = { info() {}, warn:
     result?.downloadPromise?.catch(() => { /* Reported by the error event. */ });
     if (!result?.isUpdateAvailable) set({ kind: 'current', checked_at: Date.now() });
   }
+  // state.checking while a check runs; a failed check keeps Desk as it was and records why (error, checked_at).
   function check() {
     if (!enabled || installing || state.kind === 'ready') return Promise.resolve(state);
+    if (!checking) set({ checking: true });
     checking ||= look().catch(error => {
       log.warn('Update check failed:', error.message);
-      if (state.kind === 'downloading') set({ kind: 'available', error: error.message });
-    }).finally(() => { checking = null; });
+      set(state.kind === 'downloading' ? { kind: 'available', error: error.message } : { error: error.message, checked_at: Date.now() });
+    }).finally(() => { checking = null; set({ checking: false }); });
     return checking.then(() => state);
   }
   /** How many processes run from Desk's folder (-1: could not tell). */

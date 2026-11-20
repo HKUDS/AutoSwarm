@@ -68,6 +68,14 @@ async function inside(page, label) {
     assert.equal(stored().permissions.codex, 'full-access');
     assert.equal(await page.locator('[data-default-permission="full-access"]').getAttribute('aria-checked'), 'true');
     assert.match(await page.locator('.permission-row', { hasText: 'Codex' }).locator('.permission-note').innerText(), /No sandbox/);
+    // Every agent at once: its own automatic mode (or no questions without one), then its own settings again.
+    await page.locator('[data-bulk-permission="auto"]').click();
+    assert.deepEqual([stored().permissions.codex, stored().permissions.cursor, stored().permissions.kimi, stored().permissions.dsh], ['approve-for-me', 'run-everything', 'auto', 'danger-full-access']);
+    assert.equal(await page.locator('[data-default-permission="run-everything"][data-provider="cursor"]').getAttribute('aria-checked'), 'true');
+    await page.screenshot({ path: path.join(output, 'settings-permissions-auto.png') });
+    await page.locator('[data-bulk-permission="follow"]').click();
+    assert.ok(Object.values(stored().permissions).every(mode => mode === 'follow'), JSON.stringify(stored().permissions));
+    assert.match(await page.locator('.permission-row', { hasText: 'Codex' }).locator('.permission-note').innerText(), /Codex's own settings/);
 
     // 4. Language: Desk's text follows at once and is stored.
     await page.locator('[data-language="zh"]').click();

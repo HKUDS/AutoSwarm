@@ -113,22 +113,22 @@ fs.mkdirSync(output,{recursive:true});
       await page.locator('#session-model-chip').click();
       assert.match(await page.locator('.model-menu .effort-row').innerText(),/Off[\s\S]*X-High/,"The agent's own names for its levels");
       await page.keyboard.press('Escape');
-      assert.equal(await page.locator('#session-form .permission-chip').count(),0,'Agents without Desk permission modes keep their own settings');
+      assert.equal(await page.locator('#session-form .permission-chip span').innerText(),'跟随设置','Every agent starts by following its own settings');
       await page.locator('#session-agent').click();await page.locator('[data-pick-agent="cursor"]').click();
       // Permission modes: each agent's own names; the conversation's choice resets with the agent.
       const chip=()=>page.locator('#session-form .permission-chip span').innerText();
-      assert.equal(await chip(),'Allowlist','Cursor starts in its Desk default');
+      assert.equal(await chip(),'跟随设置','Cursor starts by following its own settings');
       await page.locator('#session-agent').click();await page.locator('[data-pick-agent="codex"]').click();
-      assert.equal(await chip(),'Ask for approval');
+      assert.equal(await chip(),'跟随设置');
       await page.locator('#session-form .permission-chip').click();
-      assert.deepEqual(await page.locator('.permission-menu .menu-text strong').allInnerTexts(),['Read only','Ask for approval','Approve for me','Full access']);
+      assert.deepEqual(await page.locator('.permission-menu .menu-text strong').allInnerTexts(),['跟随设置','Read only','Ask for approval','Approve for me','Full access']);
       const menu=await page.locator('.permission-menu').boundingBox();
       assert.ok(menu.y>=0 && menu.y+menu.height<=height+1 && menu.x>=0 && menu.x+menu.width<=width+1,`Permission menu stays in the window: ${JSON.stringify(menu)}`);
       if(width===1440 && scheme==='light')await page.screenshot({path:path.join(output,'permission-menu.png')});
       await page.locator('[data-pick-permission="full-access"]').click();
       assert.equal(await chip(),'Full access','This conversation only');
       await page.locator('#session-agent').click();await page.locator('[data-pick-agent="claude-code"]').click();
-      assert.equal(await chip(),'Accept edits','A new agent starts from its own default');
+      assert.equal(await chip(),'跟随设置','A new agent starts from its own default');
       await page.locator('aside [data-session="call_01"]').click();
       assert.equal(await page.locator('.header-chips .permission-chip span').innerText(),'Accept edits','The session header shows its mode');
       // Running turn, as Codex shows it: interim text open, tools folded; the finished turn folded to its reply.

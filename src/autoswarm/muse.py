@@ -63,8 +63,10 @@ class Muse:
         if result.get("status") not in {None, "accepted"}:
             raise SwarmError("native_selection_rejected", "Muse did not accept the requested model/effort: " + str(result))
 
-    def prompt(self, text):
+    def prompt(self, text, images=()):
+        """Muse takes text input here; attached images reach it as the paths in the text."""
         self.n.request("turn/start", {"commandId": command_id(), "sessionId": self.n.output.session_id, "input": [{"type": "text", "text": text}]}, lambda value: setattr(self.n, "turn_id", value.get("turnId")))
+        return False
 
     def approval(self, params):
         native_id = params["approvalId"]

@@ -3,6 +3,7 @@ const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const crypto = require('node:crypto');
 const readline = require('node:readline');
 const { pathToFileURL, fileURLToPath } = require('node:url');
 
@@ -20,7 +21,7 @@ if (process.platform === 'darwin') app.on('activate', () => desktop?.showMain())
 let win, desktop, watcher, probe, generation = 0, frame, preferences = {}, demo = process.argv.includes('--demo');
 // Started at login: tray only. macOS starts login items without arguments, so it says so itself (see whenReady).
 let background = process.argv.includes('--background');
-// captureAll: also keep a copy of Claude Code / Codex / Cursor process events (they are read from the agents' own records).
+// captureAll: also keep a copy of every agent's process events (Desk reads them from the agents' own records).
 const i18n = require('./i18n.cjs');
 const userEnv = require('./user-env.cjs');
 const updates = require('./updates.cjs');
@@ -226,14 +227,37 @@ function runRule(action, status) {
   }
 }
 
-async function sendAssistant(text) {
+// Attachments: files the user picks, drops or pastes go to AutoSwarm by path (`--attach`); AutoSwarm copies
+// them into the records. Pasted images are first written to Desk's own folder. Limits match AutoSwarm's.
+const ATTACH_MAX = 10, IMAGE_MAX = 10 * 1024 * 1024, FILE_MAX = 50 * 1024 * 1024;
+const IMAGE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp' };
+const pastedFolder = () => path.join(app.getPath('userData'), 'pasted');
+function describeAttachment(file) {
+  if (typeof file !== 'string' || !path.isAbsolute(file)) throw Error(i18n.t('无法添加这个文件'));
+  let stat;
+  try { stat = fs.statSync(file); } catch { throw Error(i18n.t('找不到文件：{name}', { name: path.basename(file) })); }
+  if (!stat.isFile()) throw Error(i18n.t('只能添加文件：{name}', { name: path.basename(file) }));
+  const mime = IMAGE_TYPES[path.extname(file).toLowerCase()], kind = mime ? 'image' : 'file';
+  if (stat.size > (kind === 'image' ? IMAGE_MAX : FILE_MAX)) throw Error(i18n.t('{name} 太大了（图片最大 10 MB，文件最大 50 MB）', { name: path.basename(file) }));
+  return { path: file, name: path.basename(file), size: stat.size, kind, ...(mime ? { preview: `data:${mime};base64,${fs.readFileSync(file).toString('base64')}` } : {}) };
+}
+function attachArgs(list = []) {
+  if (!Array.isArray(list) || list.length > ATTACH_MAX) throw Error(i18n.t('一次最多添加 {count} 个附件', { count: ATTACH_MAX }));
+  return list.flatMap(file => { describeAttachment(file); return ['--attach', file]; });
+}
+/** Pasted images older than a day were sent (AutoSwarm keeps its copy) or abandoned. */
+function prunePasted() {
+  try { for (const name of fs.readdirSync(pastedFolder())) { const entry = path.join(pastedFolder(), name); if (Date.now() - fs.statSync(entry).mtimeMs > 86400000) fs.rmSync(entry, { recursive: true, force: true }); } }
+  catch { /* No pasted images yet. */ }
+}
+async function sendAssistant(text, attachments = []) {
   if (demo || !controlHome || controlError) throw Error(controlError || i18n.t('请先连接本地记录目录'));
   if (sending) throw Error(i18n.t('正在发送，请稍候'));
   const home = controlHome, settings = settingsFor(home);
   if (!settings.workspace) throw Error(i18n.t('请先选择私人助理的工作目录'));
   sending = true; refresh();
   try {
-    const result = await cli(['desk','assistant','--agent',settings.provider,'--cwd',settings.workspace,'--input','-', ...(settings.model ? ['--model',settings.model] : []), ...(settings.effort ? ['--effort',settings.effort] : []), ...permissionArgs()], text, home, settings.binding.controller_id);
+    const result = await cli(['desk','assistant','--agent',settings.provider,'--cwd',settings.workspace,'--input','-', ...attachArgs(attachments), ...(settings.model ? ['--model',settings.model] : []), ...(settings.effort ? ['--effort',settings.effort] : []), ...permissionArgs()], text, home, settings.binding.controller_id);
     settings.binding = result.desk || await cli(['desk','status'],'',home,settings.binding.controller_id);
     save(); return result;
   } finally { sending = false; refresh(); }
@@ -289,7 +313,7 @@ async function initializeControl(home, token) {
       const call = Object.values(lastSnapshot?.data?.calls || {}).find(c => c.task.workspace && fs.existsSync(c.task.workspace));
       settings.workspace = call?.task.workspace || (app.isPackaged ? '' : path.resolve(__dirname, '../..'));
     }
-    // Claude Code, Codex and Cursor are read from their own session records; only other agents need a copy.
+    // Calls are read from the agents' own session records; only those Desk cannot read get a copy.
     await cli(['config', '--capture-events', preferences.captureAll ? 'on' : 'auto'], '', home);
     if (token !== generation) return;
     controlHome = home; controlError = ''; save(); refresh();
@@ -426,6 +450,7 @@ async function previewTarget(target, base) {
   return value;
 }
 app.whenReady().then(async () => {
+  prunePasted();
   // macOS always shows an application menu; Electron's default one has developer items (reload, DevTools).
   // This one keeps the standard app, edit (copy and paste in text fields) and window commands.
   if (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin) background = true;
@@ -577,9 +602,24 @@ app.whenReady().then(async () => {
     settings.providerChosen = true;
     save(); refresh();
   });
-  handle('desk:assistant-send', async text => {
+  handle('desk:assistant-send', async (text, attachments = []) => {
     if (typeof text !== 'string' || !text.trim()) throw Error(i18n.t('请输入要交给私人助理的事项'));
-    return sendAssistant(text);
+    return sendAssistant(text, attachments);
+  });
+  handle('desk:attach-pick', async () => {
+    const result = await dialog.showOpenDialog(win, { title: i18n.t('添加图片或文件'), properties: ['openFile', 'multiSelections'] });
+    return result.canceled ? [] : result.filePaths.slice(0, ATTACH_MAX).map(describeAttachment);
+  });
+  handle('desk:attach-describe', paths => (Array.isArray(paths) ? paths : []).slice(0, ATTACH_MAX).map(describeAttachment));
+  handle('desk:attach-paste', (data, mime) => {
+    const extension = Object.entries(IMAGE_TYPES).find(([, type]) => type === mime)?.[0];
+    if (!extension || typeof data !== 'string' || data.length > IMAGE_MAX * 1.4) throw Error(i18n.t('只能粘贴 10 MB 以内的 PNG、JPEG、GIF 或 WebP 图片'));
+    // A folder per paste keeps the shown name short: image-<time>.png.
+    const folder = path.join(pastedFolder(), crypto.randomUUID()), time = new Date().toTimeString().slice(0, 8).replace(/:/g, '');
+    fs.mkdirSync(folder, { recursive: true });
+    const file = path.join(folder, `image-${time}${extension === '.jpeg' ? '.jpg' : extension}`);
+    fs.writeFileSync(file, Buffer.from(data, 'base64'));
+    return describeAttachment(file);
   });
   handle('desk:preferences', value => {
     if (!value || typeof value !== 'object') throw Error(i18n.t('设置值无效'));
@@ -662,7 +702,7 @@ app.whenReady().then(async () => {
     const home = controlHome, settings = settingsFor(home);
     const model = value.model.trim(), effort = value.effort.trim();
     settings.session = { provider: value.provider, model, effort, workspace: value.workspace }; save();
-    return cli(['desk','start','--agent',value.provider,'--cwd',value.workspace,'--input','-', ...(model ? ['--model',model] : []), ...(effort ? ['--effort',effort] : []), ...(typeof value.skill === 'boolean' ? ['--skill', value.skill ? 'on' : 'off'] : []), ...permissionArgs(), ...(value.permission ? ['--permission', value.permission] : [])], value.prompt, home, settings.binding.controller_id);
+    return cli(['desk','start','--agent',value.provider,'--cwd',value.workspace,'--input','-', ...attachArgs(value.attachments || []), ...(model ? ['--model',model] : []), ...(effort ? ['--effort',effort] : []), ...(typeof value.skill === 'boolean' ? ['--skill', value.skill ? 'on' : 'off'] : []), ...permissionArgs(), ...(value.permission ? ['--permission', value.permission] : [])], value.prompt, home, settings.binding.controller_id);
   });
   handle('desk:skills', async () => {
     if (demo || !controlHome) throw Error(i18n.t('请先连接本地记录目录'));
@@ -690,9 +730,11 @@ app.whenReady().then(async () => {
     if (typeof target !== 'string' || !/^(?:call|main)_[a-f0-9]{32}$/.test(target) || !frame?.data?.agents?.[target]) throw Error(i18n.t('找不到要停止的会话'));
     return cli(['desk','cancel',target],'',controlHome,settingsFor(controlHome).binding.controller_id);
   });
+  // One agent's default, or a whole table at once ({agent: mode}, e.g. every agent's automatic mode).
   handle('desk:permissions', (provider, mode) => {
-    if (!PROVIDERS.includes(provider) || typeof mode !== 'string' || !/^[\w-]{1,40}$/.test(mode)) throw Error(i18n.t('权限模式无效'));
-    preferences.permissions = { ...(preferences.permissions || {}), [provider]: mode }; save(); refresh();
+    const table = provider && typeof provider === 'object' && !Array.isArray(provider) ? provider : { [provider]: mode };
+    for (const [id, value] of Object.entries(table)) if (!PROVIDERS.includes(id) || typeof value !== 'string' || !/^[\w-]{1,40}$/.test(value)) throw Error(i18n.t('权限模式无效'));
+    preferences.permissions = { ...(preferences.permissions || {}), ...table }; save(); refresh();
   });
   // One conversation's own mode, from its next turn.
   handle('desk:permission', async (agentId, mode) => {
@@ -712,10 +754,10 @@ app.whenReady().then(async () => {
     if (!entry?.pending || entry.request.kind !== 'interaction_required' || !response || typeof response !== 'object') throw Error(i18n.t('此问题已结束或回答格式无效'));
     return cli(['answer',call,request,'--by','user','--input','-'],JSON.stringify(response));
   });
-  handle('desk:message', async (target, text, mode) => {
+  handle('desk:message', async (target, text, mode, attachments = []) => {
     if (demo || !controlHome || !runtime) throw Error(i18n.t('请先连接本地记录目录'));
     if (typeof target !== 'string' || !frame?.data?.agents?.[target] || typeof text !== 'string' || !text.trim() || text.length > 200000 || !['after_turn','immediate'].includes(mode)) throw Error(i18n.t('消息目标或内容无效'));
-    return cli(['desk','message',target,'--mode',mode,'--input','-'],text,controlHome,settingsFor(controlHome).binding.controller_id);
+    return cli(['desk','message',target,'--mode',mode,'--input','-',...attachArgs(attachments)],text,controlHome,settingsFor(controlHome).binding.controller_id);
   });
   handle('desk:reveal', id => {
     const record = frame?.data?.calls?.[id];

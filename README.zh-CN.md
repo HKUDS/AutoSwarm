@@ -114,7 +114,7 @@ If you find this work helpful to your research, please kindly consider citing ou
    ```
 
    其他宿主标识：`claude-code`、`opencode`、`cursor`、`copilot`、`muse`、`codebuddy`、`hermes`、`nanobot`、`dsh`、`grok`、`kimi`。没有 uv 时，在专用 Python 3.10+ 环境执行 `python -m pip install .`，保留该解释器，不复用归档 v1 环境。
-3. 读取 setup 返回路径下的 `SKILL.md`，其中包含完整启动参数与使用方法。App 找不到 `autoswarm` 时使用该启动器。在实际宿主环境运行 `agents`；已有 CLI 不在 PATH 时，将其绝对 argv 合并到返回的 AutoSwarm home/config.json 的 `providers.<provider>.command`，保留无关配置。
+3. 读取 setup 返回路径下的 `SKILL.md`，其中包含完整启动参数与使用方法。App 找不到 `autoswarm` 时使用该启动器。在实际宿主环境运行 `agents`；已有 CLI 不在 PATH 时，将其绝对 argv 合并到返回的 AutoSwarm home/config.json 的 `providers.<provider>.command`，用安装程序自己的稳定入口（shim 或固定的可执行文件），不要指向某个版本的文件夹，Agent 自己更新时会删除旧版本；保留无关配置。
 4. 在实际项目中验证所需 agent，按实际情况替换示例产品与目录：
 
    ```bash

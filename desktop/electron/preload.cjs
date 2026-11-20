@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('desk', {
   platform: process.platform,
   initial: () => ipcRenderer.invoke('desk:initial'),
@@ -9,8 +9,13 @@ contextBridge.exposeInMainWorld('desk', {
   reveal: id => ipcRenderer.invoke('desk:reveal', id),
   native: agentId => ipcRenderer.invoke('desk:native', agentId),
   history: (id, before) => ipcRenderer.invoke('desk:history', id, before),
-  assistantSend: text => ipcRenderer.invoke('desk:assistant-send', text),
-  message: (target, text, mode) => ipcRenderer.invoke('desk:message', target, text, mode),
+  assistantSend: (text, attachments) => ipcRenderer.invoke('desk:assistant-send', text, attachments),
+  message: (target, text, mode, attachments) => ipcRenderer.invoke('desk:message', target, text, mode, attachments),
+  // Attachments: pick in a dialog, describe dropped files (by their path on disk), save a pasted image.
+  attachPick: () => ipcRenderer.invoke('desk:attach-pick'),
+  attachDescribe: paths => ipcRenderer.invoke('desk:attach-describe', paths),
+  attachPaste: (data, mime) => ipcRenderer.invoke('desk:attach-paste', data, mime),
+  pathForFile: file => webUtils.getPathForFile(file),
   assistantSettings: value => ipcRenderer.invoke('desk:assistant-settings', value),
   chooseWorkspace: () => ipcRenderer.invoke('desk:choose-workspace'),
   sessionStart: value => ipcRenderer.invoke('desk:session-start', value),

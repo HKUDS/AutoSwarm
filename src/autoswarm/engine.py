@@ -52,7 +52,7 @@ def _same_account(records: Records, controller: str | None) -> None:
                          "reviewer (Codex: request escalated permissions for it); do not disable the sandbox or change its settings.")
 
 
-def start_call(records: Records, provider: str, prompt: str, workspace: str | Path, *, parent: dict | None = None, native_session_id: str | None = None, model: str | None = None, effort: str | None = None, provider_args: list[str] | None = None, previous_call: str | None = None, return_mode: str = "native", delegate_approvals: bool | None = None, controller: str | None = None, name: str | None = None, peers: list[str] | None = None, rules: str | None = None, agent_id: str | None = None, message_only: bool = False, skill: dict | None = None, permission: str | None = None, permissions: dict | None = None, _dispatch_locked: bool = False) -> dict:
+def start_call(records: Records, provider: str, prompt: str, workspace: str | Path, *, parent: dict | None = None, native_session_id: str | None = None, model: str | None = None, effort: str | None = None, provider_args: list[str] | None = None, previous_call: str | None = None, return_mode: str = "native", delegate_approvals: bool | None = None, controller: str | None = None, name: str | None = None, peers: list[str] | None = None, rules: str | None = None, agent_id: str | None = None, message_only: bool = False, skill: dict | None = None, permission: str | None = None, permissions: dict | None = None, attachments: list[dict] | None = None, _dispatch_locked: bool = False) -> dict:
     provider = canonical(provider)
     directory_path = Path(workspace).expanduser().resolve()
     if not directory_path.is_dir():
@@ -72,6 +72,12 @@ def start_call(records: Records, provider: str, prompt: str, workspace: str | Pa
     if permission is not None:
         value["permission"] = access.check(provider, permission)
     access.apply(records, task, value)
+    # Attachments given with the task, and saved attachments its text names (how a main agent hands one to a worker).
+    from . import attachments as attached
+    task["attachments"] = attached.merge(attachments, [] if message_only else attached.mentioned(records, prompt))
+    # Claude Code reads files outside its workspace only from directories it is given.
+    handled = task["attachments"] + ([item for message in messages.pending(records, task["agent_id"]) for item in message.get("attachments", [])] if message_only else [])
+    task["attachment_dirs"] = attached.folders(handled)
     _same_account(records, task["controller_id"])
     # Validate and resolve the executable before accepting a background call.
     task["command"] = invocation(task, records.config())
@@ -178,7 +184,7 @@ def wait(records: Records, call_ids: list[str], *, any_result: bool = False, mar
         time.sleep(0.1)
 
 
-def resume(records: Records, call_id: str, prompt: str, *, parent: dict | None = None, inherit_parent: bool = True, model: str | None = None, effort: str | None = None, provider_args: list[str] | None = None, return_mode: str = "native", delegate_approvals: bool | None = None, permission: str | None = None, permissions: dict | None = None) -> dict:
+def resume(records: Records, call_id: str, prompt: str, *, parent: dict | None = None, inherit_parent: bool = True, model: str | None = None, effort: str | None = None, provider_args: list[str] | None = None, return_mode: str = "native", delegate_approvals: bool | None = None, permission: str | None = None, permissions: dict | None = None, attachments: list[dict] | None = None) -> dict:
     directory, task = records.require(call_id)
     info = inspect_call(records, call_id)
     if info["state"] == "running":
@@ -187,7 +193,7 @@ def resume(records: Records, call_id: str, prompt: str, *, parent: dict | None =
     if not session:
         raise SwarmError("session_unavailable", "Provider did not return a native session ID")
     # A result is retained in the old directory; continuing creates a new call.
-    return start_call(records, task["provider"], prompt, task["workspace"], parent=parent if parent is not None or not inherit_parent else task.get("parent"), native_session_id=session, model=model if model is not None else task.get("model"), effort=effort if effort is not None else task.get("effort"), provider_args=provider_args if provider_args is not None else task.get("provider_args"), previous_call=call_id, return_mode=return_mode, delegate_approvals=delegate_approvals if delegate_approvals is not None else task.get("delegate_approvals"), agent_id=task.get("agent_id", call_id), permission=permission, permissions=permissions)
+    return start_call(records, task["provider"], prompt, task["workspace"], parent=parent if parent is not None or not inherit_parent else task.get("parent"), native_session_id=session, model=model if model is not None else task.get("model"), effort=effort if effort is not None else task.get("effort"), provider_args=provider_args if provider_args is not None else task.get("provider_args"), previous_call=call_id, return_mode=return_mode, delegate_approvals=delegate_approvals if delegate_approvals is not None else task.get("delegate_approvals"), agent_id=task.get("agent_id", call_id), permission=permission, permissions=permissions, attachments=attachments)
 
 
 def cancel(records: Records, call_id: str) -> dict:

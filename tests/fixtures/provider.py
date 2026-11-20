@@ -31,7 +31,8 @@ def trace(value):
             stream.write(json.dumps(value, ensure_ascii=False) + "\n")
 
 
-trace({"argv": args, **({"config_dir": os.environ.get("CURSOR_CONFIG_DIR")} if provider == "cursor" else {})})
+trace({"argv": args, **({"config_dir": os.environ.get("CURSOR_CONFIG_DIR")} if provider == "cursor" else {}),
+       "permission_env": {key: os.environ[key] for key in ("DSH_PERMISSION_MODE", "HERMES_YOLO_MODE", "OPENCODE_CONFIG_CONTENT") if key in os.environ}})
 
 
 def emit(value):
@@ -210,6 +211,8 @@ elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot",
             if "unknown-interaction" in args:
                 emit({"id": "unsupported", "method": "future/interaction", "params": {}})
             result = {"schema": {"version": 2 if "bad-protocol" in args else 1}} if provider == "muse" else {"protocolVersion": 2 if "bad-protocol" in args else 1, "agentCapabilities": ({"sessionCapabilities": {"resume": {}}} if provider == "dsh" and "no-resume" not in args else {"loadSession": "no-resume" not in args})}
+            if provider in {"kimi", "copilot", "cursor", "codebuddy", "hermes", "grok"}:
+                result["agentCapabilities"]["promptCapabilities"] = {"image": True}  # As they advertise; DSH does not.
             emit({"id": value["id"], "result": result})
         elif method in {"session/start", "session/resume", "session/new", "session/load"}:
             if "auth-required" in args:
@@ -221,8 +224,11 @@ elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot",
             result = {"session": {"sessionId": session}} if provider == "muse" else {"sessionId": session}
             if "selection-catalog" in args and provider != "muse":
                 result.update({"models": {"currentModelId": "native-model", "availableModels": [{"modelId": "native-model", "name": "Native Model"}]}, "configOptions": [{"id": "model", "category": "model", "options": [{"value": "native-model"}]}, {"id": "reasoning" if provider == "cursor" else "thought_level", "category": "thought_level", "options": [{"name": "Native choices", "options": [{"value": "deep-native"}, {"value": "light-native"}]}]}]})
-            if provider == "cursor":
-                result["modes"] = {"currentModeId": "agent", "availableModes": [{"id": "agent", "name": "Agent"}, {"id": "plan", "name": "Plan"}, {"id": "ask", "name": "Ask"}]}
+            # Session modes as the real agents name them (Copilot by URL).
+            native_modes = {"cursor": ["agent", "plan", "ask"], "kimi": ["default", "plan", "auto", "yolo"], "hermes": ["default", "accept_edits", "dont_ask"],
+                            "copilot": ["https://agentclientprotocol.com/protocol/session-modes#" + name for name in ("agent", "plan", "autopilot")]}.get(provider)
+            if native_modes and "no-modes" not in args:  # An update that dropped its modes
+                result["modes"] = {"currentModeId": native_modes[0], "availableModes": [{"id": name, "name": name} for name in native_modes]}
             emit({"id": value["id"], "result": result})
         elif method == "session/set_mode":
             emit({"id": value["id"], "result": {}})
@@ -294,6 +300,11 @@ else:
             method = value.get("method")
             if method == "initialize":
                 emit({"id": value["id"], "result": {}})
+            elif method == "thread/resume" and "resume-busy" in args:
+                # As Codex answers while another process (its app, an editor) has the thread open.
+                emit({"id": value["id"], "error": {"code": -32600, "message": f"thread {value['params'].get('threadId')} already has an active writer"}})
+            elif method == "thread/resume" and "resume-hangs" in args:
+                pass  # Never answers: the call stays in its startup until it is stopped.
             elif method in {"thread/start", "thread/resume"}:
                 session = value["params"].get("threadId", session)
                 emit({"id": value["id"], "result": {"thread": {"id": session}}})
@@ -318,7 +329,8 @@ else:
             elif value.get("type") == "user":
                 session = value.get("session_id") or session
                 emit({"type": "system", "subtype": "init", "session_id": session})
-                prompt = prepare(value["message"]["content"])
+                content_blocks = value["message"]["content"]  # Text, or text and image blocks
+                prompt = prepare(content_blocks if isinstance(content_blocks, str) else next(block["text"] for block in content_blocks if block["type"] == "text"))
                 if prompt.startswith("approval:"):
                     marker = prompt[9:].split("\n", 1)[0]
                     emit({"type": "control_request", "request_id": "native-approval", "request": {"subtype": "can_use_tool", "tool_name": "Bash", "input": {"command": "test-command", "marker": marker}, "tool_use_id": "native-tool"}})
