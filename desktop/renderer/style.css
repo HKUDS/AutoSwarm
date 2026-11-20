@@ -1019,6 +1019,24 @@ button.meta-chip:hover { background: var(--fill-strong); color: var(--text); }
 .composer-card textarea { width: 100%; min-height: 48px; max-height: 240px; padding: 0 6px 0 0; border: 0; background: transparent; resize: none; field-sizing: content; outline: none; font-size: 15px; line-height: 24px; color: var(--text); }
 .composer-card textarea::placeholder { color: var(--text-3); }
 .composer-row { display: flex; align-items: center; gap: 6px; min-height: 36px; }
+/* Attachments: chips above the text, a paper clip first in the row; the same chips under a sent message. */
+.attach-button { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none; border-radius: 50%; color: var(--text-2); }
+.attach-button:hover { background: var(--hover); color: var(--text); }
+.attach-button .ui-icon { width: 17px; height: 17px; }
+.attach-tray, .message-attachments { display: flex; flex-wrap: wrap; gap: 6px; }
+.message-attachments { justify-content: flex-end; }
+.attach-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 220px; height: 34px; padding: 0 4px 0 6px; border-radius: var(--r-md); background: var(--fill); font-size: 12.5px; color: var(--text-2); }
+.attach-chip img { width: 26px; height: 26px; flex: none; border-radius: 4px; object-fit: cover; }
+.attach-chip .ui-icon { width: 15px; height: 15px; flex: none; }
+.attach-chip.sent { height: 28px; padding: 0 9px 0 7px; }
+.attach-chip.sent:hover { background: var(--fill-strong); color: var(--text); }
+.attach-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attach-remove { display: inline-flex; width: 20px; height: 20px; flex: none; align-items: center; justify-content: center; border-radius: 50%; color: var(--text-3); }
+.attach-remove:hover { background: var(--hover); color: var(--text); }
+.attach-remove .ui-icon { width: 12px; height: 12px; }
+.attach-note { display: flex; align-items: center; gap: 6px; margin: 0; align-self: flex-end; font-size: 12.5px; color: var(--text-3); }
+.attach-note .ui-icon { width: 14px; height: 14px; }
+.composer-card.drop-target, #chat-form.drop-target, #assistant-form.drop-target { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 60%, transparent), var(--elev-soft); }
 .row-spacer { flex: 1 1 auto; }
 .composer-status { font-size: 12.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .model-chip { display: inline-flex; align-items: center; gap: 4px; height: 32px; max-width: 320px; padding: 0 8px 0 10px; border-radius: var(--r-sm); color: var(--text); font-size: 13.5px; font-weight: 500; white-space: nowrap; }

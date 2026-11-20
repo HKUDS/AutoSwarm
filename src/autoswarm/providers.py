@@ -220,6 +220,8 @@ def invocation(task: dict, config: dict) -> list[str]:
         # Partial messages stream text as it is written (stream_event deltas); the
         # complete assistant/result events still follow, so parsing is unchanged.
         command += ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--permission-prompt-tool", "stdio"]
+        # The folders of the user's attachments it receives, so it reads them without asking.
+        command += [item for folder in task.get("attachment_dirs", []) for item in ("--add-dir", folder)]
         if task.get("native_session_id"):
             command += ["--resume=" + task["native_session_id"]]
         if options.get("model"):

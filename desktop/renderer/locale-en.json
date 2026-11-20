@@ -801,5 +801,17 @@
   "去下载": "Download",
   "检查更新": "Check for updates",
   "这个对话正在另一个 Codex 窗口或进程里打开（Codex App、编辑器插件，或上一轮没退出的 Codex）。关掉它后再发一次消息。": "This conversation is open in another Codex window or process (the Codex app, an editor extension, or a Codex left from an earlier turn). Close it there, then send the message again.",
-  "已停止，这条消息没有送到 Agent。需要的话再发一次。": "Stopped; this message did not reach the agent. Send it again if you still need it."
+  "已停止，这条消息没有送到 Agent。需要的话再发一次。": "Stopped; this message did not reach the agent. Send it again if you still need it.",
+  "添加图片或文件（也可以粘贴或拖进来）": "Add images or files (you can also paste or drop them)",
+  "添加图片或文件": "Add images or files",
+  "移除 {name}": "Remove {name}",
+  "一次最多添加 {count} 个附件": "Attach at most {count} files at once",
+  "这是界面演示，不能添加附件。": "This is a demo; attachments are not available.",
+  "{agent} 不能直接看图片，已把图片的位置告诉它": "{agent} can't view images directly; it was told where they are saved",
+  "请看附件。": "Please see the attachments.",
+  "无法添加这个文件": "This file cannot be added",
+  "找不到文件：{name}": "File not found: {name}",
+  "只能添加文件：{name}": "Only files can be added: {name}",
+  "{name} 太大了（图片最大 10 MB，文件最大 50 MB）": "{name} is too large (images up to 10 MB, files up to 50 MB)",
+  "只能粘贴 10 MB 以内的 PNG、JPEG、GIF 或 WebP 图片": "Only PNG, JPEG, GIF or WebP images up to 10 MB can be pasted"
 }

@@ -36,6 +36,7 @@
     "pretest:p4": "npm run build",
     "test:p4": "node tests/p4.cjs",
     "test:swarm": "node tests/swarm.cjs",
+    "test:attachments": "node tests/attachments.cjs",
     "test:settings": "node tests/settings.cjs",
     "test:preview": "node tests/preview.cjs",
     "test:demo": "node tests/demo.cjs",

@@ -211,6 +211,8 @@ elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot",
             if "unknown-interaction" in args:
                 emit({"id": "unsupported", "method": "future/interaction", "params": {}})
             result = {"schema": {"version": 2 if "bad-protocol" in args else 1}} if provider == "muse" else {"protocolVersion": 2 if "bad-protocol" in args else 1, "agentCapabilities": ({"sessionCapabilities": {"resume": {}}} if provider == "dsh" and "no-resume" not in args else {"loadSession": "no-resume" not in args})}
+            if provider in {"kimi", "copilot", "cursor", "codebuddy", "hermes", "grok"}:
+                result["agentCapabilities"]["promptCapabilities"] = {"image": True}  # As they advertise; DSH does not.
             emit({"id": value["id"], "result": result})
         elif method in {"session/start", "session/resume", "session/new", "session/load"}:
             if "auth-required" in args:
@@ -327,7 +329,8 @@ else:
             elif value.get("type") == "user":
                 session = value.get("session_id") or session
                 emit({"type": "system", "subtype": "init", "session_id": session})
-                prompt = prepare(value["message"]["content"])
+                content_blocks = value["message"]["content"]  # Text, or text and image blocks
+                prompt = prepare(content_blocks if isinstance(content_blocks, str) else next(block["text"] for block in content_blocks if block["type"] == "text"))
                 if prompt.startswith("approval:"):
                     marker = prompt[9:].split("\n", 1)[0]
                     emit({"type": "control_request", "request_id": "native-approval", "request": {"subtype": "can_use_tool", "tool_name": "Bash", "input": {"command": "test-command", "marker": marker}, "tool_use_id": "native-tool"}})

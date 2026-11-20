@@ -76,6 +76,8 @@ class ACP:
         if result.get("protocolVersion") != 1:
             raise SwarmError("native_protocol_error", "Unsupported ACP protocol version")
         self.n.progress("handshake", native_capabilities=result.get("agentCapabilities", {}))
+        # Images go in a prompt only to an agent that advertises them.
+        self.accepts_images = bool(((result.get("agentCapabilities") or {}).get("promptCapabilities") or {}).get("image"))
         session = self.n.task.get("native_session_id")
         params = {"cwd": self.n.task["workspace"], "mcpServers": []}
         method = "session/new"
@@ -119,18 +121,23 @@ class ACP:
         self.n.stage("execution")
         self.n.continue_turn(self.n.initial_prompt())
 
-    def prompt(self, text):
-        self.prompt_text = text
+    def prompt(self, text, images=()):
+        """Send a turn; returns whether its images went along natively."""
+        from .attachments import data
+        self.prompt_text = (text, images)
         self.after_tool = False
         tap = getattr(self.n, "tap", None)
         if tap is not None:
             tap.mark("prompt")  # session/load replayed the old transcript before this point.
-        self.n.request("session/prompt", {"sessionId": self.n.output.session_id, "prompt": [{"type": "text", "text": text}]}, self.completed)
+        native = bool(images) and getattr(self, "accepts_images", False)
+        pictures = [{"type": "image", "mimeType": item["mime"], "data": data(item)} for item in images] if native else []
+        self.n.request("session/prompt", {"sessionId": self.n.output.session_id, "prompt": [{"type": "text", "text": text}, *pictures]}, self.completed)
+        return native
 
     def poll(self):
         if self.retry_prompt is not None:
-            text, self.retry_prompt = self.retry_prompt, None
-            self.prompt(text)
+            (text, images), self.retry_prompt = self.retry_prompt, None
+            self.prompt(text, images)
 
     def interrupt(self):
         self.interrupted_for_message = True

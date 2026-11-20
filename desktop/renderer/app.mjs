@@ -514,9 +514,43 @@ async function copyText(text) {
     const ok = document.execCommand('copy'); area.remove(); if (!ok) throw Error(t('复制失败'));
   }
 }
-function userBubble(text, at, receipt = '') {
+/** Attachments waiting in a composer (new session, a conversation, the assistant): picked, dropped or pasted. */
+const attachDrafts = new Map(), ATTACH_LIMIT = 10;
+const composerKey = form => form.id === 'session-form' ? 'session' : form.id === 'assistant-form' ? 'assistant:' + data.home : 'chat:' + draftKey(form.dataset.target);
+const attachmentsOf = key => attachDrafts.get(key) || [];
+const attachButton = key => `<button type="button" class="attach-button" data-attach-pick="${escape(key)}" title="${t('添加图片或文件（也可以粘贴或拖进来）')}" aria-label="${t('添加图片或文件')}">${icon('paperclip')}</button>`;
+function attachTray(key) {
+  const list = attachmentsOf(key);
+  return list.length ? `<div class="attach-tray">${list.map((item, index) => `<span class="attach-chip" title="${escape(item.path)}">${item.preview ? `<img src="${escape(item.preview)}" alt="">` : icon('file')}<span class="attach-name">${escape(item.name)}</span><button type="button" class="attach-remove" data-attach-remove="${index}" data-attach-key="${escape(key)}" aria-label="${escape(t('移除 {name}', { name: item.name }))}">${icon('close')}</button></span>`).join('')}</div>` : '';
+}
+function addAttachments(key, items) {
+  const list = [...attachmentsOf(key)];
+  for (const item of items) if (!list.some(known => known.path === item.path)) list.push(item);
+  if (list.length > ATTACH_LIMIT) { list.length = ATTACH_LIMIT; showToast(t('一次最多添加 {count} 个附件', { count: ATTACH_LIMIT })); }
+  attachDrafts.set(key, list); render(true);
+}
+/** Files from a paste or a drop: images on the clipboard are saved by Desk first; files on disk go by their path. */
+async function attachFiles(key, files) {
+  if (isDemo) { showToast(t('这是界面演示，不能添加附件。')); return; }
+  const items = [];
+  try {
+    for (const file of files) {
+      const onDisk = desk.pathForFile?.(file);
+      if (onDisk) items.push(...await desk.attachDescribe([onDisk]));
+      else if (file.type.startsWith('image/')) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = ''; for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        items.push(await desk.attachPaste(btoa(binary), file.type));
+      }
+    }
+  } catch (failure) { showToast(failure.message); }
+  if (items.length) addAttachments(key, items);
+}
+/** Attachments in the history: each opens with the system's app. */
+const attachmentChips = list => list?.length ? `<div class="message-attachments">${list.map(item => `<button type="button" class="attach-chip sent" data-open-attachment="${escape(item.path)}" title="${escape(item.path)}">${icon(item.kind === 'image' ? 'image' : 'file')}<span class="attach-name">${escape(item.name)}</span></button>`).join('')}</div>` : '';
+function userBubble(text, at, receipt = '', attachments = []) {
   const when = at ? (typeof at === 'number' ? clock(at) : stamp(at)) : '';
-  return `<div class="chat-user"><div class="user-message">${escape(text)}</div><div class="message-actions user-actions">${when || receipt ? `<span class="action-meta">${escape([when, receipt].filter(Boolean).join(' · '))}</span>` : ''}${copyButton(text)}</div></div>`;
+  return `<div class="chat-user"><div class="user-message">${escape(text)}</div>${attachmentChips(attachments)}<div class="message-actions user-actions">${when || receipt ? `<span class="action-meta">${escape([when, receipt].filter(Boolean).join(' · '))}</span>` : ''}${copyButton(text)}</div></div>`;
 }
 /** One agent turn: a single header, then the body (process row, live line, reply, actions). */
 function agentTurn({ body }) {
@@ -565,7 +599,7 @@ function systemNote(text) {
   return auto ? `<div class="system-note">${brand(16)}<span><strong>${auto[2] ? t('Desk 规则「{name}」', { name: escape(auto[2]) }) : t('Desk 自动唤醒助理')}</strong>${escape(String(text).slice(auto[0].length))}</span></div>` : '';
 }
 function userMail(node, call) {
-  return Object.values(data.messages).filter(m => m.message.kind === 'user_message' && m.message.to === (node.target || node.id) && (call ? m.delivery?.call_id === call.id : !m.delivery?.call_id)).sort((a,b)=>a.message.created_at.localeCompare(b.message.created_at)).map(m => `${systemNote(m.message.content) || userBubble(m.message.content,m.message.created_at,t((m.delivery?.mechanism==='native_input' && m.delivery?.state==='submitted' ? '已插入本轮' : m.delivery?.mechanism==='native_followup' ? (m.message.interrupt ? '打断后送达' : '本轮结束后送达') : ({submitted:'已送达',delivered:'已送达',needs_attention:'未送达'})[m.delivery?.state]) || (m.delivery?.reason==='native_turn_active' ? '等待本轮结束' : '等待送达')))}${m.delivery?.state === 'needs_attention' ? `<p class="chat-error" role="alert" ${m.delivery.error ? `title="${escape(m.delivery.error)}"` : ''}>${escape(knownError(m.delivery.error_code, t(m.delivery.error || '发送未成功，请重试。')))}</p>` : ''}`).join('');
+  return Object.values(data.messages).filter(m => m.message.kind === 'user_message' && m.message.to === (node.target || node.id) && (call ? m.delivery?.call_id === call.id : !m.delivery?.call_id)).sort((a,b)=>a.message.created_at.localeCompare(b.message.created_at)).map(m => `${systemNote(m.message.content) || userBubble(m.message.content,m.message.created_at,t((m.delivery?.mechanism==='native_input' && m.delivery?.state==='submitted' ? '已插入本轮' : m.delivery?.mechanism==='native_followup' ? (m.message.interrupt ? '打断后送达' : '本轮结束后送达') : ({submitted:'已送达',delivered:'已送达',needs_attention:'未送达'})[m.delivery?.state]) || (m.delivery?.reason==='native_turn_active' ? '等待本轮结束' : '等待送达')),m.message.attachments)}${m.delivery?.state === 'needs_attention' ? `<p class="chat-error" role="alert" ${m.delivery.error ? `title="${escape(m.delivery.error)}"` : ''}>${escape(knownError(m.delivery.error_code, t(m.delivery.error || '发送未成功，请重试。')))}</p>` : ''}`).join('');
 }
 /** AutoSwarm calls: one turn per call, process folded, result.json as the reply. */
 function conversation(node, worker = false) {
@@ -575,7 +609,7 @@ function conversation(node, worker = false) {
     const stream = streamCache.get(call.id) || call.stream;
     const prompt = assistant && AUTOMATIC.test(call.task.prompt) ? systemNote(call.task.prompt)
       : !call.task.message_only && !(worker && i === 0)
-      ? (i === 0 && node.owner === view.assistant?.id ? `<div class="handoff-note"><div>${brand(16)}<strong>${t('私人助理')}</strong><span>${t('交给 {agent} · {time}', { agent: escape(providers[node.provider] || node.provider), time: escape(stamp(call.task.created_at)) })}</span></div><p>${escape(call.task.prompt)}</p></div>` : userBubble(call.task.prompt, call.task.created_at))
+      ? (i === 0 && node.owner === view.assistant?.id ? `<div class="handoff-note"><div>${brand(16)}<strong>${t('私人助理')}</strong><span>${t('交给 {agent} · {time}', { agent: escape(providers[node.provider] || node.provider), time: escape(stamp(call.task.created_at)) })}</span></div><p>${escape(call.task.prompt)}</p>${attachmentChips(call.task.attachments)}</div>` : userBubble(call.task.prompt, call.task.created_at, '', call.task.attachments))
       : '';
     const state = call.id === node.latest.id ? node.state : call.state;
     // While the turn's steps are on screen, the status line need not repeat the latest one.
@@ -591,7 +625,8 @@ function conversation(node, worker = false) {
     const stopped = halted ? `<div class="turn-note" ${errorText ? `title="${escape(t('运行记录：{log}', { log: errorText }))}"` : ''}>${icon('stop')}<span>${call.result.content ? t('这一轮已停止。发消息可以在原会话里接着做。') : t('这一轮已停止，没有最终回复。发消息可以在原会话里接着做。')}</span></div>` : '';
     const actions = call.result ? replyActions(call.result.content, [clock(call.task.created_at), took !== '—' ? t('用时 {time}', { time: took }) : ''].filter(Boolean).join(' · '), call) : '';
     const body = `${processView(call, stream, worker, limits.get(call.id) || 0, { markdown })}${!call.task.message_only ? userMail(node, call) : ''}${live}${reply}${stopped}${error}${assistant ? handoffs(call) : ''}${actions}`;
-    return `<section class="turn" id="turn-${escape(call.id)}">${prompt}${call.task.message_only ? userMail(node, call) : ''}${agentTurn({ provider: call.task.provider, assistant, role, at: call.task.created_at, body })}</section>`;
+    const asPaths = call.handle?.images_as_paths ? `<p class="attach-note">${icon('info')}<span>${t('{agent} 不能直接看图片，已把图片的位置告诉它', { agent: escape(providers[call.task.provider] || call.task.provider) })}</span></p>` : '';
+    return `<section class="turn" id="turn-${escape(call.id)}">${prompt}${call.task.message_only ? userMail(node, call) : ''}${asPaths}${agentTurn({ provider: call.task.provider, assistant, role, at: call.task.created_at, body })}</section>`;
   }).join('') + userMail(node);
 }
 
@@ -636,7 +671,7 @@ function composer(node, worker = false) {
   const mode = chatModes.get(key) || defaultMode(recipient);
   const live = LIVE_INPUT.has(recipient.provider);
   const busy = ['running','waiting','delegated'].includes(recipient.state) || recipient.native?.busy === true;
-  return `<form id="chat-form" class="chat-composer composer-card" data-target="${escape(target)}"><textarea id="chat-input" aria-label="${escape(placeholder)}" placeholder="${escape(placeholder)}" rows="2">${escape(chatDrafts.get(key) || '')}</textarea>${chatErrors.has(key) ? `<p class="chat-error" role="alert">${escape(chatErrors.get(key))}</p>` : ''}<div class="composer-row">${!worker && workers.length ? `<select id="chat-recipient" aria-label="${t('选择对话 Agent')}"><option value="${escape(node.target || node.id)}">@ ${t('主控 · ')}${escape(providers[node.provider] || node.provider)}</option>${workers.map(n=>`<option value="${escape(n.id)}" ${n.id===target?'selected':''}>@ ${escape(providers[n.provider] || n.provider)} · ${escape(n.name)}</option>`).join('')}</select>` : ''}${busy ? `<div class="delivery-modes" role="radiogroup" aria-label="${t('送达方式')}"><label><input type="radio" name="delivery-mode" value="after_turn" ${mode==='after_turn'?'checked':''}>${t('本轮结束后发送')}</label><label title="${live ? t('插进正在进行的这一轮，Agent 不中断，读到后照顾你的要求继续做') : t('先停下正在进行的这一轮，处理你的消息，再接着做原来的任务')}"><input type="radio" name="delivery-mode" value="immediate" ${mode==='immediate'?'checked':''}>${live ? t('立即插话') : t('打断并插话')}</label></div>` : ''}<span class="row-spacer"></span>${stopControl(target)}<button type="submit" class="send-button" aria-label="${t('发送消息')}" ${chatPending.has(key)?'disabled':''}>${icon('arrow-up')}</button></div></form>`;
+  return `<form id="chat-form" class="chat-composer composer-card" data-target="${escape(target)}">${attachTray('chat:' + key)}<textarea id="chat-input" aria-label="${escape(placeholder)}" placeholder="${escape(placeholder)}" rows="2">${escape(chatDrafts.get(key) || '')}</textarea>${chatErrors.has(key) ? `<p class="chat-error" role="alert">${escape(chatErrors.get(key))}</p>` : ''}<div class="composer-row">${attachButton('chat:' + key)}${!worker && workers.length ? `<select id="chat-recipient" aria-label="${t('选择对话 Agent')}"><option value="${escape(node.target || node.id)}">@ ${t('主控 · ')}${escape(providers[node.provider] || node.provider)}</option>${workers.map(n=>`<option value="${escape(n.id)}" ${n.id===target?'selected':''}>@ ${escape(providers[n.provider] || n.provider)} · ${escape(n.name)}</option>`).join('')}</select>` : ''}${busy ? `<div class="delivery-modes" role="radiogroup" aria-label="${t('送达方式')}"><label><input type="radio" name="delivery-mode" value="after_turn" ${mode==='after_turn'?'checked':''}>${t('本轮结束后发送')}</label><label title="${live ? t('插进正在进行的这一轮，Agent 不中断，读到后照顾你的要求继续做') : t('先停下正在进行的这一轮，处理你的消息，再接着做原来的任务')}"><input type="radio" name="delivery-mode" value="immediate" ${mode==='immediate'?'checked':''}>${live ? t('立即插话') : t('打断并插话')}</label></div>` : ''}<span class="row-spacer"></span>${stopControl(target)}<button type="submit" class="send-button" aria-label="${t('发送消息')}" ${chatPending.has(key)?'disabled':''}>${icon('arrow-up')}</button></div></form>`;
 }
 /** The AutoSwarm switch on the new-session page: on, off, or locked until this agent has the Skill. */
 function swarmPill(provider) {
@@ -701,7 +736,7 @@ function overviewPage() {
   const busy = active || assistantSubmitting || assistantSettings.busy;
   const ready = isDemo || (status === 'ready' && assistantSettings.ready && !assistantSettings.error);
   const sessions = view.sessions;
-  return `<div class="conversation-scroll assistant-conversation"><div class="reading-column">${tabOf() === 'trace' ? traceView([view.assistant]) : view.assistant ? conversation(view.assistant) : `<div class="assistant-welcome"><span class="assistant-welcome-mark">${brand(48)}</span><h2>${t('有事情，交给我。')}</h2><p>${t('我会把新工作交给一个主 Agent；主 Agent 再组织子任务。<br>已有会话的进展和需要你决定的事项，都在这里。')}</p><div class="welcome-examples"><button data-example="${escape(t('看看当前会话的进展，有什么需要我决定的？'))}">${t('看看各会话的进展 ↗')}</button><button data-example="${escape(t('帮我规划一个新任务，先问清目标和工作目录。'))}">${t('开始一项新工作 ↗')}</button></div></div>`}${requests.length ? `<div class="assistant-notice">${brand(24, 'assistant-icon')}<div><strong>${t('需要你决定')}</strong><p>${t('下面 {count} 件事正在等你，处理后会在对应会话中同步。', { count: requests.length })}</p></div></div>${requests.map(requestCard).join('')}` : ''}${assistantSettings.error || assistantError ? `<div class="error-text" role="alert">${escape(t(assistantError || assistantSettings.error))}</div>` : ''}</div></div><div class="bottom-area assistant-bottom">${sessionDock(sessions, requests.length)}<form id="assistant-form" class="assistant-composer composer-card"><textarea id="assistant-input" aria-label="${t('对私人助理说')}" placeholder="${busy ? t('助理正在处理本轮，完成后可以继续聊…') : t('对私人助理说… 它会交给合适的会话，或新建一个')}" rows="2">${escape(assistantDraft)}</textarea><div class="composer-row">${!ready ? `<span class="composer-status">${t('正在准备私人助理…')}</span>` : !isDemo && !assistantSettings.workspace ? `<button type="button" class="meta-chip" data-action="settings">${t('先在设置中选择工作目录')}</button>` : ''}<span class="row-spacer"></span><button type="submit" class="send-button" aria-label="${t('发送给私人助理')}" ${!ready || busy ? 'disabled' : ''}>${icon('arrow-up')}</button></div></form>${statsLine(view.assistant)}</div>`;
+  return `<div class="conversation-scroll assistant-conversation"><div class="reading-column">${tabOf() === 'trace' ? traceView([view.assistant]) : view.assistant ? conversation(view.assistant) : `<div class="assistant-welcome"><span class="assistant-welcome-mark">${brand(48)}</span><h2>${t('有事情，交给我。')}</h2><p>${t('我会把新工作交给一个主 Agent；主 Agent 再组织子任务。<br>已有会话的进展和需要你决定的事项，都在这里。')}</p><div class="welcome-examples"><button data-example="${escape(t('看看当前会话的进展，有什么需要我决定的？'))}">${t('看看各会话的进展 ↗')}</button><button data-example="${escape(t('帮我规划一个新任务，先问清目标和工作目录。'))}">${t('开始一项新工作 ↗')}</button></div></div>`}${requests.length ? `<div class="assistant-notice">${brand(24, 'assistant-icon')}<div><strong>${t('需要你决定')}</strong><p>${t('下面 {count} 件事正在等你，处理后会在对应会话中同步。', { count: requests.length })}</p></div></div>${requests.map(requestCard).join('')}` : ''}${assistantSettings.error || assistantError ? `<div class="error-text" role="alert">${escape(t(assistantError || assistantSettings.error))}</div>` : ''}</div></div><div class="bottom-area assistant-bottom">${sessionDock(sessions, requests.length)}<form id="assistant-form" class="assistant-composer composer-card">${attachTray('assistant:' + data.home)}<textarea id="assistant-input" aria-label="${t('对私人助理说')}" placeholder="${busy ? t('助理正在处理本轮，完成后可以继续聊…') : t('对私人助理说… 它会交给合适的会话，或新建一个')}" rows="2">${escape(assistantDraft)}</textarea><div class="composer-row">${attachButton('assistant:' + data.home)}${!ready ? `<span class="composer-status">${t('正在准备私人助理…')}</span>` : !isDemo && !assistantSettings.workspace ? `<button type="button" class="meta-chip" data-action="settings">${t('先在设置中选择工作目录')}</button>` : ''}<span class="row-spacer"></span><button type="submit" class="send-button" aria-label="${t('发送给私人助理')}" ${!ready || busy ? 'disabled' : ''}>${icon('arrow-up')}</button></div></form>${statsLine(view.assistant)}</div>`;
 }
 
 /** 新会话: a main agent started directly by the user, with the native provider/model/effort. */
@@ -719,9 +754,9 @@ function newSessionPage() {
         <div class="menu-anchor"><button type="button" class="context-chip" id="session-agent" data-menu="agent" aria-expanded="${openMenu === 'agent'}" title="${t('主 Agent')}">${logo(provider, '')}<span>${escape(name)}</span>${icon('down')}</button>${openMenu === 'agent' ? agentMenu(provider) : ''}</div>
       </div>
       <div class="composer-card">
-        <textarea id="session-input" aria-label="${t('新会话的任务')}" placeholder="${t('描述要交给 {agent} 的工作', { agent: escape(name) })}" rows="3">${escape(sessionDraft.prompt || '')}</textarea>
+        ${attachTray('session')}<textarea id="session-input" aria-label="${t('新会话的任务')}" placeholder="${t('描述要交给 {agent} 的工作', { agent: escape(name) })}" rows="3">${escape(sessionDraft.prompt || '')}</textarea>
         ${sessionError ? `<p class="chat-error" role="alert">${escape(t(sessionError))}</p>` : ''}
-        <div class="composer-row">${swarmPill(provider)}${permissionChip(provider, draftPermission(provider), 'permission', 'menu-down-left', t('这个会话里 {agent} 的权限 · 默认值在设置里改', { agent: name }))}${note ? `<span class="composer-status">${escape(note)}</span>` : ''}<span class="row-spacer"></span><div class="menu-anchor"><button type="button" class="model-chip" id="session-model-chip" data-menu="model" aria-expanded="${openMenu === 'model'}" title="${t('模型与思考强度')}">${escape(chip.name)}${chip.level ? `<span class="model-level">${escape(chip.level)}</span>` : ''}${icon('down')}</button>${openMenu === 'model' ? modelMenu(provider, model, effort, 'menu-down') : ''}</div><button type="submit" class="send-button" aria-label="${t('开始新会话')}" ${!ready || busy ? 'disabled' : ''}>${icon('arrow-up')}</button></div>
+        <div class="composer-row">${attachButton('session')}${swarmPill(provider)}${permissionChip(provider, draftPermission(provider), 'permission', 'menu-down-left', t('这个会话里 {agent} 的权限 · 默认值在设置里改', { agent: name }))}${note ? `<span class="composer-status">${escape(note)}</span>` : ''}<span class="row-spacer"></span><div class="menu-anchor"><button type="button" class="model-chip" id="session-model-chip" data-menu="model" aria-expanded="${openMenu === 'model'}" title="${t('模型与思考强度')}">${escape(chip.name)}${chip.level ? `<span class="model-level">${escape(chip.level)}</span>` : ''}${icon('down')}</button>${openMenu === 'model' ? modelMenu(provider, model, effort, 'menu-down') : ''}</div><button type="submit" class="send-button" aria-label="${t('开始新会话')}" ${!ready || busy ? 'disabled' : ''}>${icon('arrow-up')}</button></div>
       </div>
     </form>
   </div></div>`;
@@ -898,6 +933,17 @@ document.addEventListener('click', async event => {
     }
     if (button.dataset.action === 'skill-agent') { await agentInstall(button.dataset.host); return; }
     if (button.dataset.pickPermission !== undefined) { await pickPermission(button.dataset.menuId, button.dataset.provider, button.dataset.pickPermission); return; }
+    if (button.dataset.attachPick) {
+      if (isDemo) { showToast(t('这是界面演示，不能添加附件。')); return; }
+      try { const items = await desk.attachPick(); if (items.length) addAttachments(button.dataset.attachPick, items); } catch (failure) { showToast(failure.message); }
+      return;
+    }
+    if (button.dataset.attachRemove !== undefined) {
+      const key = button.dataset.attachKey, list = attachmentsOf(key).filter((_, index) => index !== Number(button.dataset.attachRemove));
+      if (list.length) attachDrafts.set(key, list); else attachDrafts.delete(key);
+      render(true); return;
+    }
+    if (button.dataset.openAttachment) { try { await desk.openPath(button.dataset.openAttachment); } catch (failure) { showToast(failure.message); } return; }
     if (button.dataset.defaultPermission) { await pickPermission('default', button.dataset.provider, button.dataset.defaultPermission); return; }
     if (button.dataset.bulkPermission) { await bulkPermission(button.dataset.bulkPermission); return; }
     if (button.dataset.language) { await chooseLanguage(button.dataset.language); return; }
@@ -1224,13 +1270,14 @@ document.addEventListener('submit', async event => {
   }
   if (event.target.id === 'chat-form') {
     event.preventDefault();
-    const target=event.target.dataset.target, key=draftKey(target), text=chatDrafts.get(key)?.trim(), home=data.home;
+    const target=event.target.dataset.target, key=draftKey(target), files=attachmentsOf('chat:'+key), text=chatDrafts.get(key)?.trim() || (files.length ? t('请看附件。') : ''), home=data.home;
     if(!text || chatPending.has(key))return;
     if(isDemo){showToast(t('示例会话不会发送消息；连接本地记录后即可直接对话。'));return;}
     chatPending.add(key);chatErrors.delete(key);render();
     try {
-      const result=await desk.message(target,text,chatModes.get(key)||defaultMode(view.nodes.get(target)));
+      const result=await desk.message(target,text,chatModes.get(key)||defaultMode(view.nodes.get(target)),files.map(item=>item.path));
       if(chatDrafts.get(key)?.trim()===text)chatDrafts.delete(key);
+      attachDrafts.delete('chat:'+key);
       if(result.delivery?.state==='needs_attention')chatErrors.set(key,knownError(result.delivery.error_code,t(result.delivery.error || '消息未送达')));
     }catch(failure){chatErrors.set(key,failure.message);}
     finally{chatPending.delete(key);if(data.home===home)render(true);}
@@ -1238,6 +1285,8 @@ document.addEventListener('submit', async event => {
   }
   if (event.target.id === 'session-form') {
     event.preventDefault();
+    const files = attachmentsOf('session');
+    if (!sessionDraft.prompt?.trim() && files.length) sessionDraft = { ...sessionDraft, prompt: t('请看附件。') };
     if (!sessionDraft.prompt?.trim() || sessionSubmitting || pendingSession) return;
     if (isDemo) { showToast(t('这是界面演示，不会启动真实 Agent。连接本地记录目录后即可新建会话。')); return; }
     const value = { prompt: sessionDraft.prompt, provider: draftValue('provider') || 'claude-code', model: draftValue('model').trim(), effort: draftValue('effort').trim(), workspace: draftValue('workspace'), skill: skills?.hosts?.[draftValue('provider') || 'claude-code']?.state === 'ready' ? draftSkill(draftValue('provider') || 'claude-code') : undefined, permission: sessionDraft.permission || undefined };
@@ -1245,9 +1294,9 @@ document.addEventListener('submit', async event => {
     const home = data.home;
     sessionSubmitting = true; sessionError = ''; render();
     try {
-      const result = await desk.sessionStart(value);
+      const result = await desk.sessionStart({ ...value, attachments: files.map(item => item.path) });
       if (data.home !== home) return;
-      sessionDraft = { prompt: '' }; pendingSession = result.agent_id; openPending();
+      sessionDraft = { prompt: '' }; attachDrafts.delete('session'); pendingSession = result.agent_id; openPending();
     } catch (failure) { if (data.home === home) sessionError = failure.message; }
     finally { sessionSubmitting = false; render(); }
     return;
@@ -1260,17 +1309,44 @@ document.addEventListener('submit', async event => {
     catch (failure) { showToast(failure.message); }
     return;
   }
+  const files = attachmentsOf('assistant:' + data.home);
+  if (!assistantDraft.trim() && files.length) assistantDraft = t('请看附件。');
   if (!assistantDraft.trim() || assistantSubmitting || view.assistant?.latest.state === 'running') return;
   if (isDemo) { showToast(t('这是界面演示。连接本地记录目录后，可与真实私人助理对话。')); return; }
   const text = assistantDraft, home = data.home, epoch = streamEpoch;
   assistantSubmitting = true; assistantError = ''; render();
   try {
-    await desk.assistantSend(text);
+    await desk.assistantSend(text, files.map(item => item.path));
+    attachDrafts.delete('assistant:' + home);
     if (assistantDrafts.get(home) === text) assistantDrafts.delete(home);
     if (data.home === home && epoch === streamEpoch && assistantDraft === text) assistantDraft = '';
   }
   catch (failure) { if (data.home === home && epoch === streamEpoch) assistantError = failure.message; }
   finally { if (data.home === home && epoch === streamEpoch) { assistantSubmitting = false; render(); } }
+});
+// Attachments by paste (an image on the clipboard, or files copied in the file manager) and by drop.
+document.addEventListener('paste', event => {
+  const form = event.target.closest?.('#chat-form,#session-form,#assistant-form');
+  const files = [...(event.clipboardData?.files || [])];
+  if (!form || !files.length) return;
+  event.preventDefault();
+  attachFiles(composerKey(form), files);
+});
+document.addEventListener('dragover', event => {
+  if (![...(event.dataTransfer?.types || [])].includes('Files')) return;
+  event.preventDefault();
+  const card = event.target.closest?.('#chat-form,#session-form .composer-card,#assistant-form');
+  event.dataTransfer.dropEffect = card ? 'copy' : 'none';
+  document.querySelectorAll('.drop-target').forEach(element => element !== card && element.classList.remove('drop-target'));
+  card?.classList.add('drop-target');
+});
+document.addEventListener('dragleave', event => { if (!event.relatedTarget) document.querySelectorAll('.drop-target').forEach(element => element.classList.remove('drop-target')); });
+document.addEventListener('drop', event => {
+  if (![...(event.dataTransfer?.types || [])].includes('Files')) return;
+  event.preventDefault();
+  document.querySelectorAll('.drop-target').forEach(element => element.classList.remove('drop-target'));
+  const form = event.target.closest?.('#chat-form,#session-form,#assistant-form');
+  if (form) attachFiles(composerKey(form), [...event.dataTransfer.files]);
 });
 function rememberQuestion(event) {
   const form = event.target.closest?.('.native-question-form'); if (!form) return;
