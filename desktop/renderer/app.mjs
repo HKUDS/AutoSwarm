@@ -349,6 +349,12 @@ async function chooseLanguage(value) {
   view = project(data); applyStaticText(); render(); if (settings.open) renderSettings();
   if (desk.language) { try { await desk.language(language()); } catch (failure) { showToast(failure.message); } }
 }
+/** Failures Desk explains in the user's language by their code; the original text stays in the record and the tooltip. */
+const KNOWN_ERRORS = {
+  native_session_busy: '这个对话正在另一个 Codex 窗口或进程里打开（Codex App、编辑器插件，或上一轮没退出的 Codex）。关掉它后再发一次消息。',
+  stopped: '已停止，这条消息没有送到 Agent。需要的话再发一次。',
+};
+const knownError = (code, text) => Object.hasOwn(KNOWN_ERRORS, code || '') ? t(KNOWN_ERRORS[code]) : text;
 /** A newer Desk: downloaded (installs when Desk quits, or restart now) or, for a ZIP copy, a link to it. */
 function updateButton() {
   if (!update || isDemo || !['ready', 'available'].includes(update.kind)) return '';
@@ -541,7 +547,7 @@ function systemNote(text) {
   return auto ? `<div class="system-note">${brand(16)}<span><strong>${auto[2] ? t('Desk 规则「{name}」', { name: escape(auto[2]) }) : t('Desk 自动唤醒助理')}</strong>${escape(String(text).slice(auto[0].length))}</span></div>` : '';
 }
 function userMail(node, call) {
-  return Object.values(data.messages).filter(m => m.message.kind === 'user_message' && m.message.to === (node.target || node.id) && (call ? m.delivery?.call_id === call.id : !m.delivery?.call_id)).sort((a,b)=>a.message.created_at.localeCompare(b.message.created_at)).map(m => `${systemNote(m.message.content) || userBubble(m.message.content,m.message.created_at,t((m.delivery?.mechanism==='native_input' && m.delivery?.state==='submitted' ? '已插入本轮' : m.delivery?.mechanism==='native_followup' ? (m.message.interrupt ? '打断后送达' : '本轮结束后送达') : ({submitted:'已送达',delivered:'已送达',needs_attention:'未送达'})[m.delivery?.state]) || (m.delivery?.reason==='native_turn_active' ? '等待本轮结束' : '等待送达')))}${m.delivery?.state === 'needs_attention' ? `<p class="chat-error" role="alert">${escape(t(m.delivery.error || '发送未成功，请重试。'))}</p>` : ''}`).join('');
+  return Object.values(data.messages).filter(m => m.message.kind === 'user_message' && m.message.to === (node.target || node.id) && (call ? m.delivery?.call_id === call.id : !m.delivery?.call_id)).sort((a,b)=>a.message.created_at.localeCompare(b.message.created_at)).map(m => `${systemNote(m.message.content) || userBubble(m.message.content,m.message.created_at,t((m.delivery?.mechanism==='native_input' && m.delivery?.state==='submitted' ? '已插入本轮' : m.delivery?.mechanism==='native_followup' ? (m.message.interrupt ? '打断后送达' : '本轮结束后送达') : ({submitted:'已送达',delivered:'已送达',needs_attention:'未送达'})[m.delivery?.state]) || (m.delivery?.reason==='native_turn_active' ? '等待本轮结束' : '等待送达')))}${m.delivery?.state === 'needs_attention' ? `<p class="chat-error" role="alert" ${m.delivery.error ? `title="${escape(m.delivery.error)}"` : ''}>${escape(knownError(m.delivery.error_code, t(m.delivery.error || '发送未成功，请重试。')))}</p>` : ''}`).join('');
 }
 /** AutoSwarm calls: one turn per call, process folded, result.json as the reply. */
 function conversation(node, worker = false) {
@@ -561,7 +567,8 @@ function conversation(node, worker = false) {
     const errorText = call.result?.error ? (typeof call.result.error === 'string' ? call.result.error : JSON.stringify(call.result.error)) : '';
     // A stopped turn ends by closing the native process; that closure is not a failure to report.
     const halted = call.result?.outcome === 'cancelled';
-    const error = errorText && !halted ? `<div class="error-text">${escape(errorText)}</div>` : '';
+    const explained = knownError(call.result?.error_code, errorText);
+    const error = errorText && !halted ? `<div class="error-text" ${explained !== errorText ? `title="${escape(errorText)}"` : ''}>${escape(explained)}</div>` : '';
     const reply = call.result?.content ? `<div class="markdown turn-reply">${markdown(call.result.content)}</div>` : '';
     const stopped = halted ? `<div class="turn-note" ${errorText ? `title="${escape(t('运行记录：{log}', { log: errorText }))}"` : ''}>${icon('stop')}<span>${call.result.content ? t('这一轮已停止。发消息可以在原会话里接着做。') : t('这一轮已停止，没有最终回复。发消息可以在原会话里接着做。')}</span></div>` : '';
     const actions = call.result ? replyActions(call.result.content, [clock(call.task.created_at), took !== '—' ? t('用时 {time}', { time: took }) : ''].filter(Boolean).join(' · '), call) : '';
@@ -1203,7 +1210,7 @@ document.addEventListener('submit', async event => {
     try {
       const result=await desk.message(target,text,chatModes.get(key)||defaultMode(view.nodes.get(target)));
       if(chatDrafts.get(key)?.trim()===text)chatDrafts.delete(key);
-      if(result.delivery?.state==='needs_attention')chatErrors.set(key,t(result.delivery.error || '消息未送达'));
+      if(result.delivery?.state==='needs_attention')chatErrors.set(key,knownError(result.delivery.error_code,t(result.delivery.error || '消息未送达')));
     }catch(failure){chatErrors.set(key,failure.message);}
     finally{chatPending.delete(key);if(data.home===home)render(true);}
     return;

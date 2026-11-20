@@ -298,6 +298,11 @@ else:
             method = value.get("method")
             if method == "initialize":
                 emit({"id": value["id"], "result": {}})
+            elif method == "thread/resume" and "resume-busy" in args:
+                # As Codex answers while another process (its app, an editor) has the thread open.
+                emit({"id": value["id"], "error": {"code": -32600, "message": f"thread {value['params'].get('threadId')} already has an active writer"}})
+            elif method == "thread/resume" and "resume-hangs" in args:
+                pass  # Never answers: the call stays in its startup until it is stopped.
             elif method in {"thread/start", "thread/resume"}:
                 session = value["params"].get("threadId", session)
                 emit({"id": value["id"], "result": {"thread": {"id": session}}})

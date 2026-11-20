@@ -131,6 +131,12 @@ class Native:
             if failure:
                 failure(error)
                 return
+            if "already has an active writer" in str(error.get("message", "")):
+                # Codex lets one process write a thread: the Codex app, an editor extension or a Codex
+                # left from an earlier turn has it open. Waiting does not help; closing it there does.
+                raise SwarmError("native_session_busy", "This conversation is open in another Codex process (the Codex app, an "
+                                 "editor extension, or a Codex still running from an earlier turn). Close it there, then send "
+                                 "the message again. Codex: " + json.dumps(error, ensure_ascii=False))
             code = "native_auth_required" if error.get("code") == -32000 and ("auth" in error.get("message", "").lower() or (error.get("data") or {}).get("category") == "auth") else "native_rpc_error"
             raise SwarmError(code, json.dumps(error, ensure_ascii=False))
         callback(event.get("result", {}))
