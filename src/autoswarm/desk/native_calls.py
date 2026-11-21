@@ -90,12 +90,16 @@ _files = {}
 
 def _jsonl(path):
     stat = path.stat()
-    key, signature = str(path), (stat.st_size, stat.st_mtime_ns)
+    key = str(path)
+    identity = (stat.st_dev, stat.st_ino)
+    signature = (identity, stat.st_size, stat.st_mtime_ns)
     cached = _files.pop(key, None)
     if cached and cached[0] == signature:
         _files[key] = cached
         return cached[2]
-    offset, rows = (cached[1], list(cached[2])) if cached and stat.st_size >= cached[1] else (0, [])
+    # Only reuse the parsed prefix when the same file grew.
+    appended = cached and cached[0][0] == identity and stat.st_size > cached[0][1]
+    offset, rows = (cached[1], list(cached[2])) if appended else (0, [])
     with path.open("rb") as stream:
         stream.seek(offset)
         chunk = stream.read()
