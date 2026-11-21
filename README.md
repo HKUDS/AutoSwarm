@@ -2,15 +2,15 @@
 
 Repository: [HKUDS/AutoSwarm](https://github.com/HKUDS/AutoSwarm)  
 Counting from: **2026-10-10 (UTC)**  
-Last collected: 2026-11-18T09:07:20.101564+00:00  
-Latest clone date returned by GitHub: 2026-11-17
+Last collected: 2026-11-21T01:47:07.862812+00:00  
+Latest clone date returned by GitHub: 2026-11-19
 
 | Metric | Recorded count |
 | --- | ---: |
-| Full repository clones since 2026-10-10 | 8,789 |
-| Release asset downloads since the baseline | 518 |
-| of which AutoSwarm Desk (installer and ZIP) | 518 |
-| AutoSwarm Desk automatic updates (not included above) | 10 |
+| Full repository clones since 2026-10-10 | 9,186 |
+| Release asset downloads since the baseline | 647 |
+| of which AutoSwarm Desk (installer and ZIP) | 647 |
+| AutoSwarm Desk automatic updates (not included above) | 25 |
 
 Daily clone records are merged by UTC date, including later corrections. Dates not returned by GitHub are not filled with zero; data after the latest reported date is pending. Daily unique cloners remain separate and are never summed into lifetime users.
 
@@ -24,7 +24,7 @@ Sunday to Saturday (UTC), so each Sunday collection completes the week before it
 
 | Week (UTC) | Clones | Days recorded |
 | --- | ---: | ---: |
-| 2026-11-15 – 2026-11-21 | 416 | 3/7 |
+| 2026-11-15 – 2026-11-21 | 813 | 5/7 |
 | 2026-11-08 – 2026-11-14 | 2,746 | 7/7 |
 | 2026-11-01 – 2026-11-07 | 2,034 | 7/7 |
 | 2026-10-25 – 2026-10-31 | 2,228 | 7/7 |
@@ -38,6 +38,7 @@ Release counters are cumulative; the change is the number of downloads between t
 
 | Collected (UTC) | Clone data through | Release downloads | Change | of which Desk | Desk automatic updates | Evidence |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
+| 2026-11-21 01:47 | 2026-11-19 | 647 | +129 | 647 | 25 | [signed snapshot](snapshots/2026-11-21T014707Z/) |
 | 2026-11-18 09:07 | 2026-11-17 | 518 | +218 | 518 | 10 | [signed snapshot](snapshots/2026-11-18T090720Z/) |
 | 2026-11-15 10:55 | 2026-11-14 | 300 | +244 | 300 | 7 | [commit 29c2da9](https://github.com/HKUDS/AutoSwarm/commit/29c2da99dd271ee489d9658427becccadea70fe8) by github-actions[bot], not signed |
 | 2026-11-08 10:24 | 2026-11-07 | 56 | +56 | 56 | 6 | [commit fe6eb09](https://github.com/HKUDS/AutoSwarm/commit/fe6eb096eed33d12a642d3eb425ddfe33b35ed67) by github-actions[bot], not signed |
@@ -51,8 +52,8 @@ Release counters are cumulative; the change is the number of downloads between t
 Each signed snapshot in `snapshots/` keeps the GitHub API responses of that collection byte for byte, `manifest.json` with their SHA-256 digests and GitHub's response date and request ID, and `attestation.sigstore.json`, a Sigstore attestation issued to the workflow run that fetched them. The attestation names the repository, workflow file, commit and run, and is recorded in Sigstore's public transparency log. To verify a file with a current GitHub CLI:
 
 ```
-gh attestation verify snapshots/2026-11-18T090720Z/traffic-clones.json \
-  --bundle snapshots/2026-11-18T090720Z/attestation.sigstore.json \
+gh attestation verify snapshots/2026-11-21T014707Z/traffic-clones.json \
+  --bundle snapshots/2026-11-21T014707Z/attestation.sigstore.json \
   --repo HKUDS/AutoSwarm --signer-workflow HKUDS/AutoSwarm/.github/workflows/download-statistics.yml \
   --source-ref refs/heads/main --deny-self-hosted-runners
 ```
