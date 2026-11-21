@@ -27,7 +27,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import platform
+from . import __version__, platform
 from .providers import ACP_PROVIDERS, canonical, command_for
 from .records import SwarmError
 
@@ -381,7 +381,7 @@ def _acp(provider, config):
         capabilities = {"fs": {"readTextFile": False, "writeTextFile": False}, "terminal": False}
         if provider == "cursor":
             capabilities["_meta"] = {"parameterizedModelPicker": True}
-        started = _rpc(lines, 1, "initialize", {"protocolVersion": 1, "clientInfo": {"name": "autoswarm-models", "version": "2.0.0.dev0"},
+        started = _rpc(lines, 1, "initialize", {"protocolVersion": 1, "clientInfo": {"name": "autoswarm-models", "version": __version__},
                                                 "clientCapabilities": capabilities}, reply_to_requests=True)
         result = _rpc(lines, 2, "session/new", {"cwd": str(workspace), "mcpServers": []}, reply_to_requests=True)
         session = result.get("sessionId")

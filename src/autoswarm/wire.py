@@ -10,6 +10,7 @@ import ssl
 import struct
 from urllib.parse import urlsplit
 
+from . import __version__
 from .records import SwarmError
 
 
@@ -51,7 +52,7 @@ class RPC:
             if " 101 " not in fields[0] or values.get("sec-websocket-accept") != expected:
                 raise SwarmError("host_connection_failed", "Host rejected WebSocket handshake: " + fields[0])
             self.sequence = 0
-            self.request("initialize", {"clientInfo": {"name": "autoswarm", "version": "2.0.0.dev0"}})
+            self.request("initialize", {"clientInfo": {"name": "autoswarm", "version": __version__}})
             self.send({"method": "initialized", "params": {}})
         except BaseException:
             self.close()
