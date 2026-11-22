@@ -129,6 +129,28 @@ class NativeCallTests(unittest.TestCase):
         events = native_calls.page("call_1", calls)["events"]
         self.assertEqual(events[-1]["text"], "还在做", "a running call has no turn end and sees appended lines")
 
+    def test_same_size_history_rewrite_invalidates_cached_rows(self):
+        calls = {"call_1": call("call_1", "claude-code", "s-claude", T0)}
+        path = self.claude()
+        self.assertTrue(any("a.txt" in event.get("text", "") for event in native_calls.page("call_1", calls)["events"]))
+        original = path.read_bytes()
+        old = path.stat()
+        path.write_bytes(original.replace(b"a.txt", b"b.txt"))
+        os.utime(path, ns=(old.st_atime_ns, old.st_mtime_ns + 2_000_000_000))
+        self.assertEqual(path.stat().st_size, old.st_size)
+        self.assertTrue(any("b.txt" in event.get("text", "") for event in native_calls.page("call_1", calls)["events"]))
+
+    def test_larger_history_replacement_restarts_from_the_beginning(self):
+        calls = {"call_1": call("call_1", "claude-code", "s-claude", T0)}
+        path = self.claude()
+        self.assertTrue(any("a.txt" in event.get("text", "") for event in native_calls.page("call_1", calls)["events"]))
+        old = path.stat()
+        replacement = path.with_suffix(".replacement")
+        replacement.write_bytes(path.read_bytes().replace(b"a.txt", b"replacement.txt"))
+        replacement.replace(path)
+        self.assertGreater(path.stat().st_size, old.st_size)
+        self.assertTrue(any("replacement.txt" in event.get("text", "") for event in native_calls.page("call_1", calls)["events"]))
+
     # ---- Codex ------------------------------------------------------------------
     def codex_history(self, thread="t-codex"):
         root = self.root / "codex"
