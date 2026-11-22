@@ -26,11 +26,7 @@ Watch all your agents work together for you. [What AutoSwarm does](desktop/READM
 </div>
 
 <p align="center">
-  <img
-    src="docs/assets/desk/AutoSwarm_Desk.png"
-    alt="AutoSwarm Desk"
-    width="900"
-  />
+  <a href="docs/assets/autoswarm/community-warm-carbon.png"><img src="docs/assets/autoswarm/community-warm-carbon.png" width="900" alt="AutoSwarm was starred by people affiliated with the companies, universities and research institutes shown here."></a>
 </p>
 
 ## Why AutoSwarm?
@@ -55,6 +51,14 @@ Give AutoSwarm a task once. It unifies all your agents into one coordinated team
 - **Runs tasks in parallel** for faster execution;
 - **Coordinates agent collaboration** and keeps everyone aligned;
 - **Verifies and synthesizes results** into one coherent answer.
+
+<p align="center">
+  <img
+    src="docs/assets/desk/AutoSwarm_Desk.png"
+    alt="AutoSwarm Desk"
+    width="900"
+  />
+</p>
 
 <div align="center">
 
