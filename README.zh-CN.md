@@ -21,7 +21,13 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
 **新：AutoSwarm Desk 桌面版（Windows 和 macOS）。** 私人助理、所有 Agent、它们的工作进展和审批，都在一个窗口里。<br>
 运行安装程序即可开始：自带 Python，Windows 版会自动更新。[了解功能](desktop/README.zh-CN.md)
 
+<a href="https://trendshift.io/repositories/82651?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-82651" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/82651" alt="AutoSwarm 的 Trendshift 趋势徽章" width="250" height="55"/></a>
+
 </div>
+
+<p align="center">
+  <a href="docs/assets/autoswarm/community-warm-carbon.png"><img src="docs/assets/autoswarm/community-warm-carbon.png" width="900" alt="为 AutoSwarm 点过 Star 的用户所关联的公司、高校和研究机构"></a>
+</p>
 
 ## ✨ 三个适合 AutoSwarm 的场景
 
@@ -42,6 +48,8 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
 > 使用 autoswarm，阅读这 100 份资料，归纳技术路线与主要分歧。
 
 由主 agent 自行选择协作者、灵活安排串并行。
+
+<p align="center"><img src="docs/assets/desk/AutoSwarm_Desk.png" width="900" alt="AutoSwarm Desk 产品图"></p>
 
 ## 🤖 支持的 agent
 
