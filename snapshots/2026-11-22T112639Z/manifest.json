@@ -1,0 +1,57 @@
+{
+  "collected_by": {
+    "commit": "8fb655bdc2ae1109dbf60765aa576f61f2adbcaf",
+    "environment": "github-actions",
+    "event": "schedule",
+    "run_attempt": "1",
+    "run_id": "45017334404",
+    "run_url": "https://github.com/HKUDS/AutoSwarm/actions/runs/45017334404",
+    "runner_environment": "github-hosted",
+    "workflow_ref": "HKUDS/AutoSwarm/.github/workflows/download-statistics.yml@refs/heads/main"
+  },
+  "note": "Each response file holds the exact bytes returned by the GitHub REST API. Published releases are kept as their asset lists; the release list itself is not kept because it can include unpublished drafts. attestation.sigstore.json is the Sigstore attestation issued to the workflow run for these files.",
+  "observed_at": "2026-11-22T11:26:39.341787+00:00",
+  "repository": "HKUDS/AutoSwarm",
+  "responses": [
+    {
+      "bytes": 916,
+      "date": "Sun, 22 Nov 2026 11:26:38 GMT",
+      "file": "traffic-clones.json",
+      "request_id": "3038:3039D0:D3BF46:2A9D93F:6B02D16E",
+      "sha256": "e24af6628cb127b98fde0768d0e96d05333218e014ff33dadc4cf036156df1cd",
+      "status": 200,
+      "url": "https://api.github.com/repos/HKUDS/AutoSwarm/traffic/clones?per=day"
+    },
+    {
+      "bytes": 8268,
+      "date": "Sun, 22 Nov 2026 11:26:39 GMT",
+      "file": "release-452896058-assets-1.json",
+      "release_id": 452896058,
+      "request_id": "303A:4B48E:D5D15B:2AE7AB2:6B02D16E",
+      "sha256": "0917e7e22f345fd89e094c74ff14a68458e45e3b0152522011b8fb407a31e020",
+      "status": 200,
+      "tag": "desk-v0.1.1",
+      "url": "https://api.github.com/repos/HKUDS/AutoSwarm/releases/452896058/assets?per_page=100&page=1"
+    },
+    {
+      "bytes": 14374,
+      "date": "Sun, 22 Nov 2026 11:26:39 GMT",
+      "file": "release-436134320-assets-1.json",
+      "release_id": 436134320,
+      "request_id": "303B:8BFF8:D1DA0E:29E2C1E:6B02D16F",
+      "sha256": "adab96536f99b13f9f190be8fe8e9d44dfbcfd6d2cfcf7ac9d36d06e65bf287a",
+      "status": 200,
+      "tag": "desk-v0.1.0",
+      "url": "https://api.github.com/repos/HKUDS/AutoSwarm/releases/436134320/assets?per_page=100&page=1"
+    }
+  ],
+  "schema_version": 1,
+  "totals_after_merge": {
+    "clones": 9472,
+    "desk_downloads": 690,
+    "desk_updates": 30,
+    "latest_clone_day": "2026-11-21",
+    "missing_clone_dates": [],
+    "release_downloads": 690
+  }
+}
