@@ -13,6 +13,7 @@ function createShell({ assets, preload, trayURL, background, mainWindow, prefere
   let tray = null, popup = null, attention = null, engine = null, summary = null, summaryHome = null, hiddenAt = 0, quitting = false;
   let popupHeight = 560, hintShown = false, tooltip = 'AutoSwarm Desk';
   const notified = new Set(), live = new Set(), fired = new Map();
+  const terminalNotified = new Set();
   const images = new Map(), image = name => {
     if (!images.has(name)) images.set(name, nativeImage.createFromPath(path.join(assets, 'tray', name + '.png')));
     return images.get(name);
@@ -150,7 +151,8 @@ function createShell({ assets, preload, trayURL, background, mainWindow, prefere
     const entries = attention.occurrences(baseline, next), p = prefs();
     const { actions, quiet } = engine.plan(rules(), entries, fired);
     const win = mainWindow(), watching = win && !win.isDestroyed() && win.isVisible() && win.isFocused();
-    for (const event of attention.notifications(entries.filter(entry => !quiet.has(entry)))) {
+    const fresh = attention.freshNotifications(entries, next, terminalNotified, !baseline);
+    for (const event of attention.notifications(fresh.filter(entry => !quiet.has(entry)))) {
       if (event.kind === 'waiting') {
         const keys = event.keys.filter(key => !notified.has(key));
         keys.forEach(key => notified.add(key));

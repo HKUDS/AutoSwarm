@@ -35,6 +35,8 @@ export function summarize(data) {
     origin: session.external ? 'external' : session.owner && session.owner === assistantId ? 'assistant' : session.owner && session.owner === controllerId ? 'desk' : 'cli',
     workspace: (session.external ? session.binding?.workspace : session.latest?.task.workspace) || '',
     done: session.done, failed: session.members.some(node => node.state === 'failed'),
+    failureCalls: session.members.filter(node => node.state === 'failed').map(node => node.latest.id),
+    completionCalls: session.members.filter(node => node.latest?.state !== 'running' && node.latest?.result).map(node => node.latest.id),
     stopped: !session.external && session.latest?.result?.outcome === 'cancelled',
     running: session.members.filter(node => node.latest?.state === 'running').length,
     waiting: waiting.filter(item => item.session === session.id).length, total: session.members.length
@@ -105,6 +107,30 @@ export function notifications(list) {
     }
   }
   return out;
+}
+
+// A session can disappear from a snapshot or temporarily report running again.
+// Notify for actual new terminal calls, rather than the same session transition.
+export function freshNotifications(entries, summary, seen, baseline = false) {
+  const keys = entry => entry.on === 'waiting' ? [] : entry.scope === 'call'
+    ? ['failed:' + entry.item.call]
+    : (entry.on === 'failed' ? entry.session.failureCalls : entry.session.completionCalls)
+      .map(id => entry.on + ':' + id);
+  if (baseline) {
+    for (const session of summary.sessions) {
+      for (const id of session.failureCalls) seen.add('failed:' + id);
+      if (session.done && !session.failed) for (const id of session.completionCalls) seen.add('done:' + id);
+    }
+    for (const item of summary.failed) seen.add('failed:' + item.call);
+    return [];
+  }
+  return entries.filter(entry => {
+    if (entry.on === 'waiting') return true;
+    const ids = keys(entry);
+    const fresh = ids.some(id => !seen.has(id));
+    for (const id of ids) seen.add(id);
+    return fresh;
+  });
 }
 
 /** Built-in triggers between two summaries (notifications for every occurrence). */
