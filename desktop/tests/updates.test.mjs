@@ -32,7 +32,7 @@ function setup({ cache = scratch(), record = path.join(scratch(), 'update-instal
   const net = { async fetch() { return { ok, status: ok ? 200 : 403, json: async () => releases }; } };
   const states = [], hidden = [];
   const log = { info() {}, warn() {}, error() {} };
-  const updater = createUpdater({ app, net, log, isInstalled: () => copy, platform, onChange: state => states.push(state.kind), load: () => engine,
+  const updater = createUpdater({ app, net, log, isInstalled: () => copy, platform, onChange: state => { if (state.kind !== (states.at(-1) ?? 'idle')) states.push(state.kind); }, load: () => engine,
     running: async () => { checked++; return (typeof running === 'function' ? running() : running).map(pid => ({ pid, path: 'python.exe' })); }, windows: () => [{ hide: () => hidden.push(1) }], recheck: 0, cache, record });
   return { app, engine, updater, states, hidden, checks: () => checked, cache, record };
 }
@@ -93,11 +93,16 @@ test('a Mac copy only links to a newer release with a Mac download, and never do
   assert.equal(windowsOnly.updater.state().kind, 'current');
 });
 
-test('a failed check leaves Desk as it was', async () => {
+test('a failed check leaves Desk as it was and says why', async () => {
   const { updater, states } = setup({ ok: false });
-  await updater.check();
+  const checked = updater.check();
+  assert.equal(updater.state().checking, true, 'Settings shows a check in progress');
+  await checked;
   assert.equal(updater.state().kind, 'idle');
   assert.deepEqual(states, []);
+  assert.equal(updater.state().checking, false);
+  assert.match(updater.state().error, /HTTP 403/);
+  assert.ok(updater.state().checked_at);
 });
 
 test('quitting installs only when nothing else runs from Desk\'s folder', async () => {

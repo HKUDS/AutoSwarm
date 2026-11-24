@@ -40,6 +40,46 @@ class DeskControlTests(unittest.TestCase):
             self.assertEqual(result["native_session_id"], "fixture-session")
             self.assertEqual(value["message"]["kind"], "user_message")
 
+    def use_codex(self, *args):
+        write_json(self.records.home / "config.json", {"providers": {"codex": {"command": [sys.executable, str(FIXTURE), "codex", *args]}}})
+
+    def test_a_conversation_that_cannot_be_resumed_fails_once_instead_of_starting_again_and_again(self):
+        # Issue #83: Codex refuses to resume a thread another process holds. The message waits for the
+        # user with the reason; nothing starts again by itself (it used to, more than once a second).
+        desk = control.initialize(self.records)["controller_id"]
+        self.use_codex("resume-busy")
+        first = control.start(self.records, desk, "work", provider="codex", workspace=str(self.root))
+        engine.wait(self.records, [first["call_id"]])
+        sent = control.message(self.records, desk, first["agent_id"], "继续")
+        retry = messages.agent(self.records, first["agent_id"])["call_id"]
+        result = engine.wait(self.records, [retry])[0]
+        self.assertEqual(result["error_code"], "native_session_busy")
+        self.assertIn("open in another Codex process", result["error"])
+        time.sleep(2)
+        self.assertEqual(len(list(self.records.calls())), 2, "The first turn and one attempt to continue it")
+        delivery = messages.inspect(self.records, sent["message"]["message_id"])["delivery"]
+        self.assertEqual((delivery["state"], delivery["error_code"]), ("needs_attention", "native_session_busy"))
+        # Sending again is one more attempt.
+        control.message(self.records, desk, first["agent_id"], "再试一次")
+        engine.wait(self.records, [messages.agent(self.records, first["agent_id"])["call_id"]])
+        time.sleep(1)
+        self.assertEqual(len(list(self.records.calls())), 3)
+
+    def test_stopping_a_conversation_while_it_resumes_does_not_start_it_again(self):
+        desk = control.initialize(self.records)["controller_id"]
+        self.use_codex("resume-hangs")
+        first = control.start(self.records, desk, "work", provider="codex", workspace=str(self.root))
+        engine.wait(self.records, [first["call_id"]])
+        sent = control.message(self.records, desk, first["agent_id"], "继续")
+        retry = messages.agent(self.records, first["agent_id"])["call_id"]
+        self.assertNotEqual(retry, first["call_id"])
+        control.cancel(self.records, desk, first["agent_id"])
+        self.assertEqual(engine.wait(self.records, [retry])[0]["outcome"], "cancelled")
+        time.sleep(2)
+        self.assertEqual(len(list(self.records.calls())), 2, "Stop stops: the message is not picked up again")
+        delivery = messages.inspect(self.records, sent["message"]["message_id"])["delivery"]
+        self.assertEqual((delivery["state"], delivery["error_code"]), ("needs_attention", "stopped"))
+
     def test_after_turn_input_waits_for_boundary_and_keeps_human_answer(self):
         desk = control.initialize(self.records)["controller_id"]
         gate = self.root / "release"

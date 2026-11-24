@@ -144,7 +144,7 @@ class Scanner:
                 "warnings": self.warnings, "capture": settings(config)["capture"], "events": settings(config)}
 
     def native_streams(self, calls):
-        """Claude Code, Codex and Cursor calls show their agent's own session record.
+        """Calls show their agent's own session record (native_calls.applies).
         While running, the temporary live stream shows text as it is typed (the
         record is re-read only if there is none); a finished call is read from
         the record when opened. The captured copy remains the fallback."""

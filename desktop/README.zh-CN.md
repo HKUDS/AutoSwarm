@@ -32,7 +32,8 @@ npm run demo                               # 演示数据，不连接真实 Agen
 ## 主要功能
 
 - **私人助理**：可随时换 Agent。每个 Agent 各有一个助理会话，换回来接着聊；新换的 Agent 能看到之前各会话的标题和会话 ID，需要时读取它们最近的内容。
-- **新会话**：选择主 Agent、工作目录、模型和思考强度（列表由各 Agent 自己报告，打开菜单即显示上次的列表并在后台刷新，也可手动刷新）、权限级别（Claude Code、Codex、Cursor，用各家自己的名称），以及 AutoSwarm 开关（第一次选中某个 Agent 时自动为它安装 Skill）。
+- **新会话**：选择主 Agent、工作目录、模型和思考强度（列表由各 Agent 自己报告，打开菜单即显示上次的列表并在后台刷新，也可手动刷新）、权限级别（默认跟随 Agent 自己的设置，也可以选它自己的某个模式，用各家自己的名称；有权限开关的 Agent 都能设：Claude Code、Codex、Cursor、CodeBuddy、Kimi、Copilot、Hermes、DSH、Grok、OpenCode），以及 AutoSwarm 开关（第一次选中某个 Agent 时自动为它安装 Skill）。
+- **图片和文件**：在任何输入框里粘贴、拖入或点回形针添加。附件随记录保存；能直接看图的 Agent 直接看到图片，其他 Agent 会被告知保存位置。主 Agent 在派活时写上附件路径，就能把它交给子 Agent。
 - **会话与子任务**：侧栏列出主会话，子任务在所属会话的子任务栏里。运行中显示 Agent 的文字，工具调用折叠成一行；结束后只留最终回复。回复里的链接（网页、Markdown、HTML、PDF、文件）在右侧面板的标签页里打开。
 - **审批与提问**：卡片写清要运行的命令或要改的文件。子 Agent 的请求先由派它的主 Agent 决定，拿不准时才问你；Desk 不会替你批准。
 - **直接对话**：给主会话或任一子任务发消息，运行中也可以插话，或停止整个会话。
@@ -46,12 +47,12 @@ Claude Code、Codex、Cursor、OpenCode、Copilot CLI、Muse、CodeBuddy、Herme
 
 - 模型列表向各 Agent 询问，不调用模型：官方登录列出账号下的模型，自己配了 API 的列出配置的模型。Muse 没有列表，可直接填写。
 - 首次读取较慢的 Agent（CodeBuddy 约一分钟）之后会缓存。
-- 没有 Desk 权限级别的 Agent 用它们自己的设置，运行命令前是否询问由各家决定。
+- 每个 Agent 默认跟随它自己的设置；在设置 → Agent 权限里可以给每个 Agent 选它自己的模式，或一键全部设为自动（用各家自己的自动审核；Cursor、DSH、Hermes、Copilot、Grok、OpenCode 在 Desk 里没有自动审核，会设为不询问）。Nanobot 和 Muse 沿用自己的设置。
 - Codex 使用 Windows 沙箱时，派子任务的命令需要在沙箱外运行，会经它自己的提权流程询问你。
 
 ## 数据与安全
 
-- Desk 不复制各 Agent 的完整历史：Claude Code、Codex、Cursor 的过程直接读取它们自己的会话记录；其他 Agent 的过程由 AutoSwarm 在运行时保存到 `calls/<id>/events.jsonl`（单个调用超过 64 MB 后不再保存）。
+- Desk 不复制各 Agent 的完整历史：每次调用的过程直接读取该 Agent 自己的会话记录。只有读不了的调用（OpenCode 1；用低于 3.14、没有 zstd 的 Python 时的 DeepSeek Harness）由 AutoSwarm 在运行时保存到 `calls/<id>/events.jsonl`（单个调用超过 64 MB 后不再保存）。
 - 偏好和 `triggers.json` 保存在 Desk 的数据目录（路径显示在设置的「触发规则」里）；记录目录只由 AutoSwarm 写入。
 - 界面进程没有 Node 权限，只能调用固定的几个操作；回复内容经过清理后显示；右侧面板里的网页没有任何权限；Desk 不会自动批准任何请求。
 - 在 Windows 上，Desk 启动 Agent 时会补上注册表里当前的用户环境，所以之后才装的 Agent、之后才设置的 API 密钥不需要重新登录就能用。

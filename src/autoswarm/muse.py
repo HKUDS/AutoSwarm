@@ -3,6 +3,7 @@ import json
 import time
 import uuid
 
+from . import __version__
 from .records import SwarmError
 
 
@@ -22,7 +23,7 @@ class Muse:
 
     def start(self):
         self.n.stage("handshake")
-        self.n.request("initialize", {"clientInfo": {"name": "autoswarm", "version": "2.0.0.dev0"}, "capabilities": {"userInputDialogs": True}}, self.initialized)
+        self.n.request("initialize", {"clientInfo": {"name": "autoswarm", "version": __version__}, "capabilities": {"userInputDialogs": True}}, self.initialized)
 
     def initialized(self, result):
         if result.get("schema", {}).get("version") != 1:
@@ -63,8 +64,10 @@ class Muse:
         if result.get("status") not in {None, "accepted"}:
             raise SwarmError("native_selection_rejected", "Muse did not accept the requested model/effort: " + str(result))
 
-    def prompt(self, text):
+    def prompt(self, text, images=()):
+        """Muse takes text input here; attached images reach it as the paths in the text."""
         self.n.request("turn/start", {"commandId": command_id(), "sessionId": self.n.output.session_id, "input": [{"type": "text", "text": text}]}, lambda value: setattr(self.n, "turn_id", value.get("turnId")))
+        return False
 
     def approval(self, params):
         native_id = params["approvalId"]

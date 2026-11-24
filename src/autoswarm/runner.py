@@ -53,10 +53,12 @@ def _execute(records: Records, call_id: str) -> int:
             env["AUTOSWARM_HOME"] = str(records.home)
             from .providers import opencode_environment
             env = opencode_environment(task, env)
+            from .permissions import environment as permission_environment
+            env = permission_environment(task, env)
             from .selection import native_environment
             env = environment.enter_context(native_environment(task, env))
             from .capture import Capture
-            capture = Capture(directory, records.config(), task["provider"])
+            capture = Capture(directory, records.config(), task["provider"], task.get("native_transport"))
             environment.callback(capture.close)
             with (directory / "stderr.log").open("wb") as stderr, (directory / "stdout.log").open("wb") as stdout_log:
                 process = subprocess.Popen(task["command"], cwd=task["workspace"], env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr, **platform.detached_options())
@@ -193,14 +195,25 @@ def _execute(records: Records, call_id: str) -> int:
             result["diagnostics"] = {"phase": handle.get("phase"), "command": task["command"], "workspace": task["workspace"], "directory": str(directory)}
         write_json(directory / "result.json", result)
     try:
+        from .messages import location, pending, receipt
+        handed = [*native.initial_messages, *(mailbox.active_messages if mailbox else [])] if native else []
+        # A call started to handle messages may end before handing them over: the native session could
+        # not be resumed, or the user stopped it. Those messages then wait for the user. Left pending,
+        # the end of this call would start another for them at once, meeting the same failure again and
+        # again (issue #83: Codex refusing a thread another process holds, many calls a second).
+        unhanded = ([m for m in pending(records, task["agent_id"]) if m.get("created_at", "") <= task["created_at"]]
+                    if task.get("message_only") and not handed and result["outcome"] in {"failed", "cancelled"} else [])
         if result["outcome"] == "failed":
-            if native:
-                from .messages import location
-                for message in [*native.initial_messages, *(mailbox.active_messages if mailbox else [])]:
-                    state = read_json(location(records, message["message_id"]) / "delivery.json", {}).get("state")
-                    if state != "delivered":
-                        issue(records, task["agent_id"], message, "native_message_failed", result.get("error") or "Native call failed while handling this message")
+            code = "native_session_busy" if result.get("error_code") == "native_session_busy" else "native_message_failed"
+            for message in [*handed, *unhanded]:
+                state = read_json(location(records, message["message_id"]) / "delivery.json", {}).get("state")
+                if state != "delivered":
+                    issue(records, task["agent_id"], message, code, result.get("error") or "Native call failed while handling this message")
             issue(records, task["agent_id"], None, result.get("error_code", "child_failed"), result.get("error") or "Child failed; inspect its retained call records")
+        else:
+            for message in unhanded:
+                receipt(records, message, "needs_attention", call_id=call_id, error_code="stopped",
+                        error="Stopped before this message reached the agent; send it again to continue.")
         finished(records, task)
     except Exception as error:
         # Even a record/delivery failure must not hide the completed call.

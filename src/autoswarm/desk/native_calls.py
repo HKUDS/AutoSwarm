@@ -1,9 +1,10 @@
 """Process events of AutoSwarm calls, read from each agent's own session records.
 
-Claude Code, Codex and Cursor already keep every session on disk, so Desk
-reads those records (read-only, only the exact native session of the call)
-instead of keeping a second copy. Other agents keep using the optional capture
-(events.jsonl). Where the records live depends on how the agent was installed:
+Every agent keeps its sessions on disk, so Desk reads those records (read-only,
+only the exact native session of the call) instead of keeping a second copy.
+This module reads Claude Code, Codex and Cursor; agent_records reads the others.
+A call Desk cannot read keeps using the optional capture (events.jsonl). Where
+the records live depends on how the agent was installed:
 
 - Claude Code: the CLI, the VS Code extension (which runs its bundled CLI) and
   the desktop app on a local folder all write $CLAUDE_CONFIG_DIR or
@@ -43,7 +44,7 @@ from pathlib import Path
 from .lens import normalize, tool_kind
 from .native_history import _process as codex_item
 
-from ..capture import NATIVE_RECORDS as READABLE  # noqa: E402  Shared with capture "auto".
+from ..capture import reads_native  # noqa: E402  Shared with capture "auto".
 EVENT_LIMIT = 800
 TEXT_LIMIT = 20000
 OUTPUT_LIMIT = 12000
@@ -89,12 +90,16 @@ _files = {}
 
 def _jsonl(path):
     stat = path.stat()
-    key, signature = str(path), (stat.st_size, stat.st_mtime_ns)
+    key = str(path)
+    identity = (stat.st_dev, stat.st_ino)
+    signature = (identity, stat.st_size, stat.st_mtime_ns)
     cached = _files.pop(key, None)
     if cached and cached[0] == signature:
         _files[key] = cached
         return cached[2]
-    offset, rows = (cached[1], list(cached[2])) if cached and stat.st_size >= cached[1] else (0, [])
+    # Only reuse the parsed prefix when the same file grew.
+    appended = cached and cached[0][0] == identity and stat.st_size > cached[0][1]
+    offset, rows = (cached[1], list(cached[2])) if appended else (0, [])
     with path.open("rb") as stream:
         stream.seek(offset)
         chunk = stream.read()
@@ -515,12 +520,13 @@ def load_calls(home):
                 return None
         task = read("task.json")
         if isinstance(task, dict):
-            calls[directory.name] = {"id": directory.name, "task": task, "handle": read("handle.json") or {}, "result": read("result.json")}
+            calls[directory.name] = {"id": directory.name, "task": task, "handle": read("handle.json") or {}, "result": read("result.json"), "directory": str(directory)}
     return calls
 
 
 def applies(call):
-    return (call.get("task") or {}).get("provider") in READABLE and bool(session_of(call))
+    task = call.get("task") or {}
+    return reads_native(task.get("provider"), task.get("native_transport")) and bool(session_of(call))
 
 
 def page(call_id, calls):
@@ -540,12 +546,20 @@ def page(call_id, calls):
             events, sources, usage = _claude(call, start, end)
         elif provider == "codex":
             events, sources, usage = _codex(call, start, end, result is None)
-        else:
+        elif provider == "cursor":
             events, sources, usage = _cursor(call, index, index + 1 == len(siblings), result is not None)
-    except (Missing, OSError, sqlite3.Error, ValueError, KeyError, TypeError):
+        else:
+            from .agent_records import read
+            # Not before the previous call of the session ended: its last words are not this call's.
+            previous = _epoch(((siblings[index - 1].get("result") or {}) if index else {}).get("finished_at"))
+            begin = max(start - 2, previous) if previous else start - 2
+            events, sources, usage = read(call, begin, end, index, index + 1 == len(siblings), result is not None)
+    except (Missing, OSError, sqlite3.Error, ValueError, KeyError, TypeError, AttributeError):
         # A running agent may not have written its record yet; only a finished call is "missing".
+        # An agent's update may change its format: then the process is not shown, the call is unaffected.
+        from .agent_records import NAMES as OTHERS
         return {"events": [], "before": 0, "size": 0, "available": False, "source": "native",
-                **({"missing": f"未找到 {NAMES[provider]} 自己的会话记录（可能已被它清理）"} if result else {})}
+                **({"missing": f"未找到 {NAMES.get(provider) or OTHERS.get(provider, provider)} 自己的会话记录（可能已被它清理）"} if result else {})}
     if result and not any(e.get("kind") == "turn" for e in events[-1:]):
         events.append({"kind": "turn", "status": "failed" if result.get("outcome") == "failed" else "completed"})
     events = events[-EVENT_LIMIT:]
@@ -575,10 +589,13 @@ def signature(call_id, calls):
             if not rollout:
                 raise Missing
             paths = [rollout]
-        else:
+        elif provider == "cursor":
             store = cursor_store(session)
             paths = [store, Path(str(store) + "-wal")]
-    except (Missing, OSError, sqlite3.Error):
+        else:
+            from .agent_records import files
+            paths = files(call)
+    except (Missing, OSError, sqlite3.Error, ValueError, KeyError, TypeError, AttributeError):
         return ("missing", int(time.time() // 5))
     stamp = []
     for path in paths:

@@ -9,6 +9,7 @@ import urllib.request
 import urllib.error
 from dataclasses import dataclass, field
 
+from . import __version__
 from .approvals import Broker
 from .records import SwarmError
 
@@ -131,6 +132,12 @@ class Native:
             if failure:
                 failure(error)
                 return
+            if "already has an active writer" in str(error.get("message", "")):
+                # Codex lets one process write a thread: the Codex app, an editor extension or a Codex
+                # left from an earlier turn has it open. Waiting does not help; closing it there does.
+                raise SwarmError("native_session_busy", "This conversation is open in another Codex process (the Codex app, an "
+                                 "editor extension, or a Codex still running from an earlier turn). Close it there, then send "
+                                 "the message again. Codex: " + json.dumps(error, ensure_ascii=False))
             code = "native_auth_required" if error.get("code") == -32000 and ("auth" in error.get("message", "").lower() or (error.get("data") or {}).get("category") == "auth") else "native_rpc_error"
             raise SwarmError(code, json.dumps(error, ensure_ascii=False))
         callback(event.get("result", {}))
@@ -153,15 +160,25 @@ class Native:
                 text = command + " " + text
             else:
                 text = f"Use your {skill['name']} skill for this task; its instructions are in {skill['path']}.\n\n" + text
+        from .attachments import note
         if self.task.get("message_only"):
             values = pending(self.broker.records, self.task["agent_id"])
             self.initial_messages = values
             text += envelope(self.task, values)
+            self.next_attachments = [item for value in values for item in value.get("attachments", [])]
             for value in values:
                 receipt(self.broker.records, value, "submitted", mechanism="native_resume", call_id=self.task["call_id"])
+        else:
+            text += note(self.task.get("attachments"))
+            self.next_attachments = self.task.get("attachments", [])
         return text
 
-    def continue_turn(self, text):
+    def continue_turn(self, text, attachments=None):
+        """Start a turn; its images go to the agent natively where it accepts them (the text names every attachment)."""
+        from .attachments import data, images as pictures
+        if attachments is None:
+            attachments, self.next_attachments = getattr(self, "next_attachments", []), []
+        images = pictures(attachments)
         self.broker.new_turn()
         for key, value in vars(Output(session_id=self.output.session_id)).items():
             setattr(self.output, key, value)
@@ -173,15 +190,20 @@ class Native:
         # A resumed session keeps its ID, so session_changed need not fire.
         self.stage("execution")
         if self.adapter:
-            self.adapter.prompt(text)
+            if not self.adapter.prompt(text, images) and images:
+                # It does not take images: it has their paths in the text, like any other file.
+                self.progress(self.phase, images_as_paths=True)
         elif self.task["provider"] == "codex":
             options = self.task.get("native_options", {})
             mention, self.mention = getattr(self, "mention", None), None
-            self.request("turn/start", {"threadId": self.output.session_id, "input": [{"type": "text", "text": text}, *([mention] if mention else [])], **{key: options[key] for key in ("model", "effort") if key in options}}, lambda value: setattr(self, "turn_id", value.get("turn", {}).get("id")))
+            # Codex reads a local image itself (as its -i option does) and keeps it in the session.
+            local_images = [{"type": "localImage", "path": item["path"]} for item in images]
+            self.request("turn/start", {"threadId": self.output.session_id, "input": [{"type": "text", "text": text}, *local_images, *([mention] if mention else [])], **{key: options[key] for key in ("model", "effort") if key in options}}, lambda value: setattr(self, "turn_id", value.get("turn", {}).get("id")))
         elif self.task["provider"] == "claude-code":
-            self.send({"type": "user", "session_id": self.output.session_id or "", "message": {"role": "user", "content": text}, "parent_tool_use_id": None})
+            content = [{"type": "text", "text": text}, *({"type": "image", "source": {"type": "base64", "media_type": item["mime"], "data": data(item)}} for item in images)] if images else text
+            self.send({"type": "user", "session_id": self.output.session_id or "", "message": {"role": "user", "content": content}, "parent_tool_use_id": None})
         else:
-            self.work = threading.Thread(target=self.opencode_prompt, args=(text,), daemon=True)
+            self.work = threading.Thread(target=self.opencode_prompt, args=(text, images), daemon=True)
             self.work.start()
 
     def insert(self, text, accepted, rejected):
@@ -272,7 +294,7 @@ class Native:
                 self.session(value["thread"]["id"])
                 self.continue_turn(self.initial_prompt())
 
-            self.request("initialize", {"clientInfo": {"name": "autoswarm-child", "version": "2.0.0.dev0"}}, initialized)
+            self.request("initialize", {"clientInfo": {"name": "autoswarm-child", "version": __version__}}, initialized)
         elif self.task["provider"] == "claude-code":
             self.send({"type": "control_request", "request_id": "autoswarm_initialize", "request": {"subtype": "initialize"}})
         else:
@@ -559,16 +581,22 @@ class Native:
             threading.Thread(target=events, daemon=True).start()
             self.stage("execution")
             self.ready = True
-            self.opencode_prompt(self.initial_prompt())
+            text = self.initial_prompt()
+            from .attachments import images
+            self.opencode_prompt(text, images(self.next_attachments))
+            self.next_attachments = []
         except Exception as error:
             self.output.error = str(error)
             self.output.error_code = getattr(error, "code", "native_connection_failed" if isinstance(error, OSError) else "native_protocol_error")
             self.finish_turn()
 
-    def opencode_prompt(self, text):
+    def opencode_prompt(self, text, images=()):
         try:
+            from .attachments import data
             session = self.output.session_id
-            body = {"parts": [{"type": "text", "text": text}]}
+            # Images as OpenCode keeps a pasted one: a file part with its data URL.
+            body = {"parts": [{"type": "text", "text": text}, *({"type": "file", "mime": item["mime"], "filename": item["name"],
+                                                                  "url": f"data:{item['mime']};base64,{data(item)}"} for item in images)]}
             for key, value in self.task.get("native_options", {}).items():
                 if key == "model":
                     if "/" not in value:

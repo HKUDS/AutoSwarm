@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import shutil
 import socket
 import subprocess
@@ -34,11 +35,12 @@ def canonical(name: str) -> str:
     return name
 
 
-def installed(binary: str) -> str | None:
+def installed(binary: str) -> list[str] | None:
     """Where an official installer puts an agent's CLI when its folder is not on PATH (yet).
 
     Hermes, Grok and Muse install into folders of their own; uv tools and Claude Code's native
-    installer use ~/.local/bin; npm global installs use %APPDATA%\\npm on Windows.
+    installer use ~/.local/bin; npm global installs use %APPDATA%\\npm on Windows. Agents that keep
+    each version in a folder of its own are resolved by versioned().
     """
     home = Path.home()
     if os.name == "nt":
@@ -52,7 +54,52 @@ def installed(binary: str) -> str | None:
     for folder in folders:
         for file in names:
             if (folder / file).is_file():
-                return str(folder / file)
+                return [str(folder / file)]
+    return versioned(binary, home)
+
+
+def _version_key(folder: Path) -> tuple:
+    """Cursor names versions YYYY.MM.DD-commit; other names fall back to the folder's age."""
+    match = re.match(r"(\d+)\.(\d+)\.(\d+)", folder.name)
+    try:
+        modified = folder.stat().st_mtime
+    except OSError:
+        modified = 0
+    return (*(int(part) for part in match.groups()), modified) if match else (0, 0, 0, modified)
+
+
+def versioned(binary: str, home: Path) -> list[str] | None:
+    """The current installation of an agent that keeps each version in its own folder.
+
+    An update adds a new folder and later deletes the old one, so the newest complete version is
+    chosen at every start and never written into configuration. Cursor Agent comes from its
+    official installer or bundled with the Cursor app (versions/<YYYY.MM.DD-commit>); the Codex app
+    keeps codex.exe in bin/<hash>.
+    """
+    if binary in {"cursor-agent", "agent"}:
+        share = ".local/share/cursor-agent"
+        bundled = "User/globalStorage/anysphere.cursor-agent-worker/agent-cli/" + share
+        if os.name == "nt":
+            local = Path(os.environ.get("LOCALAPPDATA") or home / "AppData/Local")
+            roaming = Path(os.environ.get("APPDATA") or home / "AppData/Roaming")
+            roots = [local / "cursor-agent", roaming / "Cursor" / bundled]
+        elif sys.platform == "darwin":
+            roots = [home / share, home / "Library/Application Support/Cursor" / bundled]
+        else:
+            roots = [home / share, Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config") / "Cursor" / bundled]
+        found = []
+        for root in roots:
+            for folder in (root / "versions").glob("*"):
+                # Its own node and entry script (what the version's cursor-agent.cmd/.ps1 runs), so
+                # arguments never pass through a batch file.
+                argv = [folder / "node.exe", folder / "index.js"] if os.name == "nt" else [folder / "cursor-agent"]
+                if all(path.is_file() for path in argv):
+                    found.append((_version_key(folder), [str(path) for path in argv]))
+        return max(found, key=lambda item: item[0])[1] if found else None
+    if binary == "codex" and os.name == "nt":
+        local = Path(os.environ.get("LOCALAPPDATA") or home / "AppData/Local")
+        found = [path for path in (local / "OpenAI/Codex/bin").glob("*/codex.exe") if path.is_file()]
+        return [str(max(found, key=lambda path: path.stat().st_mtime))] if found else None
     return None
 
 
@@ -84,10 +131,11 @@ def command_for(name: str, config: dict, *, allow_disabled: bool = False) -> lis
     configured = settings.get("command", [BINARIES[name]])
     if not isinstance(configured, list) or not configured or not all(isinstance(x, str) for x in configured):
         raise SwarmError("invalid_config", "Provider command must be an argv array")
-    binary = shutil.which(configured[0]) or (None if explicit else installed(configured[0]))
-    if not binary:
+    found = shutil.which(configured[0])
+    prefix = [found] if found else None if explicit else installed(configured[0])
+    if not prefix:
         raise SwarmError("provider_unavailable", f"No callable CLI for {name}: {configured[0]}. Check the configured path/PATH; if no CLI is installed, ask the user whether to install its official CLI.")
-    return [binary, *configured[1:]]
+    return [*prefix, *configured[1:]]
 
 
 LOOPBACK = ("localhost", "127.0.0.1", "::1")
@@ -166,7 +214,7 @@ def invocation(task: dict, config: dict) -> list[str]:
         options["model"] = task["model"]
     # A Desk permission mode overrides native settings and config args.
     from .permissions import launch
-    flags, settings = launch(task)
+    flags, settings, _ = launch(task)
     native_args += flags
     options.update(settings)
     if task.get("effort"):
@@ -194,6 +242,8 @@ def invocation(task: dict, config: dict) -> list[str]:
         # Partial messages stream text as it is written (stream_event deltas); the
         # complete assistant/result events still follow, so parsing is unchanged.
         command += ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--permission-prompt-tool", "stdio"]
+        # The folders of the user's attachments it receives, so it reads them without asking.
+        command += [item for folder in task.get("attachment_dirs", []) for item in ("--add-dir", folder)]
         if task.get("native_session_id"):
             command += ["--resume=" + task["native_session_id"]]
         if options.get("model"):

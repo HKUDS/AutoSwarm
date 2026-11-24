@@ -228,7 +228,7 @@ def rules(records: Records, controller: str, current: str | None = None) -> str:
 
 def assistant(records: Records, controller: str | None, prompt: str, *, provider: str | None = None,
               workspace: str | None = None, model: str | None = None, effort: str | None = None,
-              permissions: dict | None = None) -> dict:
+              permissions: dict | None = None, attachments: list | None = None) -> dict:
     if not controller:
         raise SwarmError("controller_required", "Use the controller_id returned by desk init")
     controller = _controller_id(records, controller)
@@ -237,6 +237,8 @@ def assistant(records: Records, controller: str | None, prompt: str, *, provider
         raise SwarmError("desk_context_conflict", "Desk must launch without an inherited AUTOSWARM_CALL_ID")
     if not prompt.strip():
         raise SwarmError("invalid_input", "Provide a user message")
+    from autoswarm.attachments import store
+    stored = store(records, attachments)
     directory = messages.agent_path(records, controller)
     with platform.session_lease(directory / "assistant.lock"):
         # One assistant conversation per agent: the chosen agent's continues, a new one starts on an
@@ -254,23 +256,23 @@ def assistant(records: Records, controller: str | None, prompt: str, *, provider
             # Refresh parent-authorized context through this CLI, retaining all
             # dispatch bookkeeping. The native context remains in agent.json.
             agent_dir = messages.agent_path(records, agent["agent_id"])
-            with platform.session_lease(agent_dir / "dispatch.lock"):
+            with platform.bookkeeping_lease(agent_dir / "dispatch.lock"):
                 latest = messages.agent(records, agent["agent_id"])
                 if latest.get("rules") != context or latest.get("peers") != peers:
                     write_json(agent_dir / "agent.json", {**latest, "rules": context, "peers": peers})
                 call_id = latest["call_id"]
             info = engine.resume(records, call_id, prompt, inherit_parent=False, model=model, effort=effort,
-                                 return_mode="wait", delegate_approvals=False, permissions=permissions)
+                                 return_mode="wait", delegate_approvals=False, permissions=permissions, attachments=stored)
         else:
             provider = provider or "claude-code"
             name = ASSISTANT_NAME if not _assistants(records, controller) else ASSISTANT_NAME + "." + provider
             info = engine.start_call(records, provider, prompt, workspace or os.getcwd(),
                                      controller=controller, name=name, peers=peers, rules=context,
                                      model=model, effort=effort, return_mode="wait", delegate_approvals=False,
-                                     permissions=permissions)
+                                     permissions=permissions, attachments=stored)
             # The conversation's title, as its list shows it to Desk and to the assistant on other agents.
             agent_dir = messages.agent_path(records, info["agent_id"])
-            with platform.session_lease(agent_dir / "dispatch.lock"):
+            with platform.bookkeeping_lease(agent_dir / "dispatch.lock"):
                 write_json(agent_dir / "agent.json", {**messages.agent(records, info["agent_id"]), "title": _title(prompt)})
         return {**info, "desk": status(records, controller, info.get("provider"))}
 
@@ -300,7 +302,7 @@ SKILL_OFF = {
 
 
 def start(records, controller, prompt, *, provider, workspace, model=None, effort=None, skill=None,
-          permission=None, permissions=None):
+          permission=None, permissions=None, attachments=None):
     """Start a main conversation directly under the Desk identity.
 
     It is an ordinary top-level AutoSwarm call. Its own native requests go to
@@ -309,6 +311,7 @@ def start(records, controller, prompt, *, provider, workspace, model=None, effor
     leaves it to the agent. permissions is Desk's mode per agent; permission
     overrides it for this conversation.
     """
+    from autoswarm.attachments import store
     _human(records, controller)
     if not prompt.strip():
         raise SwarmError("invalid_input", "Describe the work for the new conversation")
@@ -326,7 +329,7 @@ def start(records, controller, prompt, *, provider, workspace, model=None, effor
     return engine.start_call(records, provider, prompt, workspace, controller=controller, rules=SESSION_RULES,
                              model=model or None, effort=effort or None, return_mode="wait", delegate_approvals=False,
                              provider_args=SKILL_OFF[canonical(provider)] if skill is False else None, skill=mention,
-                             permission=permission or None, permissions=permissions)
+                             permission=permission or None, permissions=permissions, attachments=store(records, attachments))
 
 
 def permission(records, controller, target, mode):
@@ -339,7 +342,7 @@ def permission(records, controller, target, mode):
         raise SwarmError("permission_unmanaged", "Only conversations started in Desk have a Desk permission mode")
     access.check(task["provider"], mode)
     path = messages.agent_path(records, value["agent_id"])
-    with platform.session_lease(path / "dispatch.lock"):
+    with platform.bookkeeping_lease(path / "dispatch.lock"):
         write_json(path / "agent.json", {**messages.agent(records, value["agent_id"]), "permission": mode})
     return {"agent_id": value["agent_id"], "permission": mode}
 
@@ -382,15 +385,16 @@ def cancel(records, controller, target):
     return {"agent_id": root, "cancel_requested": stopped}
 
 
-def message(records, controller, target, prompt, *, mode="after_turn"):
+def message(records, controller, target, prompt, *, mode="after_turn", attachments=None):
     """Address human input to any retained conversation, keeping its ownership."""
+    from autoswarm.attachments import store
     _human(records, controller)
     if mode not in {"after_turn", "immediate"} or not prompt.strip():
         raise SwarmError("invalid_input", "Provide a message and a valid delivery mode")
     destination = messages.agent(records, target)
     target = destination["agent_id"]
     value = messages.send(records, target, prompt, sender=controller, kind="user_message", internal=True,
-                          interrupt=mode == "immediate", delivery_mode=mode)
+                          interrupt=mode == "immediate", delivery_mode=mode, attachments=store(records, attachments))
     if not destination.get("call_id"):
         _external(records, destination)
     return messages.inspect(records, value["message_id"])

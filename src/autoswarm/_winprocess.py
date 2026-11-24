@@ -68,6 +68,33 @@ def _snapshot(kernel, entry_type):
         kernel.CloseHandle(snapshot)
 
 
+EXIT_GRACE_MS = 5000
+
+
+def _denied(kernel, pid, parent_born, cutoff):
+    """Classify a process listed under a tree member that denied terminate rights.
+
+    A snapshot keeps the parent PID a process was started with, and Windows reuses PIDs, so an
+    unrelated protected or system process can name a member's PID as its parent; terminate rights
+    are denied for it even to administrators. Query rights still show its start time. A member
+    that has begun exiting can also deny them briefly; wait a little for that exit instead.
+    Returns "unrelated", "deferred" (started after the snapshot; the rescan decides), "exited",
+    or "member" for a running member that cannot be stopped.
+    """
+    handle = kernel.OpenProcess(0x1000 | 0x100000, False, pid)  # query, synchronize
+    if not handle:
+        return "unrelated"  # Nothing shows that it belongs to the tree.
+    try:
+        born = _created(kernel, handle)
+        if born < parent_born:
+            return "unrelated"
+        if born > cutoff:
+            return "deferred"
+        return "exited" if kernel.WaitForSingleObject(handle, EXIT_GRACE_MS) == 0 else "member"
+    finally:
+        kernel.CloseHandle(handle)
+
+
 def stop_tree(process):
     kernel, entry_type = _api()
     # Popen keeps this handle open even after exit, so the root PID cannot
@@ -91,6 +118,12 @@ def stop_tree(process):
                         error = ctypes.get_last_error()
                         if error == 87:  # Process exited between snapshot and open.
                             continue
+                        if error == 5:
+                            state = _denied(kernel, pid, owned[parent][1], cutoff)
+                            if state == "deferred":
+                                deferred = True
+                            if state != "member":
+                                continue
                         raise ctypes.WinError(error)
                     try:
                         born = _created(kernel, handle)

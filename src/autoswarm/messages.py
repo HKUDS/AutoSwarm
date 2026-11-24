@@ -177,7 +177,7 @@ def receive(records, target, *, mark=True):
     return values
 
 
-def send(records, target, content, *, sender=None, interrupt=False, reply_to=None, kind="agent_message", internal=False, delivery_mode=None):
+def send(records, target, content, *, sender=None, interrupt=False, reply_to=None, kind="agent_message", internal=False, delivery_mode=None, attachments=None):
     sender = sender or identity(records)
     target = resolve(records, target, sender)
     source, destination = agent(records, sender), agent(records, target)
@@ -198,6 +198,11 @@ def send(records, target, content, *, sender=None, interrupt=False, reply_to=Non
                "interrupt": interrupt, "reply_to": reply_to, "created_at": now()}
     if delivery_mode:
         message["delivery_mode"] = delivery_mode
+    # Attachments given with the message, and saved attachments it names (an agent handing one to a peer).
+    from . import attachments as attached
+    found = attached.merge(attachments, [] if internal else attached.mentioned(records, content))
+    if found:
+        message["attachments"] = found
     path = agent_path(records, target) / "messages" / message_id
     write_json(path / "message.json", message)
     try:
@@ -315,12 +320,7 @@ def wake(records, target):
 
 def finished(records, task):
     path = agent_path(records, task["agent_id"])
-    while True:
-        try:
-            lease = platform.session_lease(path / "dispatch.lock")
-            break
-        except SwarmError:
-            time.sleep(0.02)
+    lease = platform.bookkeeping_lease(path / "dispatch.lock")
     try:
         value = agent(records, task["agent_id"])
         if value.get("call_id") == task["call_id"]:
@@ -370,6 +370,14 @@ QUIET = ("Every reply wakes its recipient: reply only when a message asks you so
 
 
 def envelope(task, values):
+    if any(value.get("attachments") for value in values):
+        return _envelope(task, values) + ("\nAn entry's attachments are files saved locally; images are also attached to this "
+                                         "message when you accept images. Open other files with your tools as needed; to give a "
+                                         "worker one of them, include its full path in the worker's task or message.")
+    return _envelope(task, values)
+
+
+def _envelope(task, values):
     if not any(value.get("kind") == "user_message" for value in values):
         return context(task) + "\n" + QUIET + "\nIncoming messages (preserve sender identity; answer questions using reply):\n" + json.dumps(values, ensure_ascii=False)
     return (context(task) + "\n" + QUIET + "\nEntries with kind=user_message "
@@ -391,7 +399,7 @@ def wait(records, message_id, *, sender=None, mark=True, block=True):
         values = list({value["message_id"]: value for value in [*replies, *incoming]}.values())
         # Waiting on a peer never hides approvals owned by this parent.
         from .approvals import pending as approvals_pending
-        for _, task in records.calls():
+        for _, task in records.calls(skip_unreadable=True):
             if task.get("controller_id") == sender:
                 values.extend(approvals_pending(records, task["call_id"]))
         delivery = read_json(location(records, message_id) / "delivery.json", {})
@@ -485,7 +493,7 @@ class Mailbox:
             text = envelope(self.task, values)
             if self.interrupting and not self.task.get("message_only"):
                 text += "\nThe previous turn was interrupted for communication. Reply promptly, then continue your unfinished original assignment from the current workspace state."
-            self.native.continue_turn(text)
+            self.native.continue_turn(text, [item for message in values for item in message.get("attachments", [])])
             for message in values:
                 receipt(self.records, message, "submitted", mechanism="native_followup", call_id=self.task["call_id"])
             self.active_messages = values

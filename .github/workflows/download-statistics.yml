@@ -7,6 +7,9 @@ on:
 
 permissions:
   contents: write
+  # Sign each snapshot with a Sigstore attestation issued to this workflow run.
+  id-token: write
+  attestations: write
 
 concurrency:
   group: download-statistics
@@ -33,29 +36,85 @@ jobs:
           git ls-remote --exit-code --heads origin "$STATS_BRANCH" > "$RUNNER_TEMP/stats-ref" || status=$?
           case "$status" in
             0)
-              git fetch --no-tags --depth=1 origin "refs/heads/$STATS_BRANCH:refs/remotes/origin/$STATS_BRANCH"
+              # Whole branch history: collections made before signed snapshots are listed from its commits.
+              git fetch --no-tags origin "refs/heads/$STATS_BRANCH:refs/remotes/origin/$STATS_BRANCH"
               git show "origin/$STATS_BRANCH:history.json" > "$STATS_DIRECTORY/history.json"
+              printf 'BACKFILL_REF=origin/%s\n' "$STATS_BRANCH" >> "$GITHUB_ENV"
               ;;
             2) cp docs/download-statistics-baseline.json "$STATS_DIRECTORY/history.json" ;;
             *) exit "$status" ;;
           esac
       - name: Collect GitHub counters
+        id: collect
         env:
           TRAFFIC_TOKEN: ${{ secrets.AUTOSWARM_TRAFFIC_TOKEN || secrets.TRAFFIC_TOKEN }}
-        run: python scripts/collect_downloads.py --repository "$GITHUB_REPOSITORY" --output "$STATS_DIRECTORY"
-      - name: Retain counts on the statistics branch
-        shell: bash
+        run: python scripts/collect_downloads.py --repository "$GITHUB_REPOSITORY" --output "$STATS_DIRECTORY" ${BACKFILL_REF:+--backfill-ref "$BACKFILL_REF"}
+      - name: Sign the snapshot
+        id: attest
+        if: steps.collect.outputs.snapshot != ''
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ env.STATS_DIRECTORY }}/${{ steps.collect.outputs.snapshot }}/*.json
+      - name: Keep the signature with the snapshot
+        env:
+          SNAPSHOT: ${{ steps.collect.outputs.snapshot }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
         run: |
+          : "${SNAPSHOT:?The collector did not write a snapshot}"
+          cp "$BUNDLE" "$STATS_DIRECTORY/$SNAPSHOT/attestation.sigstore.json"
+      - name: Keep a copy with the run
+        uses: actions/upload-artifact@v7
+        with:
+          name: download-statistics-snapshot
+          path: ${{ env.STATS_DIRECTORY }}/${{ steps.collect.outputs.snapshot }}
+          if-no-files-found: error
+          retention-days: 90
+      - name: Retain counts and evidence on the statistics branch
+        id: publish
+        shell: bash
+        env:
+          SNAPSHOT: ${{ steps.collect.outputs.snapshot }}
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+        run: |
+          PUBLISH="$RUNNER_TEMP/statistics-branch"
           if git show-ref --verify --quiet "refs/remotes/origin/$STATS_BRANCH"; then
-            git switch --create "$STATS_BRANCH" "origin/$STATS_BRANCH"
+            git worktree add -B "$STATS_BRANCH" "$PUBLISH" "origin/$STATS_BRANCH"
           else
-            git switch --orphan "$STATS_BRANCH"
+            git worktree add --orphan -b "$STATS_BRANCH" "$PUBLISH"
           fi
-          cp "$STATS_DIRECTORY/history.json" "$STATS_DIRECTORY/README.md" "$STATS_DIRECTORY/clones-badge.json" "$STATS_DIRECTORY/release-downloads-badge.json" .
+          cd "$PUBLISH"
+          for file in history.json README.md clones-badge.json release-downloads-badge.json .gitattributes; do
+            cp "$STATS_DIRECTORY/$file" "$file"
+          done
+          mkdir -p snapshots
+          cp -R "$STATS_DIRECTORY/$SNAPSHOT" snapshots/
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add history.json README.md clones-badge.json release-downloads-badge.json
-          if ! git diff --cached --quiet; then
-            git commit -m 'Update download statistics'
-            git push origin "HEAD:refs/heads/$STATS_BRANCH"
+          git add history.json README.md clones-badge.json release-downloads-badge.json .gitattributes "$SNAPSHOT"
+          git commit --quiet --file - <<EOF
+          Update download statistics
+
+          Snapshot: $SNAPSHOT
+          Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          Attestation: $ATTESTATION_URL
+          EOF
+          git push origin "HEAD:refs/heads/$STATS_BRANCH"
+          printf 'commit=%s\ndirectory=%s\n' "$(git rev-parse HEAD)" "$PUBLISH" >> "$GITHUB_OUTPUT"
+      - name: Ask public archives to keep copies
+        continue-on-error: true
+        timeout-minutes: 30
+        env:
+          COMMIT: ${{ steps.publish.outputs.commit }}
+          SNAPSHOT: ${{ steps.collect.outputs.snapshot }}
+          PUBLISHED: ${{ steps.publish.outputs.directory }}
+        run: python scripts/archive_download_statistics.py --repository "$GITHUB_REPOSITORY" --commit "$COMMIT" --snapshot "$SNAPSHOT" --directory "$PUBLISHED"
+      - name: Check when the traffic token expires
+        if: steps.collect.outputs.token-days-left != ''
+        env:
+          DAYS_LEFT: ${{ steps.collect.outputs.token-days-left }}
+        run: |
+          if [ "$DAYS_LEFT" -lt 30 ]; then
+            echo "::error::The traffic token expires in $DAYS_LEFT days. This run's statistics were published; replace the AUTOSWARM_TRAFFIC_TOKEN secret before it expires, or clone days older than GitHub's 14-day window will be lost."
+            exit 1
           fi
+          echo "::notice::The traffic token expires in $DAYS_LEFT days."
