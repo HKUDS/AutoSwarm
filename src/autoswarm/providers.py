@@ -18,13 +18,16 @@ ALIASES = {
     "hermes-agent": "hermes", "nanobot-ai": "nanobot", "deepseek-harness": "dsh",
     "grok-build": "grok", "grok_build": "grok",
     "kimi-code": "kimi", "kimi-cli": "kimi",
+    "jiuwenswarm": "jiuwen", "jiuwen-swarm": "jiuwen", "workswarm": "jiuwen", "openjiuwen": "jiuwen",
 }
 BINARIES = {
     "codex": "codex", "claude-code": "claude", "opencode": "opencode",
     "cursor": "cursor-agent", "copilot": "copilot", "muse": "muse", "codebuddy": "codebuddy",
     "hermes": "hermes", "nanobot": "nanobot", "dsh": "dsh", "grok": "grok", "kimi": "kimi",
+    "jiuwen": "jiuwenswarm-process",
 }
-ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi"}
+# JiuwenSwarm and Nanobot are reached through AutoSwarm's own ACP bridge on their Python.
+ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi", "jiuwen"}
 OWNED_SERVERS = ACP_PROVIDERS | {"opencode", "muse"}
 
 
@@ -112,7 +115,9 @@ def command_for(name: str, config: dict) -> list[str]:
     found = shutil.which(configured[0])
     prefix = [found] if found else None if explicit else installed(configured[0])
     if not prefix:
-        raise SwarmError("provider_unavailable", f"No callable CLI for {name}: {configured[0]}. Check the configured path/PATH; if no CLI is installed, ask the user whether to install its official CLI.")
+        hint = (" JiuwenSwarm's desktop app does not include this command line; `uv tool install workswarm` adds it and uses the same"
+                " ~/.jiuwenswarm settings and models." if name == "jiuwen" else "")
+        raise SwarmError("provider_unavailable", f"No callable CLI for {name}: {configured[0]}. Check the configured path/PATH; if no CLI is installed, ask the user whether to install its official CLI.{hint}")
     return [*prefix, *configured[1:]]
 
 
@@ -231,6 +236,11 @@ def invocation(task: dict, config: dict) -> list[str]:
         return [*bridge_command(command, config), *native_args,
                 *(["--model", options["model"]] if options.get("model") else []),
                 *(["--effort", options["effort"]] if options.get("effort") else [])]
+    elif name == "jiuwen":
+        if options.get("effort"):
+            raise SwarmError("unsupported_effort", "JiuwenSwarm has no reasoning-effort choice; omit --effort")
+        from .jiuwen import bridge_command
+        return [*bridge_command(command, config), *native_args, *(["--model", options["model"]] if options.get("model") else [])]
     elif name in {"hermes", "kimi"}:
         return [*command, "acp", *native_args]
     elif name == "dsh":
@@ -272,7 +282,13 @@ def discover(config: dict, providers=None) -> list[dict]:
     for name in dict.fromkeys(canonical(value) for value in (providers if providers is not None else BINARIES)):
         try:
             command = command_for(name, config)
-            info = subprocess.run([*command, "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+            # jiuwenswarm-process has no --version; its bridge reports the installed JiuwenSwarm (and finds its Python).
+            if name == "jiuwen":
+                from .jiuwen import bridge_command
+                probe = bridge_command(command, config)
+            else:
+                probe = command
+            info = subprocess.run([*probe, "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace")
             value = {"provider": name, "available": info.returncode == 0, "check": "executable", "command": command, "version": info.stdout.strip(), "invocation_verified": False, "session_resume": True, "approval_relay": name != "nanobot"}
             if info.returncode:
                 value["error"] = info.stderr.strip() or info.stdout.strip() or f"CLI version check exited with code {info.returncode}"

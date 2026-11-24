@@ -46,5 +46,9 @@
   "kimi.png": {
     "source": "https://raw.githubusercontent.com/MoonshotAI/kimi-code/a2afdbc7d1fa0737d45d5780cc6c2bd38e477b55/docs/.vitepress/theme/Kimi.png",
     "note": "Official Kimi Code documentation product icon, unmodified 316×316 PNG; the same K/blue-dot artwork is used by its extension storefront"
+  },
+  "jiuwen.svg": {
+    "source": "https://github.com/openJiuwen-ai/jiuwenswarm (logo.svg shipped in the workswarm 0.2.8 package's web frontend)",
+    "note": "Original product artwork (Apache-2.0); SVG badge background added for light/dark readability"
   }
 }

@@ -261,6 +261,27 @@ class AgentRecordTests(unittest.TestCase):
         with patch.dict(os.environ, {"XDG_DATA_HOME": str(self.root / "elsewhere")}):
             self.check("muse", session)
 
+    def test_jiuwenswarm_history_names_the_team_member(self):
+        session = "process_cli_1a20cae12dc_0aacea3d7eb3"
+        rows = []
+        for marker, at in (("first", T0), ("second", T0 + 10.4)):
+            rows += [
+                {"role": "user", "timestamp": at + 0.1, "content": "prompt"},
+                {"role": "assistant", "timestamp": iso(at + 0.5), "event_type": "context.usage"},
+                {"role": "assistant", "timestamp": at + 0.6, "event_type": "chat.tool_call",
+                 "tool_call": {"name": "bash", "arguments": json.dumps({"command": f"echo {marker}-call-marker"}), "tool_call_id": f"call_{marker}"}},
+                {"role": "teammate", "member_id": "member-a", "timestamp": at + 0.65, "event_type": "chat.final", "content": "member note"},
+                {"role": "assistant", "timestamp": at + 0.7, "event_type": "chat.tool_result", "tool_call_id": f"call_{marker}", "success": True,
+                 "rendered_result": f"Stdout: {marker}-call-marker"},
+                {"role": "assistant", "timestamp": at + 9.8, "event_type": "chat.final", "content": f"{marker}-call-marker"},
+                {"role": "assistant", "timestamp": at + 9.9, "event_type": "chat.usage_summary",
+                 "usage": {"input_tokens": 100, "output_tokens": 5, "cache_tokens": 80}}]
+        jsonl(self.root / "jiuwen/agent/sessions" / session / "history.jsonl", rows)
+        with patch.dict(os.environ, {"JIUWENSWARM_DATA_DIR": str(self.root / "jiuwen")}):
+            first, _ = self.check("jiuwen", session)
+        self.assertIn(("thought", "member-a: member note"), [(e["kind"], e.get("text")) for e in first["events"]], "a team member's work is labelled")
+        self.assertEqual((first["usage"]["input"], first["usage"]["cached"], first["usage"]["output"]), (100, 80, 5))
+
     def test_a_record_desk_cannot_read_shows_no_process_and_fails_nothing(self):
         session = "5b2752cd"
         (self.root / "copilot/session-state" / session).mkdir(parents=True)

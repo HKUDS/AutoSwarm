@@ -7,6 +7,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from .jiuwen import data_directory
 from .providers import BINARIES
 from .records import Records, SwarmError
 
@@ -50,7 +51,8 @@ def roots(host: str, config: dict | None = None) -> list[Path]:
             "hermes": [hermes_home() / "skills"],
             "dsh": [Path(os.environ["DSH_AGENTS_HOME"]) / "skills" if os.environ.get("DSH_AGENTS_HOME") else shared],
             "grok": [home / ".grok/skills", shared],
-            "kimi": [Path(os.environ.get("KIMI_CODE_HOME") or home / ".kimi-code") / "skills", shared]}[host]
+            "kimi": [Path(os.environ.get("KIMI_CODE_HOME") or home / ".kimi-code") / "skills", shared],
+            "jiuwen": [data_directory() / "agent/workspace/skills"]}[host]  # JiuwenSwarm's global skill library.
 
 
 def destination(host: str, config: dict | None = None) -> Path:

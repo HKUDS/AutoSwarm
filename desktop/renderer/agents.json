@@ -11,7 +11,8 @@
     "muse": "Muse",
     "codebuddy": "CodeBuddy",
     "nanobot": "Nanobot",
-    "kimi": "Kimi Code"
+    "kimi": "Kimi Code",
+    "jiuwen": "JiuwenSwarm"
   },
   "pngLogos": ["nanobot", "kimi"]
 }

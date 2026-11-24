@@ -407,6 +407,9 @@ def catalog(config, provider) -> dict:
     reader = READERS.get(provider)
     if reader:
         value = reader(command_for(provider, config))
+    elif provider == "jiuwen":
+        from .jiuwen import models
+        value = models(config)
     elif provider in ACP_PROVIDERS or provider == "opencode":
         value = _acp(provider, config)
     else:

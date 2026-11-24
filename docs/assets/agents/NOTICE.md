@@ -113,3 +113,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## JiuwenSwarm
+
+Source: https://github.com/openJiuwen-ai/jiuwenswarm (the logo shipped with the `workswarm` package). Licensed under the Apache License, Version 2.0: https://www.apache.org/licenses/LICENSE-2.0. Adaptation: placed on a light rounded badge (see sources.json).
