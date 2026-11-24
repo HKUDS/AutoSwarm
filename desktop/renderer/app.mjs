@@ -598,7 +598,12 @@ function systemNote(text) {
   const auto = String(text).match(AUTOMATIC);
   return auto ? `<div class="system-note">${brand(16)}<span><strong>${auto[2] ? t('Desk 规则「{name}」', { name: escape(auto[2]) }) : t('Desk 自动唤醒助理')}</strong>${escape(String(text).slice(auto[0].length))}</span></div>` : '';
 }
-function userMail(node, call) {
+function userMail(node, call, historical = false) {
+  if (historical || !call) {
+    const messages = Object.values(data.messages).filter(m => m.message.kind === 'user_message' && m.message.to === (node.target || node.id) && !m.delivery?.call_id);
+    const bucket = messages.filter(m => node.calls.find(c => (c.task.created_at || '') >= m.message.created_at)?.id === call?.id);
+    return bucket.sort((a, b) => a.message.created_at.localeCompare(b.message.created_at)).map(m => `${systemNote(m.message.content) || userBubble(m.message.content, m.message.created_at, t(({ delivered: '已送达', submitted: '已送达', needs_attention: '未送达' })[m.delivery?.state] || (m.delivery?.reason === 'native_turn_active' ? '等待本轮结束' : '等待送达')), m.message.attachments)}${m.delivery?.state === 'needs_attention' ? `<p class="chat-error" role="alert">${escape(knownError(m.delivery.error_code, t(m.delivery.error || '发送未成功，请重试。')))}</p>` : ''}`).join('');
+  }
   return Object.values(data.messages).filter(m => m.message.kind === 'user_message' && m.message.to === (node.target || node.id) && (call ? m.delivery?.call_id === call.id : !m.delivery?.call_id)).sort((a,b)=>a.message.created_at.localeCompare(b.message.created_at)).map(m => `${systemNote(m.message.content) || userBubble(m.message.content,m.message.created_at,t((m.delivery?.mechanism==='native_input' && m.delivery?.state==='submitted' ? '已插入本轮' : m.delivery?.mechanism==='native_followup' ? (m.message.interrupt ? '打断后送达' : '本轮结束后送达') : ({submitted:'已送达',delivered:'已送达',needs_attention:'未送达'})[m.delivery?.state]) || (m.delivery?.reason==='native_turn_active' ? '等待本轮结束' : '等待送达')),m.message.attachments)}${m.delivery?.state === 'needs_attention' ? `<p class="chat-error" role="alert" ${m.delivery.error ? `title="${escape(m.delivery.error)}"` : ''}>${escape(knownError(m.delivery.error_code, t(m.delivery.error || '发送未成功，请重试。')))}</p>` : ''}`).join('');
 }
 /** AutoSwarm calls: one turn per call, process folded, result.json as the reply. */
@@ -626,7 +631,7 @@ function conversation(node, worker = false) {
     const actions = call.result ? replyActions(call.result.content, [clock(call.task.created_at), took !== '—' ? t('用时 {time}', { time: took }) : ''].filter(Boolean).join(' · '), call) : '';
     const body = `${processView(call, stream, worker, limits.get(call.id) || 0, { markdown })}${!call.task.message_only ? userMail(node, call) : ''}${live}${reply}${stopped}${error}${assistant ? handoffs(call) : ''}${actions}`;
     const asPaths = call.handle?.images_as_paths ? `<p class="attach-note">${icon('info')}<span>${t('{agent} 不能直接看图片，已把图片的位置告诉它', { agent: escape(providers[call.task.provider] || call.task.provider) })}</span></p>` : '';
-    return `<section class="turn" id="turn-${escape(call.id)}">${prompt}${call.task.message_only ? userMail(node, call) : ''}${asPaths}${agentTurn({ provider: call.task.provider, assistant, role, at: call.task.created_at, body })}</section>`;
+    return `${userMail(node, call, true)}<section class="turn" id="turn-${escape(call.id)}">${prompt}${call.task.message_only ? userMail(node, call) : ''}${asPaths}${agentTurn({ provider: call.task.provider, assistant, role, at: call.task.created_at, body })}</section>`;
   }).join('') + userMail(node);
 }
 

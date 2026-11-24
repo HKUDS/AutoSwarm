@@ -103,10 +103,32 @@ def versioned(binary: str, home: Path) -> list[str] | None:
     return None
 
 
-def command_for(name: str, config: dict) -> list[str]:
+def enabled(name: str, config: dict) -> bool:
     name = canonical(name)
-    explicit = "command" in config.get("providers", {}).get(name, {})
-    configured = config.get("providers", {}).get(name, {}).get("command", [BINARIES[name]])
+    providers = config.get("providers", {})
+    if not isinstance(providers, dict):
+        raise SwarmError("invalid_config", "providers must be a JSON object")
+    settings = providers.get(name, {})
+    if not isinstance(settings, dict):
+        raise SwarmError("invalid_config", f"providers.{name} must be a JSON object")
+    value = settings.get("enabled", True)
+    if not isinstance(value, bool):
+        raise SwarmError("invalid_config", f"providers.{name}.enabled must be true or false")
+    return value
+
+
+def command_for(name: str, config: dict, *, allow_disabled: bool = False) -> list[str]:
+    name = canonical(name)
+    providers = config.get("providers", {})
+    if not isinstance(providers, dict):
+        raise SwarmError("invalid_config", "providers must be a JSON object")
+    settings = providers.get(name, {})
+    if not isinstance(settings, dict):
+        raise SwarmError("invalid_config", f"providers.{name} must be a JSON object")
+    if not allow_disabled and not enabled(name, config):
+        raise SwarmError("provider_disabled", f"{name} is disabled in this AutoSwarm home")
+    explicit = "command" in settings
+    configured = settings.get("command", [BINARIES[name]])
     if not isinstance(configured, list) or not configured or not all(isinstance(x, str) for x in configured):
         raise SwarmError("invalid_config", "Provider command must be an argv array")
     found = shutil.which(configured[0])
@@ -268,15 +290,33 @@ def invocation(task: dict, config: dict) -> list[str]:
 
 
 def discover(config: dict, providers=None) -> list[dict]:
-    found = []
-    for name in dict.fromkeys(canonical(value) for value in (providers if providers is not None else BINARIES)):
+    from concurrent.futures import ThreadPoolExecutor
+    settings = config.get("providers", {})
+    if not isinstance(settings, dict):
+        settings = {}
+    def check(name):
+        configured = name in settings
+        config_error = None
         try:
-            command = command_for(name, config)
-            info = subprocess.run([*command, "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace")
-            value = {"provider": name, "available": info.returncode == 0, "check": "executable", "command": command, "version": info.stdout.strip(), "invocation_verified": False, "session_resume": True, "approval_relay": name != "nanobot"}
+            is_enabled = enabled(name, config)
+        except SwarmError as error:
+            is_enabled = False
+            config_error = str(error)
+        try:
+            # Discovery remains useful for a disabled provider: it can still show
+            # whether its CLI is installed without making an invocation.
+            command = command_for(name, config, allow_disabled=True)
+            info = subprocess.run([*command, "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=8)
+            value = {"provider": name, "available": info.returncode == 0, "enabled": is_enabled, "configured": configured, "check": "executable", "command": command, "version": info.stdout.strip(), "invocation_verified": False, "session_resume": True, "approval_relay": name != "nanobot"}
+            if config_error:
+                value["error"] = config_error
             if info.returncode:
-                value["error"] = info.stderr.strip() or info.stdout.strip() or f"CLI version check exited with code {info.returncode}"
-            found.append(value)
+                value.setdefault("error", info.stderr.strip() or info.stdout.strip() or f"CLI version check exited with code {info.returncode}")
+            return value
+        except subprocess.TimeoutExpired:
+            return {"provider": name, "available": False, "enabled": is_enabled, "configured": configured, "check": "executable", "invocation_verified": False, "error": "CLI version check timed out after 8 seconds"}
         except (SwarmError, OSError) as error:
-            found.append({"provider": name, "available": False, "check": "executable", "invocation_verified": False, "error": str(error)})
-    return found
+            return {"provider": name, "available": False, "enabled": is_enabled, "configured": configured, "check": "executable", "invocation_verified": False, "error": str(error)}
+    names = list(dict.fromkeys(canonical(value) for value in (providers if providers is not None else BINARIES)))
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        return list(pool.map(check, names))
