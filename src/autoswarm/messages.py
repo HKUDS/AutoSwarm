@@ -305,6 +305,19 @@ def wake(records, target):
             if not human_input or platform.running(read_json(directory / "handle.json")):
                 return
         session = (result or {}).get("native_session_id") or read_json(directory / "handle.json", {}).get("native_session_id") or task.get("native_session_id")
+        # A previously resumed external Codex thread now has a call_id, but
+        # its original host still owns the thread. Never launch a second writer.
+        binding = value.get("parent") or {}
+        if binding.get("host") == "codex" and binding.get("session_id") == session and value.get("owner_id") is None:
+            for message in pending(records, target):
+                if message.get("kind") != "user_message":
+                    continue
+                if binding.get("endpoint"):
+                    deliver_to_host(records, message["message_id"])
+                else:
+                    receipt(records, message, "needs_attention", error_code="parent_endpoint_required",
+                            error="此 Codex 会话属于外部客户端，Desk 未连接原会话。请在原 Codex 窗口继续，或在 Desk 新建独立会话。消息已保留，未重复启动 Codex。")
+            return
         if not human_input and (not result or result.get("outcome") != "completed" or not session):
             for message in pending(records, target):
                 issue(records, target, message, "recipient_unavailable", "The recipient has no completed resumable call. Its assigning parent must decide how to recover.")
