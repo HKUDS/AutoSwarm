@@ -5,12 +5,15 @@
 
   let pendingProvider = '';
   let sequence = 0;
+  let panel;
+  let panelLanguage;
   const isZh = () => document.documentElement.lang.toLowerCase().startsWith('zh');
 
   function section() {
     let node = content.querySelector('#agent-switches');
     if (node) return node;
-    node = document.createElement('div');
+    node = panel || document.createElement('div');
+    panel = node;
     node.id = 'agent-switches';
     node.className = 'settings-section agent-switch-section';
     const anchor = content.querySelector('.appearance');
@@ -54,12 +57,21 @@
     const id = ++sequence;
     const node = section();
     const zh = isZh();
+    panelLanguage = zh;
     node.replaceChildren(el('label', '', zh ? 'Agent 工具' : 'Agent tools'), el('p', '', zh
       ? 'OpenCode、DeepSeek Harness 等各自是独立工具。关闭某个工具只阻止 AutoSwarm 新建该工具的会话，已启动的会话继续运行。'
       : 'OpenCode, DeepSeek Harness and other tools are independent. Turning one off blocks new AutoSwarm sessions with it; active sessions continue.'));
+    const scan = el('button', 'secondary', zh ? '重新检测 Agent 和模型' : 'Rescan agents and models');
+    scan.type = 'button';
+    scan.disabled = true;
+    scan.addEventListener('click', () => void refresh(true));
+    node.append(scan, el('p', 'agent-switch-loading', zh ? '正在检测本机工具和模型…' : 'Detecting installed tools and models…'));
     try {
       const result = await window.desk.agentSwitches();
-      if (id !== sequence || !dialog.open || !node.isConnected) return;
+      if (id !== sequence || !dialog.open) return;
+      section();
+      node.querySelector('.agent-switch-loading')?.remove();
+      scan.disabled = false;
       if (!result.agents.length) {
         node.append(el('p', 'agent-switch-empty', zh ? '当前没有检测到可用或已接入的 Agent。' : 'No available or configured agents were detected.'));
       }
@@ -151,13 +163,19 @@
         }
       }
     } catch (error) {
-      if (id === sequence && dialog.open && node.isConnected) node.append(el('p', 'error-text', error.message || String(error)));
+      if (id === sequence && dialog.open) {
+        section();
+        node.querySelector('.agent-switch-loading')?.remove();
+        scan.disabled = false;
+        node.append(el('p', 'error-text', error.message || String(error)));
+      }
     }
   }
 
   const observer = new MutationObserver(records => {
     if (!dialog.open) return;
-    if (records.some(record => record.target === dialog) || !content.querySelector('#agent-switches')) void refresh();
+    if (records.some(record => record.target === dialog) || !panel || panelLanguage !== isZh()) void refresh();
+    else if (!content.querySelector('#agent-switches')) section();
   });
   observer.observe(dialog, { attributes: true, attributeFilter: ['open'] });
   observer.observe(content, { childList: true, subtree: true });

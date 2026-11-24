@@ -290,11 +290,11 @@ def invocation(task: dict, config: dict) -> list[str]:
 
 
 def discover(config: dict, providers=None) -> list[dict]:
-    found = []
+    from concurrent.futures import ThreadPoolExecutor
     settings = config.get("providers", {})
     if not isinstance(settings, dict):
         settings = {}
-    for name in dict.fromkeys(canonical(value) for value in (providers if providers is not None else BINARIES)):
+    def check(name):
         configured = name in settings
         config_error = None
         try:
@@ -306,13 +306,17 @@ def discover(config: dict, providers=None) -> list[dict]:
             # Discovery remains useful for a disabled provider: it can still show
             # whether its CLI is installed without making an invocation.
             command = command_for(name, config, allow_disabled=True)
-            info = subprocess.run([*command, "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+            info = subprocess.run([*command, "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=8)
             value = {"provider": name, "available": info.returncode == 0, "enabled": is_enabled, "configured": configured, "check": "executable", "command": command, "version": info.stdout.strip(), "invocation_verified": False, "session_resume": True, "approval_relay": name != "nanobot"}
             if config_error:
                 value["error"] = config_error
             if info.returncode:
                 value.setdefault("error", info.stderr.strip() or info.stdout.strip() or f"CLI version check exited with code {info.returncode}")
-            found.append(value)
+            return value
+        except subprocess.TimeoutExpired:
+            return {"provider": name, "available": False, "enabled": is_enabled, "configured": configured, "check": "executable", "invocation_verified": False, "error": "CLI version check timed out after 8 seconds"}
         except (SwarmError, OSError) as error:
-            found.append({"provider": name, "available": False, "enabled": is_enabled, "configured": configured, "check": "executable", "invocation_verified": False, "error": str(error)})
-    return found
+            return {"provider": name, "available": False, "enabled": is_enabled, "configured": configured, "check": "executable", "invocation_verified": False, "error": str(error)}
+    names = list(dict.fromkeys(canonical(value) for value in (providers if providers is not None else BINARIES)))
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        return list(pool.map(check, names))

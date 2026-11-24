@@ -44,7 +44,7 @@ async function inside(page, label) {
     assert.ok(await page.locator('aside .session-item', { hasText: '调研 Terminal' }).count(), 'Session titles are agent content and stay in their language');
     await openSettings(page);
     await page.waitForSelector('#agent-switches');
-    assert.equal(await page.locator('.agent-switch-empty').innerText(), 'No available or configured agents were detected.');
+    assert.equal(await page.locator('#agent-switches .agent-switch-empty').first().innerText(), 'No available or configured agents were detected.');
     // Assistant conversation titles are the user's own words and stay as written.
     const text = await page.locator('#settings').evaluate(el => { const copy = el.cloneNode(true); copy.querySelectorAll('.assistant-row-text strong').forEach(n => n.remove()); return copy.innerText; });
     assert.ok(!CJK.test(text.replace('中文', '')), `English settings contain Chinese: ${text.match(/.{0,20}[一-鿿].{0,20}/)?.[0]}`);

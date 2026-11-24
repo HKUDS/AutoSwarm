@@ -683,12 +683,12 @@ app.whenReady().then(async () => {
     const home = preferences.home || controlHome;
     if (demo) return { agents: [], localModels: [], home: home || null, demo: true };
     if (!home) throw Error(i18n.t('请先连接本地记录目录'));
-    const inventory = await cli(['agents'], '', home);
+    const [inventory, detectedModels] = await Promise.all([cli(['agents'], '', home), localModels()]);
     const agents = (inventory.agents || []).filter(agent => agent.available || agent.configured).map(agent => {
       const provider = agent.provider;
       return { provider, name: AGENT_NAMES[provider] || provider, available: !!agent.available, version: agent.version || '', enabled: agent.enabled !== false, manageable: true, error: agent.error || '' };
     });
-    const models = await localModels();
+    const models = [...new Set(detectedModels)].sort();
     if (JSON.stringify(preferences.detectedLocalModels || []) !== JSON.stringify(models)) { preferences.detectedLocalModels = models; save(); refresh(); }
     return { agents, localModels: models, modelSources: modelSourceCatalog(models), home, demo: false };
   }
