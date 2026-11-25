@@ -43,7 +43,7 @@ From source, Desk tries `AUTOSWARM_DESK_PYTHON`, `python`, `py -3` and uv's Pyth
 
 ## Supported agents
 
-Claude Code, Codex, Cursor, OpenCode, Copilot CLI, Muse, CodeBuddy, Hermes, Nanobot, DeepSeek Harness, Grok Build, Kimi Code.
+Claude Code, Codex, Cursor, OpenCode, Copilot CLI, Muse, CodeBuddy, Hermes, Nanobot, DeepSeek Harness, Grok Build, Kimi Code, JiuwenSwarm.
 
 - Model lists are asked of each agent, without a model call: an official login lists that account's models, an agent configured with your own API lists the configured models. Muse has no list; type the model instead.
 - Agents slow to list their models the first time (CodeBuddy takes about a minute) are cached afterwards.

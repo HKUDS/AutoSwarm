@@ -22,7 +22,7 @@ MB = 1024 * 1024
 DEFAULT_CALL_MB = 64
 MAX_CALL_MB = 1048576
 # Agents whose own session records Desk reads; capture "auto" skips them.
-NATIVE_RECORDS = ("claude-code", "codex", "cursor", "codebuddy", "copilot", "kimi", "grok", "opencode", "hermes", "dsh", "nanobot", "muse")
+NATIVE_RECORDS = ("claude-code", "codex", "cursor", "codebuddy", "copilot", "kimi", "grok", "opencode", "hermes", "dsh", "nanobot", "muse", "jiuwen")
 
 
 def reads_native(provider, transport=None) -> bool:

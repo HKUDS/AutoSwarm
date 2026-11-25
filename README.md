@@ -83,6 +83,9 @@ Give AutoSwarm a task once. It unifies all your agents into one coordinated team
     <td align="center" width="25%"><p><img src="docs/assets/agents/grok.svg" width="48" height="48" alt=""><br><strong>Grok Build</strong></p></td>
     <td align="center" width="25%"><p><img src="docs/assets/agents/kimi.png" width="48" height="48" alt="Kimi Code logo"><br><strong>Kimi Code</strong></p></td>
   </tr>
+  <tr>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/jiuwen.svg" width="48" height="48" alt=""><br><strong>JiuwenSwarm</strong></p></td>
+  </tr>
 </table>
 
 </div>

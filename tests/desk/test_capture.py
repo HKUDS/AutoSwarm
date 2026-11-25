@@ -27,7 +27,7 @@ class CaptureTests(unittest.TestCase):
 
     def test_auto_keeps_a_copy_only_for_agents_desk_cannot_read(self):
         config = {"events": {"capture": "auto"}}
-        for provider in ("claude-code", "codex", "cursor", "codebuddy", "copilot", "kimi", "grok", "hermes", "nanobot", "muse"):
+        for provider in ("claude-code", "codex", "cursor", "codebuddy", "copilot", "kimi", "grok", "hermes", "nanobot", "muse", "jiuwen"):
             self.assertFalse(capture.captures(config, provider), provider)
             self.assertTrue(capture.live(config, provider), provider)
         self.assertFalse(capture.captures(config, "opencode", "acp"), "OpenCode 2 is read from its database")

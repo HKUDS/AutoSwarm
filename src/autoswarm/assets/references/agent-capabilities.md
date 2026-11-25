@@ -6,6 +6,11 @@ Use the user's chosen agents/models first. Otherwise consider the actual tools, 
 
 ## Agent details
 
+### jiuwen
+
+- JiuwenSwarm (`jiuwen`, from the `workswarm` package) is an openJiuwen agent with coding and work modes, skills, MCP, memory and agent teams. AutoSwarm runs it through a bridge on JiuwenSwarm's own Python, preserving its configuration, models, permissions and session histories, with permission and question relay.
+- Single agent (default): one `jiuwenswarm-process` run per turn, resumed by its session. Team mode (`--provider-arg=--mode=team`) lets a JiuwenSwarm leader build a team and hand tasks to its members; it runs in the JiuwenSwarm service (`jiuwenswarm-start app` or its desktop app), which must already be running, takes noticeably longer than one agent and uses JiuwenSwarm's configured model. Choose it for larger work that benefits from several members, not for a quick question.
+
 ### kimi
 
 - Kimi Code CLI supplies native coding/repository tools, project instructions, skills and MCP. AutoSwarm uses its ACP entry, preserving its native configuration and session history, with permission and question relay. Compatible third-party model backends are configured in Kimi itself.

@@ -50,34 +50,36 @@ def _launcher_python(cli):
     return None
 
 
-def bridge_command(command, config):
-    selected = config.get("providers", {}).get("nanobot", {}).get("python")
+def native_python(command, config, provider, name):
+    """The Python an agent's CLI runs on (AutoSwarm's bridge for it runs there), or providers.<provider>.python."""
+    selected = config.get("providers", {}).get(provider, {}).get("python")
     if selected is not None:
         if not isinstance(selected, list) or not selected or not all(isinstance(v, str) and v for v in selected):
-            raise SwarmError("invalid_config", "providers.nanobot.python must be a native Python argv array")
+            raise SwarmError("invalid_config", f"providers.{provider}.python must be a native Python argv array")
         binary = shutil.which(selected[0])
         if not binary:
-            raise SwarmError("provider_unavailable", "Configured nanobot Python is unavailable")
-        runtime = [binary, *selected[1:]]
+            raise SwarmError("provider_unavailable", f"Configured {name} Python is unavailable")
+        return [binary, *selected[1:]]
+    cli = Path(command[0]).resolve()
+    runtime = None
+    # pip/uv/pipx launchers retain the interpreter in their shebang. Keep
+    # the venv spelling: resolving Python's symlink would lose its packages.
+    if cli.suffix.lower() != ".exe":
+        with cli.open("rb") as stream:
+            first = stream.readline(4096).decode("utf-8", errors="replace").strip()
+        runtime = _shebang(first)
     else:
-        cli = Path(command[0]).resolve()
-        runtime = None
-        # pip/uv/pipx launchers retain the interpreter in their shebang. Keep
-        # the venv spelling: resolving Python's symlink would lose its packages.
-        if cli.suffix.lower() != ".exe":
-            with cli.open("rb") as stream:
-                first = stream.readline(4096).decode("utf-8", errors="replace").strip()
-            runtime = _shebang(first)
-        else:
-            runtime = _launcher_python(cli)
-        if runtime is None:
-            for candidate in (cli.parent / "python.exe", cli.parent.parent / "python.exe", cli.parent / "python", cli.parent / "python3"):
-                if candidate.is_file():
-                    runtime = [str(candidate)]
-                    break
-        if runtime is None:
-            raise SwarmError("native_runtime_unavailable", "Cannot locate nanobot's Python from its CLI launcher. Retain the native environment and configure providers.nanobot.python as an argv array; do not install another nanobot or use an unrelated Python.")
-    return [*runtime, "-u", str(Path(__file__).with_name("nanobot_bridge.py")), *command[1:]]
+        runtime = _launcher_python(cli)
+    if runtime is None:
+        for candidate in (cli.parent / "python.exe", cli.parent.parent / "python.exe", cli.parent / "python", cli.parent / "python3"):
+            if candidate.is_file():
+                return [str(candidate)]
+        raise SwarmError("native_runtime_unavailable", f"Cannot locate {name}'s Python from its CLI launcher. Retain the native environment and configure providers.{provider}.python as an argv array; do not install another {name} or use an unrelated Python.")
+    return runtime
+
+
+def bridge_command(command, config):
+    return [*native_python(command, config, "nanobot", "nanobot"), "-u", str(Path(__file__).with_name("nanobot_bridge.py")), *command[1:]]
 
 
 def skill_directory(config):

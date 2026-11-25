@@ -32,7 +32,7 @@ class SelectionTests(unittest.TestCase):
         self.environment = patch.dict(os.environ, {"CURSOR_CONFIG_DIR": str(self.root / "native-cursor")})
         self.environment.start()
         self.records = Records(self.root / "state")
-        self.config = {"providers": {name: {"command": [sys.executable, str(FIXTURE), name], **({"python": [sys.executable, str(FIXTURE), name]} if name == "nanobot" else {})} for name in BINARIES}}
+        self.config = {"providers": {name: {"command": [sys.executable, str(FIXTURE), name], **({"python": [sys.executable, str(FIXTURE), name]} if name in {"nanobot", "jiuwen"} else {})} for name in BINARIES}}
         write_json(self.records.home / "config.json", self.config)
 
     def tearDown(self):
@@ -75,6 +75,8 @@ class SelectionTests(unittest.TestCase):
 
     def test_all_native_mappings_and_resume_preserve_explicit_choice(self):
         for provider in BINARIES:
+            if provider == "jiuwen":
+                continue  # JiuwenSwarm has no effort choice; its model mapping is in test_jiuwen.
             with self.subTest(provider=provider):
                 model = "fixture/native-model" if provider == "opencode" else "native-model"
                 call, result, events = self.run_child(provider, model=model, effort="deep-native", provider_args=["selection-catalog"])
@@ -134,6 +136,11 @@ class SelectionTests(unittest.TestCase):
     def test_effort_only_keeps_native_model(self):
         for provider in BINARIES:
             with self.subTest(provider=provider):
+                if provider == "jiuwen":
+                    with self.assertRaises(SwarmError) as raised:
+                        self.run_child(provider, effort="deep-native", provider_args=["selection-catalog"])
+                    self.assertEqual(raised.exception.code, "unsupported_effort")
+                    continue
                 _, result, events = self.run_child(provider, effort="deep-native", provider_args=["selection-catalog"])
                 self.assertEqual(result["outcome"], "completed", result)
                 self.assertNotIn("--model", events[0]["argv"])

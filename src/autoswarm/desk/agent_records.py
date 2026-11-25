@@ -32,7 +32,7 @@ from .lens import normalize, tool_kind
 from .native_calls import Missing, _add, _database, _epoch, _jsonl, _located, _remembered, _roots, session_of
 
 NAMES = {"codebuddy": "CodeBuddy", "copilot": "Copilot", "kimi": "Kimi Code", "grok": "Grok Build", "opencode": "OpenCode",
-         "hermes": "Hermes", "dsh": "DeepSeek Harness", "nanobot": "Nanobot", "muse": "Muse"}
+         "hermes": "Hermes", "dsh": "DeepSeek Harness", "nanobot": "Nanobot", "muse": "Muse", "jiuwen": "JiuwenSwarm"}
 
 
 def readable(provider, transport=None):
@@ -519,9 +519,50 @@ def _muse(call, files, window):
     return events, usage
 
 
+# ---- JiuwenSwarm ---------------------------------------------------------------------
+
+def _jiuwen_files(call):
+    from ..jiuwen import data_directory
+    path = data_directory() / "agent/sessions" / session_of(call) / "history.jsonl"
+    if not path.is_file():
+        raise Missing
+    return [path]
+
+
+def _jiuwen(call, files, window):
+    """Its history.jsonl keeps what it streamed, one turn after another; a team's rows name the member."""
+    events, usage = [], {}
+    for number, row in enumerate(_jsonl(files[0])):
+        at = _epoch(row.get("timestamp"))
+        if row.get("role") == "user" or at is None or not _within(at, window):
+            continue
+        kind = row.get("event_type")
+        member = (row.get("member_id") or row.get("member_name") or "teammate") if row.get("role") == "teammate" else None
+        if kind == "chat.tool_call":
+            tool = row.get("tool_call") or {}
+            event = _call(tool.get("tool_call_id"), tool.get("name"), tool.get("arguments"))
+            if member:
+                event["title"] = f"{member} · {event['title']}"
+            events.append(event)
+        elif kind == "chat.tool_result":
+            events.append(_result(row.get("tool_call_id"), row.get("rendered_result") or row.get("result"), row.get("success") is False))
+        elif kind in {"chat.final", "chat.reasoning"} and str(row.get("content") or "").strip():
+            text = row["content"].strip()
+            if member:
+                events.append({"kind": "thought", "id": f"{number}:member", "text": f"{member}: {text}"})
+            else:
+                events.append({"kind": "message" if kind == "chat.final" else "thought", "id": str(number), "text": text})
+        elif kind == "chat.usage_summary":
+            spent = row.get("usage") or {}
+            # Its input_tokens include the cached part (cache_tokens).
+            _add(usage, spent.get("input_tokens") or 0, spent.get("cache_tokens") or 0, spent.get("output_tokens") or 0)
+    return events, usage
+
+
 READERS = {"codebuddy": (_codebuddy_files, _codebuddy), "copilot": (_copilot_files, _copilot), "kimi": (_kimi_files, _kimi),
            "grok": (_grok_files, _grok), "opencode": (_opencode_files, _opencode), "hermes": (_hermes_files, _hermes),
-           "dsh": (_dsh_files, _dsh), "nanobot": (_nanobot_files, _nanobot), "muse": (_muse_files, _muse)}
+           "dsh": (_dsh_files, _dsh), "nanobot": (_nanobot_files, _nanobot), "muse": (_muse_files, _muse),
+           "jiuwen": (_jiuwen_files, _jiuwen)}
 
 
 def files(call):

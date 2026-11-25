@@ -225,6 +225,10 @@ class ACP:
                 return
             update = params.get("update", {})
             meta = update.get("_meta", {})
+            if self.n.task["provider"] == "jiuwen" and update.get("sessionUpdate") == "session_info_update" and meta.get("autoswarm/nativeSessionId"):
+                # JiuwenSwarm names a new session when its first run starts (AutoSwarm's bridge reports it).
+                self.n.session(str(meta["autoswarm/nativeSessionId"]))
+                return
             if update.get("sessionUpdate") in {"tool_call", "tool_call_update"} and update.get("toolCallId"):
                 self.remember_tool(update)
             if (self.n.task["provider"] == "kimi" and update.get("sessionUpdate") in {"tool_call", "tool_call_update"}
@@ -299,7 +303,7 @@ class ACP:
             params = self.described(params)
             tool = params.get("toolCall", {})
             tool_name = tool.get("_meta", {}).get("codebuddy.ai/toolName")
-            if self.n.task["provider"] == "kimi" and tool.get("title") == "AskUserQuestion":
+            if self.n.task["provider"] in {"kimi", "jiuwen"} and tool.get("title") == "AskUserQuestion":
                 # Native fallback when the form RPC is unavailable. These
                 # options are answers, never executable-tool permissions.
                 def answer_question(value):

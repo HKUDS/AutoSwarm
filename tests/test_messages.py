@@ -81,7 +81,7 @@ class MessageTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         self.records = Records(self.root / "state")
-        write_json(self.records.home / "config.json", {"providers": {name: {"command": [sys.executable, str(FIXTURE), name], **({"python": [sys.executable, str(FIXTURE), name]} if name == "nanobot" else {})} for name in BINARIES}})
+        write_json(self.records.home / "config.json", {"providers": {name: {"command": [sys.executable, str(FIXTURE), name], **({"python": [sys.executable, str(FIXTURE), name]} if name in {"nanobot", "jiuwen"} else {})} for name in BINARIES}})
         self.controller = "main_" + uuid.uuid4().hex
         write_json(messages.agent_path(self.records, self.controller) / "agent.json", {"agent_id": self.controller, "call_id": None, "owner_id": None})
 

@@ -72,6 +72,9 @@ https://github.com/user-attachments/assets/89a077a9-168e-441f-8aac-48de321aa968
     <td align="center" width="25%"><p><img src="docs/assets/agents/grok.svg" width="48" height="48" alt=""><br><strong>Grok Build</strong></p></td>
     <td align="center" width="25%"><p><img src="docs/assets/agents/kimi.png" width="48" height="48" alt="Kimi Code logo"><br><strong>Kimi Code</strong></p></td>
   </tr>
+  <tr>
+    <td align="center" width="25%"><p><img src="docs/assets/agents/jiuwen.svg" width="48" height="48" alt=""><br><strong>JiuwenSwarm</strong></p></td>
+  </tr>
 </table>
 
 支持 Windows、macOS、Linux。可在支持 Skill 和本地命令执行的 App、CLI 或 IDE 扩展中使用；被调用的 agent 需有可用的本地 CLI。
