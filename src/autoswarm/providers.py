@@ -18,13 +18,15 @@ ALIASES = {
     "hermes-agent": "hermes", "nanobot-ai": "nanobot", "deepseek-harness": "dsh",
     "grok-build": "grok", "grok_build": "grok",
     "kimi-code": "kimi", "kimi-cli": "kimi",
+    "gemini-cli": "gemini", "google-gemini": "gemini",
 }
 BINARIES = {
     "codex": "codex", "claude-code": "claude", "opencode": "opencode",
     "cursor": "cursor-agent", "copilot": "copilot", "muse": "muse", "codebuddy": "codebuddy",
     "hermes": "hermes", "nanobot": "nanobot", "dsh": "dsh", "grok": "grok", "kimi": "kimi",
+    "gemini": "gemini",
 }
-ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi"}
+ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi", "gemini"}
 OWNED_SERVERS = ACP_PROVIDERS | {"opencode", "muse"}
 
 

@@ -11,6 +11,11 @@ Use the user's chosen agents/models first. Otherwise consider the actual tools, 
 - Kimi Code CLI supplies native coding/repository tools, project instructions, skills and MCP. AutoSwarm uses its ACP entry, preserving its native configuration and session history, with permission and question relay. Compatible third-party model backends are configured in Kimi itself.
 - App-only features and model-specific tools require verification in the actual ACP session. This addition is based on the [official CLI](https://github.com/MoonshotAI/kimi-code), separately from the original eleven-agent capability survey below; it makes no comparative performance claim.
 
+### gemini
+
+- Gemini CLI supplies coding tools, skills, MCP and extensions through Google's Gemini models. AutoSwarm uses `gemini --acp`, preserving native `~/.gemini` configuration and resumable sessions, with permission relay through `--approval-mode` / YOLO.
+- App-only or browser-only Gemini surfaces are separate entry points. This addition is based on the [official CLI](https://github.com/google-gemini/gemini-cli); it makes no comparative performance claim against other AutoSwarm children.
+
 ### codex
 
 - Coding and image generation/editing; GitHub integration. Workspace connectors/plugins can supply Gmail, Drive, calendar, Outlook/M365, Slack and Teams; availability depends on native authentication and the actual session. Meta Ads and WhatsApp Business MCP, CloudBase tools, model-video plugins such as Higgsfield and deployment plugins are separate configured routes.

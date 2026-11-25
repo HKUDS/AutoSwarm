@@ -26,6 +26,12 @@ Use provider/host `kimi` (`kimi-code` and `kimi-cli` are child-provider aliases)
 
 Reuse its native `config.toml`, credentials, skills, MCP and permission policy. A compatible API can be configured as a native provider/model; AutoSwarm does not select or configure an API backend. Kimi reads credentials from native provider entries or their explicit `api_key_env` references, not arbitrary `ANTHROPIC_*` exports. Native model aliases differ from backend model IDs. Verify the selected route with a real call and resume; preserve native settings and keep credentials out of AutoSwarm records. Permissions and questions use the shared ACP relay.
 
+## Gemini CLI
+
+Use provider/host `gemini` (`gemini-cli` and `google-gemini` are child-provider aliases). The current official [Gemini CLI](https://github.com/google-gemini/gemini-cli) exposes `gemini --acp`. Setup installs the Skill into `~/.gemini/skills/autoswarm`. As a main host, collect children with wait in the current turn.
+
+Reuse its native settings under `~/.gemini`, credentials, skills, MCP and extensions. AutoSwarm does not select or configure Google authentication. Desk permission modes map to Gemini's `--approval-mode` values (`plan`, `default`, `auto_edit`) or `--yolo`. Verify a real call and resume; preserve native settings and keep credentials out of AutoSwarm records. Permissions and questions use the shared ACP relay.
+
 ## Hermes, Nanobot, DSH and Grok Build
 
 Use provider names `hermes`, `nanobot`, `dsh`, `grok`; `grok-build` is a child-provider alias. They use the same run/resume, messaging and result collection commands. With these main hosts, collect work using wait in the current turn.
@@ -36,8 +42,9 @@ Use provider names `hermes`, `nanobot`, `dsh`, `grok`; `grok-build` is a child-p
 | Nanobot | Installed Python SDK through the bundled local bridge | Native configured workspace's `skills/autoswarm`, resolved by its own config loader |
 | DSH | `dsh --profile acp` | `$DSH_AGENTS_HOME/skills/autoswarm`, default `~/.agents/skills/autoswarm` |
 | Grok Build | `grok agent --no-leader stdio` | `~/.grok/skills/autoswarm` |
+| Gemini CLI | `gemini --acp` | `~/.gemini/skills/autoswarm` |
 
-`skills [--host PROVIDER] [--verify]` reads, without writing, whether each host finds a working Skill (`missing`, `broken` with its problems, or `ready`, with the record directory its launcher writes to); Cursor also reads `~/.claude/skills` and `~/.agents/skills`, and Copilot, Grok, Kimi, DSH and Muse read `~/.agents/skills`. `--verify` starts each launcher once without model calls. `models --agent PROVIDER` lists the models and reasoning efforts the agent reports itself (an ACP agent's new session, Codex's app-server, Claude Code's initialize, Cursor's `--list-models`) without a model call.
+`skills [--host PROVIDER] [--verify]` reads, without writing, whether each host finds a working Skill (`missing`, `broken` with its problems, or `ready`, with the record directory its launcher writes to); Cursor also reads `~/.claude/skills` and `~/.agents/skills`, and Copilot, Grok, Kimi, Gemini, DSH and Muse read `~/.agents/skills`. `--verify` starts each launcher once without model calls. `models --agent PROVIDER` lists the models and reasoning efforts the agent reports itself (an ACP agent's new session, Codex's app-server, Claude Code's initialize, Cursor's `--list-models`) without a model call.
 
 `setup --host <provider> --skill-dir <path>` overrides the destination when native skill roots differ. Native profile/tool policies still determine which skills, memory and tools are available; AutoSwarm does not replace them. A native transcript/session ID does not guarantee that every product App lists that session.
 
