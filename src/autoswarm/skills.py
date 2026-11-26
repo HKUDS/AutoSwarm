@@ -52,6 +52,7 @@ def roots(host: str, config: dict | None = None) -> list[Path]:
             "dsh": [Path(os.environ["DSH_AGENTS_HOME"]) / "skills" if os.environ.get("DSH_AGENTS_HOME") else shared],
             "grok": [home / ".grok/skills", shared],
             "kimi": [Path(os.environ.get("KIMI_CODE_HOME") or home / ".kimi-code") / "skills", shared],
+            "gemini": [home / ".gemini/skills", shared],
             "jiuwen": [data_directory() / "agent/workspace/skills"]}[host]  # JiuwenSwarm's global skill library.
 
 
@@ -66,7 +67,7 @@ def destination(host: str, config: dict | None = None) -> Path:
 # How a conversation's first turn names the Skill, as the user would type it in that agent.
 # Codex takes a skill input item; agents not listed here are told in words where the Skill is.
 MENTIONS = {"claude-code": "/autoswarm", "cursor": "/autoswarm", "copilot": "/autoswarm", "grok": "/autoswarm",
-            "codebuddy": "/autoswarm", "kimi": "/skill:autoswarm"}
+            "codebuddy": "/autoswarm", "kimi": "/skill:autoswarm", "gemini": "/autoswarm"}
 
 
 def host_status(host: str, *, verify: bool = False, config: dict | None = None) -> dict:

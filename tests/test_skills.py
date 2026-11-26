@@ -44,7 +44,7 @@ class SkillStatusTests(unittest.TestCase):
 
     def test_missing_ready_shared_and_broken(self):
         self.assertEqual({h: v["state"] for h, v in skills.status(self.records)["hosts"].items()},
-                         {host: "missing" for host in ("claude-code", "codex", "cursor", "opencode", "copilot", "muse", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi", "jiuwen")})
+                         {host: "missing" for host in ("claude-code", "codex", "cursor", "opencode", "copilot", "muse", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi", "gemini", "jiuwen")})
         install(self.records, "codex", discover_agents=False)
         value = skills.status(self.records, verify=True)["hosts"]
         self.assertEqual(value["codex"], {"path": str(self.user / ".agents/skills/autoswarm"), "home": str(self.records.home), "state": "ready"})
@@ -68,6 +68,7 @@ class SkillStatusTests(unittest.TestCase):
         with patch.dict(os.environ, {"LOCALAPPDATA": str(local)}):
             expected = {"opencode": self.user / ".config/opencode/skills/autoswarm", "codebuddy": self.user / ".codebuddy/skills/autoswarm",
                         "grok": self.user / ".grok/skills/autoswarm", "kimi": self.user / ".kimi-code/skills/autoswarm",
+                        "gemini": self.user / ".gemini/skills/autoswarm",
                         "hermes": (local / "hermes" if os.name == "nt" else self.user / ".hermes") / "skills/autoswarm"}
             for host, path in expected.items():
                 self.assertEqual(skills.destination(host), path, host)

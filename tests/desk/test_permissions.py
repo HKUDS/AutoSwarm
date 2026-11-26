@@ -53,6 +53,10 @@ class ModeTests(unittest.TestCase):
         self.assertEqual(launch("hermes", "accept_edits"), ([], {"mode": "accept_edits"}, {}))
         self.assertEqual(launch("dsh", "danger-full-access"), ([], {}, {"DSH_PERMISSION_MODE": "danger-full-access"}))
         self.assertEqual(launch("grok", "always-approve"), (["--always-approve"], {}, {}))
+        self.assertEqual(launch("gemini", "plan"), (["--approval-mode", "plan"], {}, {}))
+        self.assertEqual(launch("gemini", "default"), (["--approval-mode", "default"], {}, {}))
+        self.assertEqual(launch("gemini", "auto_edit"), (["--approval-mode", "auto_edit"], {}, {}))
+        self.assertEqual(launch("gemini", "yolo"), (["--yolo"], {}, {}))
         # OpenCode 2 (ACP) takes one action for all permissions; the user's inline config stays.
         env = permissions.environment({"provider": "opencode", "permission": "allow", "native_transport": "acp"},
                                       {"OPENCODE_CONFIG_CONTENT": json.dumps({"model": "mine"})})
@@ -81,7 +85,7 @@ class DeskPermissionTests(unittest.TestCase):
         self.records = Records(self.root / "records")
         write_json(self.records.home / "config.json", {"providers": {
             provider: {"command": [sys.executable, str(FIXTURE), provider, "--selection-trace=" + str(self.trace)]}
-            for provider in ["claude-code", "codex", "cursor", "opencode", "kimi", "copilot", "hermes", "dsh", "codebuddy", "grok"]}})
+            for provider in ["claude-code", "codex", "cursor", "opencode", "kimi", "copilot", "hermes", "dsh", "codebuddy", "grok", "gemini"]}})
         self.patches = [patch.dict(os.environ, dict(CLEAN, PYTHONPATH=str(ROOT / "src")), clear=True)]
         for value in self.patches:
             value.start()

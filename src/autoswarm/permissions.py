@@ -25,13 +25,14 @@ MODES = {
     "hermes": ["default", "accept_edits", "dont_ask", "yolo"],
     "dsh": ["read-only", "workspace-write", "danger-full-access"],
     "grok": ["always-approve"],
+    "gemini": ["plan", "default", "auto_edit", "yolo"],
     "opencode": ["ask", "allow"],
     "jiuwen": ["full-access"],
 }
 # "Auto or above": the agent's own automatic reviewer, or the mode that stops asking when it has none.
 AUTO = {"claude-code": "auto", "codex": "approve-for-me", "cursor": "run-everything", "codebuddy": "auto",
         "kimi": "auto", "copilot": "allow-all", "hermes": "yolo", "dsh": "danger-full-access",
-        "grok": "always-approve", "opencode": "allow", "jiuwen": "full-access"}
+        "grok": "always-approve", "gemini": "auto_edit", "opencode": "allow", "jiuwen": "full-access"}
 CODEX = {
     "read-only": {"sandbox": "read-only", "approvalPolicy": "on-request", "approvalsReviewer": "user"},
     "ask": {"sandbox": "workspace-write", "approvalPolicy": "on-request", "approvalsReviewer": "user"},
@@ -46,6 +47,7 @@ FLAGS = {
     "codebuddy": {"--permission-mode", "-y", "--dangerously-skip-permissions"},
     "copilot": {"--allow-all", "--allow-all-tools", "--allow-all-paths", "--allow-all-urls", "--yolo"},
     "grok": {"--always-approve"},
+    "gemini": {"--approval-mode", "-y", "--yolo"},
     "jiuwen": {"--permission"},
 }
 
@@ -108,6 +110,9 @@ def launch(task: dict) -> tuple[list[str], dict, dict]:
         return [], {}, {"DSH_PERMISSION_MODE": mode}
     if provider == "grok":
         return ["--always-approve"], {}, {}
+    if provider == "gemini":
+        # Gemini CLI's --approval-mode values are Desk's modes; --yolo is the same as yolo.
+        return (["--yolo"] if mode == "yolo" else ["--approval-mode", mode]), {}, {}
     if provider == "opencode":
         return [], {}, {"OPENCODE_PERMISSION": mode}
     if provider == "jiuwen":

@@ -66,7 +66,7 @@ def finished(prompt):
     if provider == "codex":
         emit({"method": "item/completed", "params": {"threadId": session, "item": {"type": "agentMessage", "text": text}}})
         emit({"method": "turn/completed", "params": {"threadId": session, "turn": {"id": "native-turn", "status": "failed" if prompt == "fail" else "completed"}}})
-    elif provider in {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi", "jiuwen"}:
+    elif provider in {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi", "gemini", "jiuwen"}:
         if prompt == "with-tools":
             emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "INTERIM COMMENTARY"}}}})
             emit({"method": "session/update", "params": {"sessionId": session, "update": {"sessionUpdate": "tool_call", "toolCallId": "tool-1", "title": "fixture tool"}}})
@@ -198,7 +198,7 @@ if provider == "opencode":
     server.daemon_threads = True
     print("Native service ready (changed banner)", file=sys.stderr, flush=True)
     server.serve_forever()
-elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot", "dsh", "grok", "kimi", "jiuwen"}:
+elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot", "dsh", "grok", "kimi", "gemini", "jiuwen"}:
     marker = None
     prompt_id = None
     unsupported_replied = False
@@ -211,7 +211,7 @@ elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot",
             if "unknown-interaction" in args:
                 emit({"id": "unsupported", "method": "future/interaction", "params": {}})
             result = {"schema": {"version": 2 if "bad-protocol" in args else 1}} if provider == "muse" else {"protocolVersion": 2 if "bad-protocol" in args else 1, "agentCapabilities": ({"sessionCapabilities": {"resume": {}}} if provider == "dsh" and "no-resume" not in args else {"loadSession": "no-resume" not in args})}
-            if provider in {"kimi", "copilot", "cursor", "codebuddy", "hermes", "grok"}:
+            if provider in {"kimi", "copilot", "cursor", "codebuddy", "hermes", "grok", "gemini"}:
                 result["agentCapabilities"]["promptCapabilities"] = {"image": True}  # As they advertise; DSH does not.
             emit({"id": value["id"], "result": result})
         elif method in {"session/start", "session/resume", "session/new", "session/load"}:

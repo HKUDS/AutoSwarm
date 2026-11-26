@@ -12,6 +12,7 @@
     "codebuddy": "CodeBuddy",
     "nanobot": "Nanobot",
     "kimi": "Kimi Code",
+    "gemini": "Gemini CLI",
     "jiuwen": "JiuwenSwarm"
   },
   "pngLogos": ["nanobot", "kimi"]

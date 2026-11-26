@@ -31,7 +31,7 @@ from pathlib import Path
 from .lens import normalize, tool_kind
 from .native_calls import Missing, _add, _database, _epoch, _jsonl, _located, _remembered, _roots, session_of
 
-NAMES = {"codebuddy": "CodeBuddy", "copilot": "Copilot", "kimi": "Kimi Code", "grok": "Grok Build", "opencode": "OpenCode",
+NAMES = {"codebuddy": "CodeBuddy", "copilot": "Copilot", "kimi": "Kimi Code", "grok": "Grok Build", "gemini": "Gemini CLI", "opencode": "OpenCode",
          "hermes": "Hermes", "dsh": "DeepSeek Harness", "nanobot": "Nanobot", "muse": "Muse", "jiuwen": "JiuwenSwarm"}
 
 

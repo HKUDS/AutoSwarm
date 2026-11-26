@@ -18,16 +18,17 @@ ALIASES = {
     "hermes-agent": "hermes", "nanobot-ai": "nanobot", "deepseek-harness": "dsh",
     "grok-build": "grok", "grok_build": "grok",
     "kimi-code": "kimi", "kimi-cli": "kimi",
+    "gemini-cli": "gemini", "google-gemini": "gemini",
     "jiuwenswarm": "jiuwen", "jiuwen-swarm": "jiuwen", "workswarm": "jiuwen", "openjiuwen": "jiuwen",
 }
 BINARIES = {
     "codex": "codex", "claude-code": "claude", "opencode": "opencode",
     "cursor": "cursor-agent", "copilot": "copilot", "muse": "muse", "codebuddy": "codebuddy",
     "hermes": "hermes", "nanobot": "nanobot", "dsh": "dsh", "grok": "grok", "kimi": "kimi",
-    "jiuwen": "jiuwenswarm-process",
+    "gemini": "gemini", "jiuwen": "jiuwenswarm-process",
 }
 # JiuwenSwarm and Nanobot are reached through AutoSwarm's own ACP bridge on their Python.
-ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi", "jiuwen"}
+ACP_PROVIDERS = {"cursor", "copilot", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi", "gemini", "jiuwen"}
 OWNED_SERVERS = ACP_PROVIDERS | {"opencode", "muse"}
 
 

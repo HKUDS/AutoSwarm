@@ -785,6 +785,7 @@
   "全部设为自动": "Set all to auto",
   "全部跟随 Agent 设置": "All follow their own settings",
   "全部设为自动：Claude Code、Codex、CodeBuddy、Kimi 用自己的自动审核；Cursor、DSH、Hermes、Copilot、Grok、OpenCode、JiuwenSwarm 在 Desk 里没有自动审核，会设为不询问。": "Set all to auto: Claude Code, Codex, CodeBuddy and Kimi use their own automatic review; Cursor, DSH, Hermes, Copilot, Grok, OpenCode and JiuwenSwarm have none in Desk, so they stop asking.",
+  "全部设为自动：Claude Code、Codex、CodeBuddy、Kimi、Gemini 用自己的自动审核；Cursor、DSH、Hermes、Copilot、Grok、OpenCode、JiuwenSwarm 在 Desk 里没有自动审核，会设为不询问。": "Set all to auto: Claude Code, Codex, CodeBuddy, Kimi and Gemini use their own automatic review; Cursor, DSH, Hermes, Copilot, Grok, OpenCode and JiuwenSwarm have none in Desk, so they stop asking.",
   "本机还没有检测到可设置权限的 Agent。": "No agent with permission modes has been found on this computer yet.",
   "新会话里每个 Agent 都按自动权限运行": "New conversations run every agent in its automatic mode",
   "新会话里每个 Agent 都跟随自己的设置": "New conversations use every agent's own settings",
