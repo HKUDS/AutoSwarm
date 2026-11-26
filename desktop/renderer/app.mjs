@@ -134,6 +134,8 @@ function permissionChip(provider, mode, menu, place, heading) {
 }
 /** The official AutoSwarm logo (docs/assets/autoswarm), wherever Desk shows its own mark. */
 const brand = (size, cls = '') => `<img class="autoswarm-logo ${cls}" src="../assets/logo-128.png" width="${size}" height="${size}" alt="">`;
+// The calls the user asked to stop, until they end. Calls, not conversations: a turn that starts afterwards
+// (a message sent for after this turn) is not being stopped and keeps its own Stop button.
 const stopping = new Set();
 let shellPrefs = {}, flash = null, update = null;
 let preview = null;  // The side panel (preview.mjs), created once the page is set up.
@@ -144,6 +146,11 @@ let openMenu = null, assistantPick = null, modelFilter = '';
 // 对话 / 轨迹 per page, like DeepSeek's session header.
 const tabs = new Map();
 const tabKey = () => overview ? 'assistant' : selected;
+// Which page render shows, and where the user scrolled the private assistant's pages (absent: at the latest message).
+let shownPage = '';
+const assistantScroll = new Map();
+const pageOf = () => workerId && view.nodes.has(workerId) ? 'worker:' + workerId : composing ? 'new' : overview ? `assistant:${view.assistant?.id}:${tabOf()}` : 'session:' + selected;
+const assistantChat = page => /^assistant:.*:chat$/.test(page);
 const tabOf = () => tabs.get(tabKey()) || 'chat';
 const tabBar = () => `<div class="page-tabs" role="tablist" aria-label="${t('视图')}">${[['chat', '对话'], ['trace', '轨迹']].map(([key, label]) => `<button type="button" role="tab" class="page-tab ${tabOf() === key ? 'is-active' : ''}" aria-selected="${tabOf() === key}" data-tab="${key}">${t(label)}</button>`).join('')}</div>`;
 const firstLine = text => String(text || '').trim().split(/\r?\n/)[0].slice(0, 200);
@@ -286,7 +293,7 @@ function modelMenu(provider, model, effort, place = 'menu-up', ctx = 'session') 
 /** Running calls in a conversation and everything beneath it: what 停止 would end. */
 const runningUnder = node => [...(node.latest?.state === 'running' ? [node] : []), ...node.children.flatMap(runningUnder)];
 const runningIn = target => { const node = view.nodes.get(target); if (node) return runningUnder(node); const s = view.sessions.find(x => x.target === target); return s ? s.children.flatMap(runningUnder) : []; };
-const isStopping = node => { for (let n = node; n; n = n.parent) if (stopping.has(n.id) || stopping.has(n.owner)) return true; return false; };
+const isStopping = node => stopping.has(node.latest?.id);
 const draftKey = target => data.home + ':' + target;
 const chatTarget = () => workerId || chatTargets.get(selected) || current()?.target || current()?.id;
 let status = 'connecting', error = '', isDemo = false, python = '', detailId = null;
@@ -394,6 +401,10 @@ function render(follow = false) {
   const focusedAnswer = questionFocus ? { key: questionFocus.dataset.questionCall + '/' + questionFocus.dataset.questionId, name: document.activeElement.name, value: document.activeElement.value, caret: document.activeElement.selectionStart } : null;
   const oldPane = document.querySelector('.conversation-scroll');
   const stick = follow && oldPane && oldPane.scrollHeight - oldPane.scrollTop - oldPane.clientHeight < 40;
+  // The private assistant reads like a chat (issue #86): at its latest message unless the user scrolled away,
+  // and where the user left it when they come back.
+  const page = pageOf(), assistant = assistantChat(page), returning = page !== shownPage;
+  shownPage = page;
   const focusedComposer = ['assistant-input','chat-input','session-input','session-model','session-effort','session-provider','model-filter'].includes(document.activeElement?.id);
   const composerId = focusedComposer ? document.activeElement.id : null;
   const composerCaret = focusedComposer ? document.activeElement.selectionStart : null;
@@ -407,7 +418,7 @@ function render(follow = false) {
   app.classList.toggle('collapsed', collapsed);
   app.classList.toggle('worker-page', !!workerId);
   app.innerHTML = `${workerId ? workerSidebar() : sidebar()}<main>${workerId && view.nodes.has(workerId) ? '' : header()}${browserPreview ? `<div class="preview-banner" role="status"><span>${t('浏览器预览 · 当前为示例数据，可切换会话、展开子任务查看')}</span><button data-action="settings">${t('连接真实记录 ↗')}</button></div>` : isDemo ? `<div class="preview-banner demo-banner" role="status"><span>${t('演示空间 · 示例数据，不连接真实 Agent，也不改动你的记录')}</span><button data-action="exit-demo">${t('退出演示，回到我的记录')}</button></div>` : ''}${status !== 'ready' ? `<div class="connection-banner ${status === 'error' ? 'error' : ''}" role="status">${escape(status === 'error' ? t(error) : t('正在读取本地记录…'))}<button data-action="reconnect">${t('重新连接')}</button></div>` : ''}${workerId && view.nodes.has(workerId) ? workerPage(view.nodes.get(workerId)) : composing ? newSessionPage() : overview ? overviewPage() : current() ? sessionPage(current()) : emptyPage()}</main>`;
-  const pane = document.querySelector('.conversation-scroll'); if (pane) pane.scrollTop = scroll;
+  const pane = document.querySelector('.conversation-scroll'); if (pane) pane.scrollTop = assistant && returning && assistantScroll.has(page) ? assistantScroll.get(page) : scroll;
   const dock = document.querySelector('.dock-body'); if (dock) dock.scrollTop = dockScroll;
   for (const el of app.querySelectorAll('details')) { if (openDetails.includes(el.dataset.key)) el.open = true; else if (el.open && closedDetails.has(el.dataset.key)) el.open = false; }
   for (const form of app.querySelectorAll('.native-question-form')) {
@@ -423,7 +434,7 @@ function render(follow = false) {
       if (field) { field.focus({preventScroll:true}); if (typeof focusedAnswer.caret === 'number') field.setSelectionRange(focusedAnswer.caret,focusedAnswer.caret); }
     }
   }
-  if (stick && pane) pane.scrollTop = pane.scrollHeight;
+  if ((stick || (assistant && !assistantScroll.has(page))) && pane) pane.scrollTop = pane.scrollHeight;
   if (focusedSearch) { const input = document.querySelector('#search'); input.focus(); input.setSelectionRange(caret, caret); }
   if (focusedComposer) { const input = document.getElementById(composerId); if (input) { input.focus(); try { if (typeof composerCaret === 'number') input.setSelectionRange(composerCaret, composerCaret); } catch { /* select */ } } }
   if (settings.open && !settings.contains(document.activeElement)) renderSettings();
@@ -616,7 +627,7 @@ function conversation(node, worker = false) {
     const state = call.id === node.latest.id ? node.state : call.state;
     // While the turn's steps are on screen, the status line need not repeat the latest one.
     const shown = turns(stream?.events || []).at(-1), stepsShown = shown && !shown.ended && shown.items.length;
-    const live = !call.result ? workingLine(state, call.state === 'running' && isStopping(node) ? t('正在停止…') : call.handle?.phase === 'startup' && call.state === 'running' ? t('正在启动 Agent') : stepsShown ? '' : activity(stream) || (call.state === 'running' ? t('正在处理你的任务') : t('可以发送消息继续这段对话'))) : '';
+    const live = !call.result ? workingLine(state, call.state === 'running' && stopping.has(call.id) ? t('正在停止…') : call.handle?.phase === 'startup' && call.state === 'running' ? t('正在启动 Agent') : stepsShown ? '' : activity(stream) || (call.state === 'running' ? t('正在处理你的任务') : t('可以发送消息继续这段对话'))) : '';
     const took = call.result ? elapsed(call) : '—';
     const errorText = call.result?.error ? (typeof call.result.error === 'string' ? call.result.error : JSON.stringify(call.result.error)) : '';
     // A stopped turn ends by closing the native process; that closure is not a failure to report.
@@ -704,7 +715,7 @@ async function agentInstall(host) {
 function stopControl(target) {
   const running = runningIn(target);
   if (!running.length) return '';
-  const wait = stopping.has(target) || running.every(isStopping);
+  const wait = running.every(isStopping);
   const label = wait ? t('正在停止…') : running.length > 1 ? t('停止（{count} 个运行中）', { count: running.length }) : t('停止');
   return `<button type="button" class="stop-button ${wait ? 'is-stopping' : ''}" data-stop="${escape(target)}" title="${escape(label)}" aria-label="${escape(label)}" ${wait ? 'disabled' : ''}>${icon('stop')}</button>`;
 }
@@ -913,7 +924,7 @@ document.addEventListener('click', async event => {
   if (link) { event.preventDefault(); await preview.open(link.getAttribute('href') ?? link.dataset.path, linkBase(link), { here: !!link.closest('#preview') }); return; }
   if (!button) return;
   try {
-    if (button.dataset.tab) { tabs.set(tabKey(), button.dataset.tab); render(); document.querySelector('.conversation-scroll')?.scrollTo(0, 0); return; }
+    if (button.dataset.tab) { tabs.set(tabKey(), button.dataset.tab); render(); if (!assistantChat(shownPage)) document.querySelector('.conversation-scroll')?.scrollTo(0, 0); return; }
     if (button.dataset.trace) {
       tabs.set(tabKey(), 'trace'); render();
       requestAnimationFrame(() => document.getElementById('trace-' + button.dataset.trace)?.scrollIntoView({ block: 'start' }));
@@ -988,12 +999,15 @@ document.addEventListener('click', async event => {
     if (button.dataset.confirmStop) {
       const target = button.dataset.confirmStop; detail.close();
       if (isDemo) { demoStop(target); return; }
-      stopping.add(target); render();
+      const calls = runningIn(target).map(n => n.latest.id);
+      for (const id of calls) stopping.add(id);
+      render();
       try {
         const result = await desk.cancel(target);
-        if (!result.cancel_requested?.length) { stopping.delete(target); showToast(t('它已经结束了')); }
+        for (const id of result.cancel_requested || []) stopping.add(id);
+        if (!result.cancel_requested?.length) { for (const id of calls) stopping.delete(id); showToast(t('它已经结束了')); }
         else showToast(result.cancel_requested.length > 1 ? t('已请求停止 {count} 个运行中的调用', { count: result.cancel_requested.length }) : t('已请求停止，正在等待 Agent 结束这一轮'));
-      } catch (failure) { stopping.delete(target); showToast(failure.message); }
+      } catch (failure) { for (const id of calls) stopping.delete(id); showToast(failure.message); }
       render(); return;
     }
     if (button.dataset.copy) { const text = copies.get(button.dataset.copy); if (text === undefined) return; await copyText(text); button.classList.add('copied'); button.innerHTML = icon('check'); showToast(t('已复制')); return; }
@@ -1093,7 +1107,7 @@ function receive(frame) {
     const priorTarget = current()?.target;
     status = 'ready'; data = frame.data; view = project(data);
     if(priorTarget && view.sessions.some(s=>s.id===priorTarget))selected=priorTarget;
-    if (lastHome !== data.home || wasDemo !== isDemo) { changedHome = true; composing = false; pendingSession = null; sessionDraft = { prompt: '' }; stopping.clear(); nativeCache.clear(); streamCache.clear(); loaded.clear(); limits.clear(); workerId = null; overview = true; assistantDraft = assistantDrafts.get(data.home) || ''; assistantError = ''; assistantSubmitting = false; }
+    if (lastHome !== data.home || wasDemo !== isDemo) { changedHome = true; composing = false; pendingSession = null; sessionDraft = { prompt: '' }; stopping.clear(); assistantScroll.clear(); nativeCache.clear(); streamCache.clear(); loaded.clear(); limits.clear(); workerId = null; overview = true; assistantDraft = assistantDrafts.get(data.home) || ''; assistantError = ''; assistantSubmitting = false; }
     for (const key of questionDrafts.keys()) if (key.startsWith(data.home + ':') && !data.requests[key.slice(data.home.length+1)]?.pending) questionDrafts.delete(key);
     lastHome = data.home;
     for (const call of Object.values(data.calls)) if (call.stream?.events) {
@@ -1102,7 +1116,7 @@ function receive(frame) {
       streamCache.set(call.id, merged);
     }
     openPending();
-    for (const target of [...stopping]) if (!runningIn(target).length) stopping.delete(target);
+    for (const id of [...stopping]) if (data.calls[id]?.state !== 'running') stopping.delete(id);
     if (!view.sessions.some(s => s.id === selected)) selected = view.sessions[0]?.id;
   } else { status = frame.event; error = frame.message || ''; }
   if (changedHome) { const pane=document.querySelector('.conversation-scroll'); if(pane)pane.scrollTop=0; }
@@ -1254,6 +1268,10 @@ async function paginate(event) {
   setTimeout(() => { paging = false; }, 100);
 }
 document.addEventListener('scroll', paginate, true);
+document.addEventListener('scroll', ({ target: pane }) => {
+  if (!(pane instanceof Element) || !pane.matches('.assistant-conversation') || Date.now() - userScrolling > 700) return;
+  if (pane.scrollHeight - pane.scrollTop - pane.clientHeight < 40) assistantScroll.delete(shownPage); else assistantScroll.set(shownPage, pane.scrollTop);
+}, true);
 document.addEventListener('wheel', event => {
   const pane = event.target.closest?.('.conversation-scroll,.dock-body');
   if (!pane) return;

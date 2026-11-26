@@ -4,6 +4,7 @@ import contextlib
 import io
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -144,6 +145,31 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(engine.cancel(self.records, held)["cancel_requested"])
         self.assertEqual(engine.wait(self.records, [held])[0]["outcome"], "cancelled")
 
+    def test_a_process_the_agent_leaves_running_does_not_hold_the_turn_open(self):
+        # Issue #86: a server or watcher the agent started outlives it and keeps its output pipe open. The
+        # turn still ends when the agent does, and stopping a turn still stops it.
+        for name, prompt in (("finished", "finished"), ("stopped", "hold:" + str(self.root / "held"))):
+            with self.subTest(name):
+                survivor = self.root / (name + "-survivor")
+                call_id = self.start(prompt="survivor:" + str(survivor) + "\n" + prompt)
+                deadline = time.monotonic() + 30  # Fixture-only waits, far beyond the runner's grace periods.
+                while not survivor.exists() or not survivor.read_text():
+                    self.assertLess(time.monotonic(), deadline, "the fixture did not start its survivor")
+                    time.sleep(0.05)
+                pid = int(survivor.read_text())
+                self.addCleanup(lambda pid=pid: platform.identity(pid) and os.kill(pid, signal.SIGTERM))
+                if name == "stopped":
+                    while not (self.root / "held").exists():
+                        self.assertLess(time.monotonic(), deadline, "the turn did not start")
+                        time.sleep(0.05)
+                    self.assertTrue(engine.cancel(self.records, call_id)["cancel_requested"])
+                while engine.inspect_call(self.records, call_id)["state"] == "running":
+                    self.assertLess(time.monotonic(), deadline, "the turn stayed open while the survivor holds its output")
+                    time.sleep(0.05)
+                result = engine.wait(self.records, [call_id])[0]
+                self.assertEqual(result["outcome"], "completed" if name == "finished" else "cancelled", result)
+                self.assertTrue(platform.identity(pid), "the survivor still runs; the turn ended without it")
+
     def test_failure_is_retained_and_not_success(self):
         result = engine.wait(self.records, [self.start("claude-code", "fail")])[0]
         self.assertEqual(result["outcome"], "failed")
@@ -212,6 +238,23 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(Path(str(marker) + ".cancelled").exists())
         self.assertTrue(Path(str(marker) + ".closed").exists())
         self.assertNotEqual(platform.identity(pid), identity)
+
+    def test_a_stopped_agent_that_never_ends_its_turn_is_ended_outright(self):
+        # Kimi is asked to end its turn before its process is stopped; one that never does is ended after a grace.
+        marker = self.root / "deaf-kimi"
+        call_id = self.start("kimi", "hold:" + str(marker), provider_args=["deaf"])
+        end = time.monotonic() + 10  # Fixture startup only.
+        while not marker.exists():
+            self.assertLess(time.monotonic(), end, "the turn did not start")
+            time.sleep(.01)
+        self.assertTrue(engine.cancel(self.records, call_id)["cancel_requested"])
+        end = time.monotonic() + 60  # Far beyond the grace; without it the call would never end.
+        while engine.inspect_call(self.records, call_id)["state"] == "running":
+            self.assertLess(time.monotonic(), end, "the stopped call is still running")
+            time.sleep(.05)
+        result = engine.wait(self.records, [call_id])[0]
+        self.assertEqual(result["outcome"], "cancelled", result)
+        self.assertFalse(Path(str(marker) + ".cancelled").exists(), "it never answered the request to stop")
 
     def test_acp_final_content_excludes_commentary_before_tools(self):
         for provider in sorted(ACP_PROVIDERS):

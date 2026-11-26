@@ -45,6 +45,17 @@ fs.cpSync(path.join(desktop, 'assets'), path.join(standalone, 'assets'), { recur
       await page.locator('[data-worker="call_05"]').click();
       await page.locator('aside [data-action="overview"]').click();
       assert.equal(await page.locator('.decision-card').count(), 2);
+      // Issue #86: back on the private assistant, its latest message shows, or where the user scrolled it.
+      const assistantAt = () => page.locator('.assistant-conversation').evaluate(el => [Math.round(el.scrollTop), el.scrollHeight - el.clientHeight]);
+      const [top, latest] = await assistantAt();
+      assert.ok(latest > 0 && Math.abs(top - latest) <= 1, `the assistant shows its latest message: ${top} of ${latest}`);
+      await page.locator('.assistant-conversation').hover();
+      await page.mouse.wheel(0, -200);
+      await page.waitForFunction(() => { const el = document.querySelector('.assistant-conversation'); return el.scrollHeight - el.clientHeight - el.scrollTop > 100; });
+      const [left] = await assistantAt();
+      await page.locator('aside [data-session="call_01"]').click();
+      await page.locator('aside [data-action="overview"]').click();
+      assert.equal((await assistantAt())[0], left, 'it is back where the user scrolled it');
       await page.locator('[data-session="call_09"]').first().click();
       assert.match(await page.locator('.markdown').innerText(), /Q3 数据已整理完成/);
       await page.locator('.preview-banner [data-action="settings"]').click();

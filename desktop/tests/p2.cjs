@@ -9,8 +9,9 @@ const root = path.resolve(__dirname, '../..'), output = path.join(root, '.tmp-te
 fs.mkdirSync(output, { recursive: true });
 const temp = fs.mkdtempSync(path.join(output, 'p2-')), home = path.join(temp, 'records'), workspace = path.join(temp, '工作 目录');
 fs.mkdirSync(home); fs.mkdirSync(workspace);
-const fixture = provider => ({ command: [python, path.join(root, 'tests/fixtures/provider.py'), provider] });
-fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({ providers: { 'claude-code': fixture('claude-code'), codex: fixture('codex') } }));
+const fixture = (provider, ...args) => ({ command: [python, path.join(root, 'tests/fixtures/provider.py'), provider, ...args] });
+// Codex starts conversations but never answers a resume: a continued turn stays running until it is stopped.
+fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({ providers: { 'claude-code': fixture('claude-code'), codex: fixture('codex', 'resume-hangs') } }));
 const env = { ...process.env, AUTOSWARM_DESK_LANGUAGE: 'zh', AUTOSWARM_DESK_USER_DATA: path.join(temp, 'preferences'), AUTOSWARM_DESK_PYTHON: python, USERPROFILE: path.join(temp, 'user'), HOME: path.join(temp, 'user') };
 fs.mkdirSync(path.join(temp, 'user'), { recursive: true });  // Desk installs the AutoSwarm Skill into the user home: keep it scratch.
 delete env.ELECTRON_RUN_AS_NODE; delete env.AUTOSWARM_HOME;
@@ -28,8 +29,9 @@ async function waitState(page, predicate, what) {
   }
   throw Error('Timed out waiting for ' + what);
 }
-async function start(page, prompt) {
+async function start(page, prompt, provider) {
   await page.locator('aside .new-session').click();
+  if (provider) { await page.locator('[data-menu="agent"]').click(); await page.locator(`[data-pick-agent="${provider}"]`).click(); }
   await page.locator('#session-input').fill(prompt);
   await page.locator('#session-input').press('Enter');
   await page.waitForFunction(() => document.querySelector('.page-heading h1')?.textContent && !document.querySelector('#session-form'), {}, { timeout: 30000 })
@@ -123,6 +125,24 @@ async function start(page, prompt) {
     assert.equal(await page.locator('.chat-composer .stop-button').count(), 0);
     assert.match(await page.locator(`aside [data-session="${held.agent}"]`).innerText(), /P2_HOLD|gate/);
     await shot(page, 'stopped');
-    console.log(`PASS: new session (provider/model/effort/workspace), user approval, completion, resume, deny, stop (shown after ${stopLatency} ms) — all through the AutoSwarm CLI.`);
+
+    // 5. Issue #86: a message sent for after the turn starts a new turn once the turn is stopped. Only the
+    // stopped turn shows as stopping; the new one keeps its own Stop and can be stopped in turn.
+    const codex = await start(page, `gate:${path.join(temp, 'never')}\nP2_CODEX_HOLD`, 'codex');
+    await page.waitForSelector('.chat-composer .stop-button', { timeout: 30000 });
+    await page.locator('.delivery-modes label', { hasText: '本轮结束后发送' }).click();
+    await page.locator('#chat-input').fill('P2_AFTER_THE_TURN');
+    await page.locator('#chat-input').press('Enter');
+    await until(() => fs.existsSync(path.join(home, 'agents', codex.agent, 'messages')) && fs.readdirSync(path.join(home, 'agents', codex.agent, 'messages')).length, 'the queued message');
+    await page.locator('.chat-composer .stop-button').click();
+    await page.locator('#detail [data-confirm-stop]').click();
+    await until(() => result(codex.call)?.outcome === 'cancelled', 'the stopped turn');
+    const next = await until(() => { const id = read(path.join(home, 'agents', codex.agent, 'agent.json')).call_id; return id !== codex.call && id; }, 'the turn for the queued message');
+    await page.waitForSelector('.chat-composer .stop-button:not(.is-stopping):not([disabled])', { timeout: 30000 });
+    assert.equal(await page.locator('.working-line', { hasText: '正在停止' }).count(), 0, 'the new turn is not shown as stopping');
+    await page.locator('.chat-composer .stop-button').click();
+    await page.locator('#detail [data-confirm-stop]').click();
+    await until(() => result(next)?.outcome === 'cancelled', 'the second stop');
+    console.log(`PASS: new session (provider/model/effort/workspace), user approval, completion, resume, deny, stop (shown after ${stopLatency} ms), a turn started after a stop keeps its own Stop — all through the AutoSwarm CLI.`);
   } finally { if (app) await app.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

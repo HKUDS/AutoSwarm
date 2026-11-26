@@ -15,6 +15,9 @@ from .messages import Mailbox, finished, issue
 from .providers import OWNED_SERVERS
 from .records import Records, now, read_json, write_json
 
+STOP_GRACE = 15.0  # Seconds a stopped agent has to exit before it is ended outright.
+OUTPUT_GRACE = 2.0  # Seconds to wait for more output once the agent itself has exited.
+
 
 def execute(records: Records, call_id: str) -> int:
     directory, _ = records.require(call_id)
@@ -83,6 +86,9 @@ def _execute(records: Records, call_id: str) -> int:
                 def read_output():
                     try:
                         for raw in process.stdout:
+                            if released.is_set():
+                                return
+                            heard[0] = time.monotonic()
                             if task["provider"] == "opencode" and task.get("native_transport") != "acp":
                                 stdout_log.write(raw)
                                 stdout_log.flush()
@@ -95,13 +101,18 @@ def _execute(records: Records, call_id: str) -> int:
                         output.error_code = getattr(error, "code", "native_protocol_error")
                         failure.append(str(error))
 
-                reader = threading.Thread(target=read_output)
+                heard, released = [0.0], threading.Event()
+                reader = threading.Thread(target=read_output, daemon=True)
                 reader.start()
                 native.start()
-                closing = False
+                closing, deadline = False, 0.0
                 while process.poll() is None:
+                    if cancelled and time.monotonic() > deadline:
+                        # Stopped but still running (it ignored the request or its stop signal): end it outright.
+                        platform.stop_child(process, force=True)
+                        deadline = time.monotonic() + STOP_GRACE
                     if (directory / "cancel.json").exists() and not cancelled:
-                        cancelled = True
+                        cancelled, deadline = True, time.monotonic() + STOP_GRACE
                         if task["provider"] == "kimi" and native.ready and not native.turn_done.is_set():
                             # Kimi launches shells in independent process groups.
                             # Cancel the turn, then close its native session before
@@ -144,11 +155,19 @@ def _execute(records: Records, call_id: str) -> int:
                             if task["provider"] in OWNED_SERVERS:
                                 platform.stop_child(process)
                     time.sleep(0.1)
-                reader.join()
+                # Its output ends when every holder of the pipe has closed it. A process the agent started and
+                # left running (a server, a watcher) can inherit the pipe on Windows and hold it as long as it
+                # lives, so the turn would never end and could not be stopped (issue #86). Once the agent has
+                # exited, read what it wrote, then stop waiting when nothing more arrives.
+                heard[0] = time.monotonic()
+                while reader.is_alive() and time.monotonic() - heard[0] < OUTPUT_GRACE:
+                    reader.join(0.1)
+                released.set()
                 if native.work:
                     native.work.join()
                 failure.extend(native.broker.errors)
-                process.stdout.close()
+                if not reader.is_alive():
+                    process.stdout.close()  # Not while the reader holds it (closing would wait for that read).
                 preserved_original = False
                 if not cancelled and mailbox.saved is not None and (failure or output.error or not output.terminal):
                     # The task already produced a successful native result.

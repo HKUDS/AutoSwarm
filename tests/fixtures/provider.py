@@ -51,6 +51,16 @@ def prepare(prompt):
         gate, prompt = prompt[5:].split("\n", 1)
         while not Path(gate).exists():
             time.sleep(0.01)
+    if prompt.startswith("survivor:"):
+        # A tool that leaves a process running (a server, a watcher): it outlives the shell that started it and
+        # keeps this process's stdout (inherited, as on Windows). Its PID goes to the named file.
+        survivor, prompt = prompt[9:].split("\n", 1)
+        shell = ("import os, subprocess, sys, tempfile\n"
+                 "child = subprocess.Popen([sys.argv[2], '-c', 'import time; time.sleep(120)'], cwd=tempfile.gettempdir(),\n"
+                 "                         stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **({} if os.name == 'nt' else {'start_new_session': True}))\n"
+                 "open(sys.argv[1], 'w').write(str(child.pid))\n")
+        # The real interpreter: a venv's python.exe would run the survivor as its own child.
+        subprocess.run([sys.executable, "-c", shell, survivor, getattr(sys, "_base_executable", sys.executable)], stdin=subprocess.DEVNULL, check=True)
     if prompt.startswith("hold:"):
         # Only the first line names the file; a conversation's first turn appends its AutoSwarm communication context.
         Path(prompt[5:].split("\n", 1)[0]).write_text("started")
@@ -271,6 +281,8 @@ elif provider in {"cursor", "copilot", "codebuddy", "muse", "hermes", "nanobot",
             else:
                 finished(prompt)
         elif method == "session/cancel" and provider == "kimi":
+            if "deaf" in args:
+                continue  # A Kimi that never ends its turn: only ending its process stops it.
             if marker:
                 Path(marker + ".cancelled").write_text("native turn stopped")
             emit({"id": prompt_id, "result": {"stopReason": "cancelled"}})
