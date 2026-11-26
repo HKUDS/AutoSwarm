@@ -27,11 +27,12 @@ MODES = {
     "grok": ["always-approve"],
     "gemini": ["plan", "default", "auto_edit", "yolo"],
     "opencode": ["ask", "allow"],
+    "jiuwen": ["full-access"],
 }
 # "Auto or above": the agent's own automatic reviewer, or the mode that stops asking when it has none.
 AUTO = {"claude-code": "auto", "codex": "approve-for-me", "cursor": "run-everything", "codebuddy": "auto",
         "kimi": "auto", "copilot": "allow-all", "hermes": "yolo", "dsh": "danger-full-access",
-        "grok": "always-approve", "gemini": "auto_edit", "opencode": "allow"}
+        "grok": "always-approve", "gemini": "auto_edit", "opencode": "allow", "jiuwen": "full-access"}
 CODEX = {
     "read-only": {"sandbox": "read-only", "approvalPolicy": "on-request", "approvalsReviewer": "user"},
     "ask": {"sandbox": "workspace-write", "approvalPolicy": "on-request", "approvalsReviewer": "user"},
@@ -47,6 +48,7 @@ FLAGS = {
     "copilot": {"--allow-all", "--allow-all-tools", "--allow-all-paths", "--allow-all-urls", "--yolo"},
     "grok": {"--always-approve"},
     "gemini": {"--approval-mode", "-y", "--yolo"},
+    "jiuwen": {"--permission"},
 }
 
 
@@ -113,6 +115,9 @@ def launch(task: dict) -> tuple[list[str], dict, dict]:
         return (["--yolo"] if mode == "yolo" else ["--approval-mode", mode]), {}, {}
     if provider == "opencode":
         return [], {}, {"OPENCODE_PERMISSION": mode}
+    if provider == "jiuwen":
+        # Its Full Access, for this run only: the tools its own config asks for are allowed (a deny stays).
+        return ["--permission", mode], {}, {}
     return [], {}, {}
 
 

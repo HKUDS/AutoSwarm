@@ -32,6 +32,12 @@ Use provider/host `gemini` (`gemini-cli` and `google-gemini` are child-provider 
 
 Reuse its native settings under `~/.gemini`, credentials, skills, MCP and extensions. AutoSwarm does not select or configure Google authentication. Desk permission modes map to Gemini's `--approval-mode` values (`plan`, `default`, `auto_edit`) or `--yolo`. Verify a real call and resume; preserve native settings and keep credentials out of AutoSwarm records. Permissions and questions use the shared ACP relay.
 
+## JiuwenSwarm
+
+Use provider/host `jiuwen` (`jiuwenswarm`, `workswarm` and `openjiuwen` are aliases). Install the official package with its own method, for example `uv tool install workswarm` (Python 3.11-3.13, version 0.2.8 or later). JiuwenSwarm's desktop installer does not include this command line; desktop users add it the same way, and it uses the same `~/.jiuwenswarm` settings and models. AutoSwarm finds `jiuwenswarm-process` and runs its bridge on that installation's Python (`providers.jiuwen.python` overrides it as an argv array). Setup installs the Skill into JiuwenSwarm's skill library, `$JIUWENSWARM_DATA_DIR/agent/workspace/skills/autoswarm`, default `~/.jiuwenswarm/agent/workspace/skills/autoswarm`.
+
+Reuse its native `~/.jiuwenswarm/config/config.yaml` and `.env` (an OpenAI-compatible API is configured there: `API_BASE`, `API_KEY`, `MODEL_NAME`, `MODEL_PROVIDER`); AutoSwarm does not configure its model or credentials. `--provider-arg=--mode=team` (or another JiuwenSwarm mode such as `agent.work.normal`) chooses the mode of a new conversation; a continued conversation keeps its own. Team mode needs the JiuwenSwarm service running; AutoSwarm does not start it. Verify the route with a real call and resume; permissions and questions use the shared ACP relay.
+
 ## Hermes, Nanobot, DSH and Grok Build
 
 Use provider names `hermes`, `nanobot`, `dsh`, `grok`; `grok-build` is a child-provider alias. They use the same run/resume, messaging and result collection commands. With these main hosts, collect work using wait in the current turn.

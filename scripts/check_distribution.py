@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 
-PROVIDERS = ("codex", "claude-code", "opencode", "cursor", "copilot", "muse", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi")
+PROVIDERS = ("codex", "claude-code", "opencode", "cursor", "copilot", "muse", "codebuddy", "hermes", "nanobot", "dsh", "grok", "kimi", "jiuwen")
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -26,7 +26,7 @@ def main():
         root = Path(temporary)
         home = root / "state"
         home.mkdir()
-        (home / "config.json").write_text(json.dumps({"providers": {name: {"command": [sys.executable, str(fixture), name], **({"python": [sys.executable, str(fixture), name]} if name == "nanobot" else {})} for name in PROVIDERS}}), encoding="utf-8")
+        (home / "config.json").write_text(json.dumps({"providers": {name: {"command": [sys.executable, str(fixture), name], **({"python": [sys.executable, str(fixture), name]} if name in {"nanobot", "jiuwen"} else {})} for name in PROVIDERS}}), encoding="utf-8")
         env = dict(os.environ, PYTHONPATH="", AUTOSWARM_HOME=str(home), CURSOR_CONFIG_DIR=str(root / "native-cursor"))
         env.pop("AUTOSWARM_PARENT", None)
         env.pop("CODEX_THREAD_ID", None)
@@ -44,10 +44,12 @@ def main():
             assert resumed["native_session_id"] == result["native_session_id"], resumed
             assert resumed["outcome"] == "completed", resumed
             model = "fixture/native-model" if provider == "opencode" else "native-model"
-            selected = invoke(["run", "--agent", provider, "--no-parent", "--cwd", str(root), "--model", model, "--effort", "deep-native", "--provider-arg=selection-catalog", "selected package call"])
+            # JiuwenSwarm has a model choice but no reasoning effort.
+            choice = {"model": model} if provider == "jiuwen" else {"model": model, "effort": "deep-native"}
+            selected = invoke(["run", "--agent", provider, "--no-parent", "--cwd", str(root), *(item for key, value in choice.items() for item in ("--" + key, value)), "--provider-arg=selection-catalog", "selected package call"])
             assert selected["outcome"] == "completed", selected
             continued = invoke(["resume", selected["call_id"], "--no-parent", "selected package resume"])
-            assert continued["outcome"] == "completed" and continued["requested_selection"] == {"model": model, "effort": "deep-native"}, continued
+            assert continued["outcome"] == "completed" and continued["requested_selection"] == choice, continued
         assert invoke(["config"])["delegate_approvals"] is True
         for provider in PROVIDERS:
             marker = root / (provider + "-approved")
@@ -102,7 +104,7 @@ def main():
         assert json.loads(settings.read_text(encoding="utf-8"))["hooks"]["PostToolUse"][0]["hooks"][0]["asyncRewake"]
         plugin = invoke(["setup", "--host", "opencode", "--skill-dir", str(root / "opencode-skill"), "--plugin-dir", str(root / "plugins")])
         assert "__AUTOSWARM_COMMAND__" not in Path(plugin["plugin"]).read_text(encoding="utf-8")
-    print("Distribution passed: twelve providers, approval and question round trips, native resume, installed-launcher messaging and continuation, reinstall and bundled host integrations")
+    print("Distribution passed: thirteen providers, approval and question round trips, native resume, installed-launcher messaging and continuation, reinstall and bundled host integrations")
 
 
 if __name__ == "__main__":

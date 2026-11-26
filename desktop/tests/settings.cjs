@@ -66,7 +66,7 @@ async function inside(page, label) {
     // 3. Agent permissions: a choice is one click and is kept in Desk's preferences.
     await page.locator('[data-default-permission="full-access"][data-provider="codex"]').click();
     assert.equal(stored().permissions.codex, 'full-access');
-    assert.equal(await page.locator('[data-default-permission="full-access"]').getAttribute('aria-checked'), 'true');
+    assert.equal(await page.locator('[data-default-permission="full-access"][data-provider="codex"]').getAttribute('aria-checked'), 'true');
     assert.match(await page.locator('.permission-row', { hasText: 'Codex' }).locator('.permission-note').innerText(), /No sandbox/);
     // Every agent at once: its own automatic mode (or no questions without one), then its own settings again.
     await page.locator('[data-bulk-permission="auto"]').click();

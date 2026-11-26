@@ -26,6 +26,7 @@ Honor user choices; otherwise match the task to available agents and their worki
 | grok | General execution; specialty tools need verification | X/research/image/video candidates, browser/deployment/SMS plugins |
 | kimi | Coding and repository tasks with native Kimi Code tools | Native skills, MCP, project instructions and resumable sessions |
 | gemini | Coding and multimodal work with Google Gemini CLI | Native skills, MCP, extensions, resumable ACP sessions |
+| jiuwen | Coding and work tasks; agent teams for larger work (`--provider-arg=--mode=team`) | Native skills, MCP, memory, team mode in its running service |
 
 For external platforms, plugins, experimental tools or needs not covered above, read the relevant agent and platform sections in [capabilities and data scope](references/agent-capabilities.md). It retains platform resources and conditions; a messaging channel does not imply access to the user's account data. Verify only what the assignment relies on in the actual child transport/profile. App/cloud/interactive-only features are separate entry points. Reuse working shared tools instead of adding a child just to access them; inspect or recover through the parent when a needed capability fails. Unlisted or untested tools remain candidates when local configuration and evidence support them.
 

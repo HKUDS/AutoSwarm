@@ -48,7 +48,7 @@ let skills = null;
 // conversation, so for the others the switch stays on (the Skill is visible to them anyway).
 const SKILL_SWITCHABLE = new Set(['claude-code', 'codex']);
 const DEMO_SKILLS = { hosts: { 'claude-code': { state: 'ready' }, codex: { state: 'ready' }, cursor: { state: 'missing' }, opencode: { state: 'ready' }, copilot: { state: 'ready' },
-  muse: { state: 'missing' }, codebuddy: { state: 'ready' }, hermes: { state: 'ready' }, nanobot: { state: 'ready' }, dsh: { state: 'ready' }, grok: { state: 'ready' }, kimi: { state: 'ready' }, gemini: { state: 'ready' } },
+  muse: { state: 'missing' }, codebuddy: { state: 'ready' }, hermes: { state: 'ready' }, nanobot: { state: 'ready' }, dsh: { state: 'ready' }, grok: { state: 'ready' }, kimi: { state: 'ready' }, gemini: { state: 'ready' }, jiuwen: { state: 'ready' } },
   errors: { cursor: { message: '演示：找不到 Cursor 的技能目录' } } };
 // An AutoSwarm older than this Desk reports fewer agents; those show no switch.
 const swarmKnown = provider => !!providers[provider] && (!skills?.hosts || provider in skills.hosts);
@@ -118,9 +118,11 @@ const PERMISSION_MODES = {
   'opencode': [
     ['ask', 'Ask', '每个工具调用前都问你'],
     ['allow', 'Allow', '所有工具直接允许，不问你']],
+  'jiuwen': [
+    ['full-access', 'Full Access', '它配置里要确认的工具都直接允许，不问你；明确禁止的仍然禁止']],
 };
 // "Auto or above": the agent's own automatic reviewer, or the mode that stops asking when it has none.
-const PERMISSION_AUTO = { 'claude-code': 'auto', 'codex': 'approve-for-me', 'cursor': 'run-everything', 'codebuddy': 'auto', 'kimi': 'auto', 'copilot': 'allow-all', 'hermes': 'yolo', 'dsh': 'danger-full-access', 'grok': 'always-approve', 'gemini': 'auto_edit', 'opencode': 'allow' };
+const PERMISSION_AUTO = { 'claude-code': 'auto', 'codex': 'approve-for-me', 'cursor': 'run-everything', 'codebuddy': 'auto', 'kimi': 'auto', 'copilot': 'allow-all', 'hermes': 'yolo', 'dsh': 'danger-full-access', 'grok': 'always-approve', 'gemini': 'auto_edit', 'opencode': 'allow', 'jiuwen': 'full-access' };
 const FOLLOW = 'follow';
 /** Follow, then the agent's own modes, as [id, label, note] with label and note in the current language. */
 const permissionModes = provider => PERMISSION_MODES[provider] ? [[FOLLOW, t('跟随设置'), t('用 {agent} 自己的设置，Desk 不改', { agent: providers[provider] || provider })],
@@ -797,7 +799,7 @@ function permissionSection() {
   };
   // Agents known to be missing on this computer are left out (as in the agent menu).
   const listed = Object.keys(PERMISSION_MODES).filter(id => !(available?.[id] && !available[id].available));
-  return `<div class="settings-section permission-settings"><label>${t('Agent 权限')}</label><p>${t('每个 Agent 在新会话里默认用的权限。默认跟随 Agent 自己的设置；也可以选它自己的某个模式，名字和它自己的一样，只在 Desk 里生效，不改 Agent 的配置。单个会话可以另选。子 Agent 用它自己那个 Agent 的选择；它的审批先由派它的 Agent 决定，拿不准时再问你。')}</p><div class="permission-bulk"><button type="button" class="secondary" data-bulk-permission="auto" title="${escape(t('有自动审核的 Agent 用自动审核；没有的设为不询问'))}">${t('全部设为自动')}</button><button type="button" class="secondary" data-bulk-permission="follow">${t('全部跟随 Agent 设置')}</button><p class="permission-note">${t('全部设为自动：Claude Code、Codex、CodeBuddy、Kimi、Gemini 用自己的自动审核；Cursor、DSH、Hermes、Copilot、Grok、OpenCode 在 Desk 里没有自动审核，会设为不询问。')}</p></div>${listed.map(row).join('')}${listed.length ? '' : `<p class="permission-note">${t('本机还没有检测到可设置权限的 Agent。')}</p>`}</div>`;
+  return `<div class="settings-section permission-settings"><label>${t('Agent 权限')}</label><p>${t('每个 Agent 在新会话里默认用的权限。默认跟随 Agent 自己的设置；也可以选它自己的某个模式，名字和它自己的一样，只在 Desk 里生效，不改 Agent 的配置。单个会话可以另选。子 Agent 用它自己那个 Agent 的选择；它的审批先由派它的 Agent 决定，拿不准时再问你。')}</p><div class="permission-bulk"><button type="button" class="secondary" data-bulk-permission="auto" title="${escape(t('有自动审核的 Agent 用自动审核；没有的设为不询问'))}">${t('全部设为自动')}</button><button type="button" class="secondary" data-bulk-permission="follow">${t('全部跟随 Agent 设置')}</button><p class="permission-note">${t('全部设为自动：Claude Code、Codex、CodeBuddy、Kimi、Gemini 用自己的自动审核；Cursor、DSH、Hermes、Copilot、Grok、OpenCode、JiuwenSwarm 在 Desk 里没有自动审核，会设为不询问。')}</p></div>${listed.map(row).join('')}${listed.length ? '' : `<p class="permission-note">${t('本机还没有检测到可设置权限的 Agent。')}</p>`}</div>`;
 }
 async function pickPermission(menu, provider, mode) {
   openMenu = null;

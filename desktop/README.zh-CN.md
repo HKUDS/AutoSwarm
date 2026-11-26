@@ -43,7 +43,7 @@ npm run demo                               # 演示数据，不连接真实 Agen
 
 ## 支持的 Agent
 
-Claude Code、Codex、Cursor、OpenCode、Copilot CLI、Muse、CodeBuddy、Hermes、Nanobot、DeepSeek Harness、Grok Build、Kimi Code。
+Claude Code、Codex、Cursor、OpenCode、Copilot CLI、Muse、CodeBuddy、Hermes、Nanobot、DeepSeek Harness、Grok Build、Kimi Code、JiuwenSwarm。
 
 - 模型列表向各 Agent 询问，不调用模型：官方登录列出账号下的模型，自己配了 API 的列出配置的模型。Muse 没有列表，可直接填写。
 - 首次读取较慢的 Agent（CodeBuddy 约一分钟）之后会缓存。
