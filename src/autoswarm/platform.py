@@ -128,13 +128,14 @@ def running(handle: dict | None) -> bool:
     return bool(handle and handle.get("identity") and identity(handle["pid"]) == handle["identity"])
 
 
-def stop_child(process: subprocess.Popen) -> None:
+def stop_child(process: subprocess.Popen, force: bool = False) -> None:
+    """Stop the child and its process group or tree; force kills a group that outlived SIGTERM."""
     if os.name == "nt":
         from ._winprocess import stop_tree
-        stop_tree(process)
+        stop_tree(process)  # Already outright: every member is terminated.
     elif process.poll() is None:
         try:
-            os.killpg(process.pid, signal.SIGTERM)
+            os.killpg(process.pid, signal.SIGKILL if force else signal.SIGTERM)
         except ProcessLookupError:
             pass
 
